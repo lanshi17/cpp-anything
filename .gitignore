@@ -13,3 +13,5 @@ examples/*/results.jsonl
 examples/textkit-cpp/shadow/*.jsonl
 .DS_Store
 examples/http-app/cpp/app/build/
+examples/effects-cli/db.txt
+examples/*/cpp/app-cases/http/

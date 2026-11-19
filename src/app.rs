@@ -121,6 +121,15 @@ fn record(view: &ParsedView<'_>) -> Result<i32, String> {
             .flat_map(|value| value.split(',').map(str::to_string).collect::<Vec<_>>())
             .collect();
     }
+    if !view.values("effect-env").is_empty() {
+        config.effect_env = view.values("effect-env");
+    }
+    if let Some(command) = view.value("db-reset") {
+        config.db_reset = Some(command.to_string());
+    }
+    if let Some(command) = view.value("db-dump") {
+        config.db_dump = Some(command.to_string());
+    }
     if view.flag("http") || view.number("port").is_some() {
         config.http = true;
     }
@@ -202,16 +211,39 @@ fn record(view: &ParsedView<'_>) -> Result<i32, String> {
         case.name = name;
         case.source = source;
 
+        let mut sinks = crate::effects::Sinks::start(&config.effects)?;
+        let extra_env = sinks.env(&resolved_effect_env(&sinks, &config.effect_env));
         let options = RunOptions {
             repo: &repo,
             command: &config.run,
             timeout: config.timeout_secs,
-            extra_env: Vec::new(),
+            extra_env,
+            pre_command: config.db_reset.clone(),
+            post_command: config.db_dump.clone(),
         };
         let first = appcase::observe(&case, &options)?;
-        let second = appcase::observe(&case, &options)?;
-        let settled = appcase::settle(&case.name, &case.source, first, second, &config.normalize);
-        let mut settled = settled;
+        let first_database = first.database.clone();
+        let second = if config.effects.is_empty() && config.db_dump.is_none() {
+            appcase::observe(&case, &options)?
+        } else {
+            // Side effects are not idempotent: a second run would double them, so the
+            // case is recorded once and marked stable.
+            first.clone()
+        };
+        let mut settled =
+            appcase::settle(&case.name, &case.source, first, second, &config.normalize);
+        let ports = sinks.ports();
+        let mut effects: Vec<String> = sinks
+            .take()
+            .into_iter()
+            .map(|line| mask_ports(&appcase::normalize(&line, &config.normalize), &ports))
+            .collect();
+        effects.extend(
+            first_database
+                .into_iter()
+                .map(|line| appcase::normalize(&line, &config.normalize)),
+        );
+        settled.expect.effects = effects;
         // `settle` only describes what it saw; the case's own inputs are what ran.
         settled.args = case.args.clone();
         settled.stdin = case.stdin.clone();
@@ -728,6 +760,8 @@ fn replay(view: &ParsedView<'_>) -> Result<i32, String> {
         command: &build,
         timeout: view.number("timeout").unwrap_or(config.timeout_secs),
         extra_env: Vec::new(),
+        pre_command: None,
+        post_command: None,
     };
 
     let mut passed = 0usize;
@@ -736,7 +770,29 @@ fn replay(view: &ParsedView<'_>) -> Result<i32, String> {
     let mut failures = Vec::new();
     let mut effects_checked = 0usize;
     for case in &cases {
-        let observed = appcase::observe(case, &options)?;
+        let mut sinks = crate::effects::Sinks::start(&config.effects)?;
+        let extra_env = sinks.env(&resolved_effect_env(&sinks, &config.effect_env));
+        let case_options = RunOptions {
+            repo: &repo,
+            command: options.command,
+            timeout: options.timeout,
+            extra_env,
+            pre_command: config.db_reset.clone(),
+            post_command: config.db_dump.clone(),
+        };
+        let mut observed = appcase::observe(case, &case_options)?;
+        let ports = sinks.ports();
+        observed.effects = sinks
+            .take()
+            .into_iter()
+            .map(|line| mask_ports(&appcase::normalize(&line, &config.normalize), &ports))
+            .collect();
+        observed.effects.extend(
+            observed
+                .database
+                .iter()
+                .map(|line| appcase::normalize(line, &config.normalize)),
+        );
         if case.unstable {
             unstable += 1;
         }
@@ -1162,6 +1218,41 @@ fn read_http_inputs() -> Result<Vec<(String, apphttp::HttpRequest)>, String> {
     Ok(out)
 }
 
+/// The sink's ephemeral port is not part of the app's behaviour: mask it before
+/// storing or comparing an effect line.
+fn mask_ports(line: &str, ports: &[String]) -> String {
+    let mut out = line.to_string();
+    for port in ports {
+        out = out.replace(&format!("127.0.0.1:{port}"), "127.0.0.1:<sink>");
+        out = out.replace(&format!("localhost:{port}"), "localhost:<sink>");
+    }
+    out
+}
+
+/// `--effect-env VAR=kind`: point one of the app's own settings at a sink.
+fn resolved_effect_env(sinks: &crate::effects::Sinks, specs: &[String]) -> Vec<(String, String)> {
+    let mut env = Vec::new();
+    for spec in specs {
+        let Ok((name, kind)) = crate::effects::effect_env(spec) else {
+            continue;
+        };
+        let value = match kind.as_str() {
+            "http-url" => sinks.http.as_ref().map(|sink| sink.url()),
+            "smtp-host" => sinks.smtp.as_ref().map(|_| "127.0.0.1".to_string()),
+            "smtp-port" => sinks.smtp.as_ref().map(|sink| sink.port.to_string()),
+            "smtp-url" => sinks
+                .smtp
+                .as_ref()
+                .map(|sink| format!("smtp://127.0.0.1:{}", sink.port)),
+            _ => None,
+        };
+        if let Some(value) = value {
+            env.push((name, value));
+        }
+    }
+    env
+}
+
 fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
     std::fs::create_dir_all(to).map_err(|error| format!("{}: {error}", to.display()))?;
     for entry in std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))? {
@@ -1220,6 +1311,8 @@ fn replay_build(repo: &Path, build: &Path, view: &ParsedView<'_>) -> Result<i32,
         command: &[build.display().to_string()],
         timeout: view.number("timeout").unwrap_or(config.timeout_secs),
         extra_env: Vec::new(),
+        pre_command: None,
+        post_command: None,
     };
     let mut passed = 0usize;
     let mut fallbacks = 0usize;
@@ -1314,6 +1407,8 @@ fn lift(view: &ParsedView<'_>) -> Result<i32, String> {
         command: &[build.display().to_string()],
         timeout: config.timeout_secs,
         extra_env: Vec::new(),
+        pre_command: None,
+        post_command: None,
     };
     let mut fallbacks = 0usize;
     for case in &cases {

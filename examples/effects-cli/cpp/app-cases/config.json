@@ -1,0 +1,26 @@
+{
+  "schema": "cpp-anything/app-cases@1",
+  "name": "effects",
+  "run": [
+    "python3",
+    "cli.py"
+  ],
+  "timeout_secs": 30,
+  "normalize": [],
+  "float_tolerance": 0.0,
+  "http": false,
+  "port": null,
+  "args": [],
+  "fresh": [],
+  "pace_ms": 0.0,
+  "effects": [
+    "http",
+    "smtp"
+  ],
+  "effect_env": [
+    "WEBHOOK_URL=http-url"
+  ],
+  "db_reset": "rm -f db.txt",
+  "db_dump": "cat db.txt; echo done",
+  "lifted": false
+}

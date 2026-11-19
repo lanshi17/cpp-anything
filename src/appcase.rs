@@ -27,6 +27,9 @@ pub struct Config {
     pub fresh: Vec<String>,
     pub pace_ms: u64,
     pub effects: Vec<String>,
+    pub effect_env: Vec<String>,
+    pub db_reset: Option<String>,
+    pub db_dump: Option<String>,
     pub lifted: bool,
 }
 
@@ -44,6 +47,9 @@ impl Default for Config {
             fresh: Vec::new(),
             pace_ms: 0,
             effects: Vec::new(),
+            effect_env: Vec::new(),
+            db_reset: None,
+            db_dump: None,
             lifted: false,
         }
     }
@@ -88,6 +94,15 @@ impl Config {
             fresh: strings("fresh"),
             pace_ms: doc.get("pace_ms").and_then(Json::as_i64).unwrap_or(0) as u64,
             effects: strings("effects"),
+            effect_env: strings("effect_env"),
+            db_reset: doc
+                .get("db_reset")
+                .and_then(Json::as_str)
+                .map(str::to_string),
+            db_dump: doc
+                .get("db_dump")
+                .and_then(Json::as_str)
+                .map(str::to_string),
             lifted: doc.get("lifted").and_then(Json::as_bool).unwrap_or(false),
         })
     }
@@ -150,6 +165,29 @@ impl Config {
                         .map(|part| Json::str(part.clone()))
                         .collect(),
                 ),
+            ),
+            (
+                "effect_env",
+                Json::Array(
+                    self.effect_env
+                        .iter()
+                        .map(|part| Json::str(part.clone()))
+                        .collect(),
+                ),
+            ),
+            (
+                "db_reset",
+                self.db_reset
+                    .as_ref()
+                    .map(|command| Json::str(command.clone()))
+                    .unwrap_or(Json::Null),
+            ),
+            (
+                "db_dump",
+                self.db_dump
+                    .as_ref()
+                    .map(|command| Json::str(command.clone()))
+                    .unwrap_or(Json::Null),
             ),
             ("lifted", Json::Bool(self.lifted)),
         ]);
@@ -442,6 +480,10 @@ pub struct RunOptions<'a> {
     pub command: &'a [String],
     pub timeout: u64,
     pub extra_env: Vec<(String, String)>,
+    /// A command run in the case's sandbox before the app (a database reset).
+    pub pre_command: Option<String>,
+    /// A command run after the app; its output is part of the case (a database dump).
+    pub post_command: Option<String>,
 }
 
 /// A recorded command stores repository-relative words; running it must not depend
@@ -482,6 +524,8 @@ pub struct Observation {
     pub files: Vec<(String, String)>,
     pub fallback: bool,
     pub effects: Vec<String>,
+    /// Output of the post-running command (a database dump), one line per entry.
+    pub database: Vec<String>,
 }
 
 /// Runs one case in a fresh sandbox: its files written, its stdin piped, its
@@ -535,7 +579,20 @@ pub fn observe(case: &Case, options: &RunOptions<'_>) -> Result<Observation, Str
     shell.extend(args.iter().cloned());
     envs.push(("CPPAN_STDIN".to_string(), stdin_path.display().to_string()));
 
+    if let Some(command) = &options.pre_command {
+        let _ = util::run("sh", &["-c".to_string(), command.clone()], Some(&cwd));
+    }
     let run = util::run_with_env("sh", &shell, Some(&cwd), &envs);
+    let mut database = Vec::new();
+    if let Some(command) = &options.post_command {
+        let dumped = util::run("sh", &["-c".to_string(), command.clone()], Some(&cwd));
+        let text = format!("{}{}", dumped.stdout, dumped.stderr);
+        database.extend(
+            text.lines()
+                .filter(|line| !line.trim().is_empty())
+                .map(|line| format!("db {line}")),
+        );
+    }
     let exit = run.status.unwrap_or(-1);
     let stdout = run.stdout;
     let stderr = run.stderr;
@@ -554,6 +611,7 @@ pub fn observe(case: &Case, options: &RunOptions<'_>) -> Result<Observation, Str
         files,
         fallback,
         effects: Vec::new(),
+        database,
     })
 }
 

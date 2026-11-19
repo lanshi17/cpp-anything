@@ -118,6 +118,11 @@ Fallback is explicit: `CPPAN_UNIT_<NAME>=original` forces a unit back, the fallb
 log counts what ran the original, and `app lift` will not call an app standalone
 while a case still needs it.
 
+Side effects are recorded too: `--effects http,smtp` runs local sinks and stores what
+reached them, `--effect-env VAR=http-url` points the app's own settings at them, and
+`--db-reset`/`--db-dump` bracket each case so what it wrote to the database is part
+of the comparison.
+
 ## Servers
 
 `app record --http` starts the server, sends the `curl` lines from its docs (plus

@@ -19,7 +19,7 @@ because the target is C++, and what is not there yet. It is updated with the cod
 | `shadow [--out]` | `shadow [--report] [--check] [--json]` | implemented as a drop-in module over a C ABI; `--report`/`--check` summarise the log |
 | `gate [--json]` | `--json/--clean/--cxx/--jobs/--bench` | implemented: matrix, stubs (ported), error paths, panics, size, recording staleness, coverage, build, dispatch, diff, optional bench |
 | `map [--write] [--check] [--json] [--crates]` | same | implemented (`cpp/PORT_MAP.md`) |
-| `app record [--http] [--inputs] [--normalize] [--no-traps] [--timeout] [--arg] [--fresh] [--pace] [--float-tolerance] [--json] -- cmd` | same | implemented for CLIs and servers; `--effects`, `--effect-env`, `--db-reset`, `--db-dump` are not there yet |
+| `app record [--http] [--inputs] [--normalize] [--no-traps] [--timeout] [--arg] [--fresh] [--pace] [--float-tolerance] [--effects] [--effect-env] [--db-reset] [--db-dump] [--json] -- cmd` | same | implemented for CLIs and servers |
 | `app replay [--build] [--case] [--timeout] [--json]` | same | implemented, including servers |
 | `app front-door [--no-check] [--library]` | `--no-check`; servers get a proxy front door | implemented for CLIs (routes + exec fallback) and servers (proxy); `--library` is not there yet |
 | `app wire <unit> --command` | `--command NAME [--project DIR]` | implemented: routes, glue stub, per-unit library link, kill switch; HTTP routes are not wired yet |
@@ -48,7 +48,7 @@ because the target is C++, and what is not there yet. It is updated with the cod
 | Area | What is missing | Why it matters |
 | --- | --- | --- |
 | Source languages | TypeScript/JavaScript, Go, Ruby, Java; PHP and C# whole-app only | Each is a plugin: analyzer, recorder, call mapping, wrapper. C has one (analyze/bridge/record/diff/bench/gate, fork-per-case harness); the loop, wire format, diff, bench, gate, shadow, app and map are language-independent and ready for the rest |
-| Side effects | `--effects http,smtp`, `--effect-env`, `--db-reset`, `--db-dump` | App cases capture stdout/stderr/exit/files but not what left the process |
+| Side effects | `--effects http,smtp` and `--effect-env` run local sinks; `--db-reset`/`--db-dump` bracket each case | implemented for CLIs and servers' requests; the SMTP sink is a minimal accepting server, not a full MTA |
 | Library front door | `app front-door --library` | A C++ library front door that re-exports each ported unit |
 | HTTP routing | `app wire` for servers | The server front door proxies everything; a native route cannot answer yet |
 | TS-specific flags | `--kind napi/wasm`, `--keep`, `--as-json`, `--node-arg`, `--resolve-from` | They describe bindings to Node/WASM, which do not exist for a C++ target |

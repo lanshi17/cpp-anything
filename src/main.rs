@@ -17,6 +17,7 @@ mod codegen;
 mod diff;
 mod docs;
 mod doctor;
+mod effects;
 mod gate;
 mod inventory;
 mod json;

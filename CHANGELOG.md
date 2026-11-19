@@ -22,6 +22,17 @@ Full parity with the reference tool's loop, for a C++ target.
   (a segfault is recorded as a crash and accepts any port behaviour), `diff`, `bench`
   and `gate`. Signatures outside scalars/`char*`/`void` are reported as skipped.
 
+### Side effects
+
+- `app record --effects http,smtp` runs local sinks: an HTTP proxy that answers every
+  request and records it, and an SMTP server that accepts a message and records the
+  envelope and body. `--effect-env VAR=http-url|smtp-host|smtp-port|smtp-url` points
+  the app's own settings at them. Replay compares the effects in order; sink ports
+  are masked, and the normalizers apply.
+- `--db-reset` runs before each case and `--db-dump` after, both in the case's
+  sandbox; the dump is stored with the effects so what the app wrote is part of the
+  contract.
+
 ### Batch API
 
 - `bridge --batch function:param` / `refresh --batch` generate a C++ batch class per

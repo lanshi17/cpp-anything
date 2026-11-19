@@ -20,6 +20,7 @@ mod doctor;
 mod gate;
 mod inventory;
 mod json;
+mod langc;
 mod libs;
 mod matrix;
 mod mcp;

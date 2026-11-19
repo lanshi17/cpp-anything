@@ -8,10 +8,10 @@ because the target is C++, and what is not there yet. It is updated with the cod
 
 | Reference | cpp-anything | Status |
 | --- | --- | --- |
-| `analyze <root> [--json] [-o] [--lang] [--whole-app]` | same flags | implemented: waves from resolved imports, readiness/priority, keep/blocked, dependency table with C++ libraries, `--whole-app` shape/entry points/decisions |
+| `analyze <root> [--json] [-o] [--lang python|c] [--whole-app]` | same flags | implemented: waves from resolved imports, readiness/priority, keep/blocked, dependency table with C++ libraries, `--whole-app` shape/entry points/decisions |
 | `bridge <root> <unit> [--out] [--force] [--batch] [--keep] [--as-json] [--kind]` | `bridge` with `--out/--force/--batch/--name`-style flags; `--toolchain/--version/--std` choose the C++ target | implemented except `--keep`/`--as-json` (they are TS-export controls; Python units port whole) |
 | `refresh [--batch]` | same | implemented; it also re-reads the source signatures |
-| `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed` | implemented; `--module`/`--resolve-from`/`--node-arg` are JS-specific and absent until the JS plugin |
+| `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed`; C records through a fork-per-case harness | implemented; `--module`/`--resolve-from`/`--node-arg` are JS-specific and absent until the JS plugin |
 | `build` | same | implemented (CMake) |
 | `diff [--json] [--ignore-key-order] [--float-tolerance]` | `--json/--strict-errors/--tolerance/--only/--max-report` | implemented; objects already compare unordered, so `--ignore-key-order` is the default and the flag is unnecessary |
 | `bench [--min-ms] [--json]` | `--repeat` (calls per case) `--json` | implemented with the same method: decode once, time only the calls, in the original's own process |
@@ -47,7 +47,7 @@ because the target is C++, and what is not there yet. It is updated with the cod
 
 | Area | What is missing | Why it matters |
 | --- | --- | --- |
-| Source languages | C, TypeScript/JavaScript, Go, Ruby, Java; PHP and C# whole-app only | Each is a plugin: analyzer, recorder, call mapping, wrapper. The loop, wire format, diff, bench, gate, shadow, app and map are language-independent and ready for them |
+| Source languages | TypeScript/JavaScript, Go, Ruby, Java; PHP and C# whole-app only | Each is a plugin: analyzer, recorder, call mapping, wrapper. C has one (analyze/bridge/record/diff/bench/gate, fork-per-case harness); the loop, wire format, diff, bench, gate, shadow, app and map are language-independent and ready for the rest |
 | Side effects | `--effects http,smtp`, `--effect-env`, `--db-reset`, `--db-dump` | App cases capture stdout/stderr/exit/files but not what left the process |
 | Library front door | `app front-door --library` | A C++ library front door that re-exports each ported unit |
 | HTTP routing | `app wire` for servers | The server front door proxies everything; a native route cannot answer yet |

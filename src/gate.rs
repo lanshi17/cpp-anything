@@ -358,7 +358,7 @@ pub fn run(project: &Project, options: &Options) -> Result<GateReport, String> {
                     detail: format!(
                         "{:.2}x ({:.0} -> {:.0} ns/call; asked for at least {minimum}x)",
                         report.speedup(),
-                        report.python_ns,
+                        report.original_ns,
                         report.cpp_ns
                     ),
                 });

@@ -208,7 +208,8 @@ gates a port gates the tool.
 | Source | Status |
 | --- | --- |
 | Python | the whole loop, shadow, whole-app (CLI and HTTP), batch, from-tests |
-| C, Go, TypeScript, Java, C#, Ruby | planned, one plugin each: the loop, wire format, shadow, app, map and gate are language-independent; the analyzer, recorder and call mapping are not |
+| C | analyze, bridge, record (fork-per-case harness), diff, bench, gate; supported signatures are scalars, `char*` and `void`, others are reported as skipped |
+| Go, TypeScript, Java, C#, Ruby | planned, one plugin each: the loop, wire format, shadow, app, map and gate are language-independent; the analyzer, recorder and call mapping are not |
 
 [`docs/PARITY.md`](docs/PARITY.md) is the command-by-command checklist against the
 reference tool, including what is not there yet.

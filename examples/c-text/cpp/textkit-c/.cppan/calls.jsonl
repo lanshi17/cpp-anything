@@ -1,0 +1,75 @@
+{"id":"word_count:0","fn":"word_count","args":[""]}
+{"id":"word_count:1","fn":"word_count","args":[" "]}
+{"id":"word_count:2","fn":"word_count","args":["Hello World"]}
+{"id":"word_count:3","fn":"word_count","args":["  Mixed CASE  "]}
+{"id":"word_count:4","fn":"word_count","args":["café — naïve"]}
+{"id":"word_count:5","fn":"word_count","args":["a"]}
+{"id":"word_count:6","fn":"word_count","args":["123"]}
+{"id":"word_count:7","fn":"word_count","args":["-"]}
+{"id":"word_count:8","fn":"word_count","args":["trailing---"]}
+{"id":"word_count:9","fn":"word_count","args":[" leading"]}
+{"id":"word_count:10","fn":"word_count","args":["one\ntwo"]}
+{"id":"word_count:11","fn":"word_count","args":["Москва"]}
+{"id":"word_count:12","fn":"word_count","args":["0"]}
+{"id":"word_count:13","fn":"word_count","args":["a-b_c"]}
+{"id":"word_count:14","fn":"word_count","args":["x"]}
+{"id":"digits_only:0","fn":"digits_only","args":[""]}
+{"id":"digits_only:1","fn":"digits_only","args":[" "]}
+{"id":"digits_only:2","fn":"digits_only","args":["Hello World"]}
+{"id":"digits_only:3","fn":"digits_only","args":["  Mixed CASE  "]}
+{"id":"digits_only:4","fn":"digits_only","args":["café — naïve"]}
+{"id":"digits_only:5","fn":"digits_only","args":["a"]}
+{"id":"digits_only:6","fn":"digits_only","args":["123"]}
+{"id":"digits_only:7","fn":"digits_only","args":["-"]}
+{"id":"digits_only:8","fn":"digits_only","args":["trailing---"]}
+{"id":"digits_only:9","fn":"digits_only","args":[" leading"]}
+{"id":"digits_only:10","fn":"digits_only","args":["one\ntwo"]}
+{"id":"digits_only:11","fn":"digits_only","args":["Москва"]}
+{"id":"digits_only:12","fn":"digits_only","args":["0"]}
+{"id":"digits_only:13","fn":"digits_only","args":["a-b_c"]}
+{"id":"digits_only:14","fn":"digits_only","args":["x"]}
+{"id":"repeat_count:0","fn":"repeat_count","args":["",""]}
+{"id":"repeat_count:1","fn":"repeat_count","args":[" "," "]}
+{"id":"repeat_count:2","fn":"repeat_count","args":["Hello World","Hello World"]}
+{"id":"repeat_count:3","fn":"repeat_count","args":["  Mixed CASE  ","  Mixed CASE  "]}
+{"id":"repeat_count:4","fn":"repeat_count","args":["café — naïve","café — naïve"]}
+{"id":"repeat_count:5","fn":"repeat_count","args":["a","a"]}
+{"id":"repeat_count:6","fn":"repeat_count","args":["123","123"]}
+{"id":"repeat_count:7","fn":"repeat_count","args":["-","-"]}
+{"id":"repeat_count:8","fn":"repeat_count","args":["trailing---","trailing---"]}
+{"id":"repeat_count:9","fn":"repeat_count","args":[" leading"," leading"]}
+{"id":"repeat_count:10","fn":"repeat_count","args":["one\ntwo","one\ntwo"]}
+{"id":"repeat_count:11","fn":"repeat_count","args":["Москва","Москва"]}
+{"id":"repeat_count:12","fn":"repeat_count","args":["0","0"]}
+{"id":"repeat_count:13","fn":"repeat_count","args":["a-b_c","a-b_c"]}
+{"id":"repeat_count:14","fn":"repeat_count","args":["x","x"]}
+{"id":"average_word_length:0","fn":"average_word_length","args":[""]}
+{"id":"average_word_length:1","fn":"average_word_length","args":[" "]}
+{"id":"average_word_length:2","fn":"average_word_length","args":["Hello World"]}
+{"id":"average_word_length:3","fn":"average_word_length","args":["  Mixed CASE  "]}
+{"id":"average_word_length:4","fn":"average_word_length","args":["café — naïve"]}
+{"id":"average_word_length:5","fn":"average_word_length","args":["a"]}
+{"id":"average_word_length:6","fn":"average_word_length","args":["123"]}
+{"id":"average_word_length:7","fn":"average_word_length","args":["-"]}
+{"id":"average_word_length:8","fn":"average_word_length","args":["trailing---"]}
+{"id":"average_word_length:9","fn":"average_word_length","args":[" leading"]}
+{"id":"average_word_length:10","fn":"average_word_length","args":["one\ntwo"]}
+{"id":"average_word_length:11","fn":"average_word_length","args":["Москва"]}
+{"id":"average_word_length:12","fn":"average_word_length","args":["0"]}
+{"id":"average_word_length:13","fn":"average_word_length","args":["a-b_c"]}
+{"id":"average_word_length:14","fn":"average_word_length","args":["x"]}
+{"id":"alnum_count:0","fn":"alnum_count","args":[""]}
+{"id":"alnum_count:1","fn":"alnum_count","args":[" "]}
+{"id":"alnum_count:2","fn":"alnum_count","args":["Hello World"]}
+{"id":"alnum_count:3","fn":"alnum_count","args":["  Mixed CASE  "]}
+{"id":"alnum_count:4","fn":"alnum_count","args":["café — naïve"]}
+{"id":"alnum_count:5","fn":"alnum_count","args":["a"]}
+{"id":"alnum_count:6","fn":"alnum_count","args":["123"]}
+{"id":"alnum_count:7","fn":"alnum_count","args":["-"]}
+{"id":"alnum_count:8","fn":"alnum_count","args":["trailing---"]}
+{"id":"alnum_count:9","fn":"alnum_count","args":[" leading"]}
+{"id":"alnum_count:10","fn":"alnum_count","args":["one\ntwo"]}
+{"id":"alnum_count:11","fn":"alnum_count","args":["Москва"]}
+{"id":"alnum_count:12","fn":"alnum_count","args":["0"]}
+{"id":"alnum_count:13","fn":"alnum_count","args":["a-b_c"]}
+{"id":"alnum_count:14","fn":"alnum_count","args":["x"]}

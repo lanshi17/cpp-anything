@@ -7,16 +7,18 @@ use crate::project::Project;
 use crate::util;
 
 pub struct BenchReport {
-    pub python_ns: f64,
+    pub original_ns: f64,
     pub cpp_ns: f64,
     pub calls: usize,
     pub repeat: usize,
+    /// What the original is: "python", "C", …
+    pub original_label: &'static str,
 }
 
 impl BenchReport {
     pub fn speedup(&self) -> f64 {
         if self.cpp_ns > 0.0 {
-            self.python_ns / self.cpp_ns
+            self.original_ns / self.cpp_ns
         } else {
             f64::INFINITY
         }
@@ -35,6 +37,22 @@ impl BenchReport {
 }
 
 pub fn run(project: &Project, driver: &Path, repeat: usize) -> Result<BenchReport, String> {
+    let repeat = repeat.max(1);
+    let (cpp_ns, calls) = run_port(project, driver, repeat)?;
+    // Python: the probe loads the module once and times the same calls.
+    let original_ns = crate::python::bench(project, repeat)?;
+    Ok(BenchReport {
+        original_ns,
+        cpp_ns,
+        calls,
+        repeat,
+        original_label: "python",
+    })
+}
+
+/// The port's side only: the driver times the calls with the arguments decoded once.
+/// Languages whose original is not Python (C) reuse this and supply their own number.
+pub fn run_port(project: &Project, driver: &Path, repeat: usize) -> Result<(f64, usize), String> {
     let cases = project.dir.join("cases.jsonl");
     if !cases.exists() {
         return Err(format!(
@@ -43,8 +61,6 @@ pub fn run(project: &Project, driver: &Path, repeat: usize) -> Result<BenchRepor
         ));
     }
     let repeat = repeat.max(1);
-
-    // C++: the driver keeps the decoded arguments and times only the calls.
     let args = vec![
         "--cases".to_string(),
         cases.display().to_string(),
@@ -57,17 +73,10 @@ pub fn run(project: &Project, driver: &Path, repeat: usize) -> Result<BenchRepor
     }
     let cpp =
         Json::parse(run.stdout.trim()).map_err(|error| format!("driver bench output: {error}"))?;
-    let cpp_ns = cpp.get("ns_per_call").and_then(Json::as_f64).unwrap_or(0.0);
-
-    // Python: the probe loads the module once and times the same calls.
-    let python_ns = crate::python::bench(project, repeat)?;
-
-    Ok(BenchReport {
-        python_ns,
-        cpp_ns,
-        calls: cpp.get("calls").and_then(Json::as_i64).unwrap_or(0) as usize,
-        repeat,
-    })
+    Ok((
+        cpp.get("ns_per_call").and_then(Json::as_f64).unwrap_or(0.0),
+        cpp.get("calls").and_then(Json::as_i64).unwrap_or(0) as usize,
+    ))
 }
 
 pub fn render(report: &BenchReport, project: &Project) -> String {
@@ -79,8 +88,8 @@ pub fn render(report: &BenchReport, project: &Project) -> String {
     ));
     out.push_str(&format!(
         "  {:<22} {:>12} ns/call\n",
-        "original (python)",
-        format_ns(report.python_ns)
+        format!("original ({})", report.original_label),
+        format_ns(report.original_ns)
     ));
     out.push_str(&format!(
         "  {:<22} {:>12} ns/call\n",
@@ -116,7 +125,8 @@ pub fn to_json(report: &BenchReport, project: &Project) -> Json {
         ("unit", Json::str(project.unit.clone())),
         ("calls", Json::Int(report.calls as i64)),
         ("repeat", Json::Int(report.repeat as i64)),
-        ("original_ns_per_call", Json::Real(report.python_ns)),
+        ("original_ns_per_call", Json::Real(report.original_ns)),
+        ("original_language", Json::str(report.original_label)),
         ("port_ns_per_call", Json::Real(report.cpp_ns)),
         ("speedup", Json::Real(report.speedup())),
         ("verdict", Json::str(report.verdict())),

@@ -209,6 +209,10 @@ fn record_history(project: &Project, report: &DiffReport) {
 }
 
 pub fn compare(expected: &Json, got: &Json, options: &Options) -> Result<(), String> {
+    // A recorded crash is undefined behaviour: any port behaviour is acceptable there.
+    if expected.get("crash").is_some() {
+        return Ok(());
+    }
     let expected_err = expected.get("err");
     let got_err = got.get("err");
     match (expected_err, got_err) {

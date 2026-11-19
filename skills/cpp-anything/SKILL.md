@@ -45,6 +45,7 @@ called as plain functions (decorated, `async`, `*args`): `bridge` reports those.
 
 ```sh
 cpp-anything bridge <repo> <module>     # cpp/<unit>; never overwrites without --force
+cpp-anything bridge <repo> <file.c> --lang c
 cpp-anything record cpp/<unit>          # the original's behaviour -> cases.jsonl
 ```
 

@@ -14,6 +14,14 @@ Full parity with the reference tool's loop, for a C++ target.
 - `data/libs.json` — the curated Python -> C++ library table; unknown packages are
   reported as unknown, never guessed.
 
+### Source languages
+
+- C: `analyze --lang c` (top-level definitions with supported signatures),
+  `bridge --lang c` (a C++ project whose port is the rewrite), `record` through a
+  generated harness that links the original with renamed symbols and forks per case
+  (a segfault is recorded as a crash and accepts any port behaviour), `diff`, `bench`
+  and `gate`. Signatures outside scalars/`char*`/`void` are reported as skipped.
+
 ### Batch API
 
 - `bridge --batch function:param` / `refresh --batch` generate a C++ batch class per

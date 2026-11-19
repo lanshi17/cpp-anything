@@ -1,0 +1,126 @@
+{
+  "schema": "cpp-anything/project@1",
+  "created_at": "2026-11-19T13:31:40Z",
+  "unit": {
+    "name": "textkit",
+    "module": "textkit.c",
+    "file": "/mnt/data/Projects/OpenSource/cpp-anything/examples/c-text/textkit.c",
+    "package_root": "/mnt/data/Projects/OpenSource/cpp-anything/examples/c-text",
+    "lang": "c",
+    "lines": 74
+  },
+  "target": {
+    "toolchain": "gcc",
+    "version": "13",
+    "std": "c++23"
+  },
+  "float_tolerance": 0.0,
+  "batches": [],
+  "functions": [
+    {
+      "name": "word_count",
+      "line": 6,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char* text",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int word_count(const char* text text)"
+      ]
+    },
+    {
+      "name": "digits_only",
+      "line": 21,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char* text",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int digits_only(const char* text text)"
+      ]
+    },
+    {
+      "name": "repeat_count",
+      "line": 34,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char* text",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "needle",
+          "annotation": "const char* needle",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int repeat_count(const char* text text, const char* needle needle)"
+      ]
+    },
+    {
+      "name": "average_word_length",
+      "line": 44,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char* text",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "double",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: double average_word_length(const char* text text)"
+      ]
+    },
+    {
+      "name": "alnum_count",
+      "line": 67,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char* text",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int alnum_count(const char* text text)"
+      ]
+    }
+  ],
+  "skipped": [],
+  "imports": [],
+  "risks": []
+}

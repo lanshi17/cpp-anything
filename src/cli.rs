@@ -507,12 +507,12 @@ fn check_lang(args: &Parsed) -> Result<(), String> {
     let Some(lang) = args.value("lang") else {
         return Ok(());
     };
-    if lang == "python" || lang == "py" {
+    if lang == "python" || lang == "py" || lang == "c" {
         Ok(())
     } else {
         Err(format!(
-            "cpp-anything reads Python today; {lang:?} is a language plugin that does not exist yet \
-             (analyze/bridge/record for C, TypeScript, Go, Ruby, Java are the next plugins)"
+            "cpp-anything reads Python and C today; {lang:?} is a language plugin that does not \
+             exist yet (TypeScript, Go, Ruby and Java are the next plugins)"
         ))
     }
 }
@@ -584,7 +584,12 @@ fn analyze_command(args: &Parsed) -> Result<i32, String> {
         .ok_or("analyze needs a repository path")?;
     let repo = Path::new(repo);
     let whole_app = args.flag("whole-app");
-    let doc = analyze::analyze(repo)?;
+    let lang = args.value("lang").unwrap_or("python");
+    let doc = if lang == "c" {
+        crate::langc::analyze_repo(repo)?
+    } else {
+        analyze::analyze(repo)?
+    };
     let json = analyze::to_json(&doc, repo, whole_app);
     if args.flag("json") {
         println!("{}", json.to_string_pretty());
@@ -613,7 +618,16 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
     let repo = Path::new(repo);
     let matrix = Matrix::get();
     let target = target_from(args, matrix)?;
-    let resolved = analyze::resolve(repo, unit, args.value("module-root").map(Path::new))?;
+    let is_c_unit = args.value("lang") == Some("c");
+    let resolved = if is_c_unit {
+        analyze::Resolved {
+            file: PathBuf::from(unit),
+            module: unit.to_string(),
+            package_root: Some(repo.to_path_buf()),
+        }
+    } else {
+        analyze::resolve(repo, unit, args.value("module-root").map(Path::new))?
+    };
 
     // C++20 or C++23, and a toolchain the matrix knows about. `std::expected` is
     // preferred, not required: C++20 targets get cppan::Result, same interface.
@@ -645,11 +659,15 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
         );
     }
 
-    let unit_doc = crate::python::inventory(
-        &resolved.file,
-        &resolved.module,
-        resolved.package_root.as_deref(),
-    )?;
+    let unit_doc = if is_c_unit {
+        crate::langc::unit(repo, unit)?
+    } else {
+        crate::python::inventory(
+            &resolved.file,
+            &resolved.module,
+            resolved.package_root.as_deref(),
+        )?
+    };
     if unit_doc.functions.is_empty() {
         return Err(format!(
             "{} has no ported-able functions: the analyzer needs plain module-level functions with a \
@@ -667,6 +685,9 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
         .canonicalize()
         .map_err(|error| format!("{}: {error}", dir.display()))?;
     let mut project = Project::from_unit(&unit_doc, target, dir.clone());
+    if is_c_unit {
+        project.source_lang = "c".into();
+    }
     project.batches = parse_batches(&project, &args.many("batch"))?;
     let written = crate::codegen::write_project(&project, args.flag("force"))?;
     println!(
@@ -713,7 +734,26 @@ fn record_command(args: &Parsed) -> Result<i32, String> {
         .unwrap_or(64) as usize;
     let seed = args.number("seed").unwrap_or(20260819);
     let inputs = args.value("inputs").map(PathBuf::from);
-    let count = crate::python::record(&project, cases, seed, inputs.as_deref())?;
+    let count = if project.source_lang == "c" {
+        let repo = project.package_root.clone().unwrap_or_else(|| {
+            project
+                .source_file
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default()
+        });
+        let unit = crate::langc::unit(&repo, &project.source_file.display().to_string())?;
+        let recorded = crate::langc::record(&project, &unit, cases)?;
+        if recorded.crashes > 0 {
+            println!(
+                "  {} case(s) crashed the original: recorded as crashes, and any port behaviour is accepted there (undefined behaviour)",
+                recorded.crashes
+            );
+        }
+        recorded.cases
+    } else {
+        crate::python::record(&project, cases, seed, inputs.as_deref())?
+    };
     if let Some(tolerance) = args.value("float-tolerance") {
         project.tolerance = tolerance
             .parse()
@@ -839,11 +879,28 @@ fn bench_command(args: &Parsed) -> Result<i32, String> {
             project.dir.display()
         ));
     }
-    let report = crate::bench::run(
-        &project,
-        &driver,
-        args.number("repeat").unwrap_or(1000) as usize,
-    )?;
+    let repeat = args.number("repeat").unwrap_or(1000) as usize;
+    let report = if project.source_lang == "c" {
+        let repo = project.package_root.clone().unwrap_or_else(|| {
+            project
+                .source_file
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default()
+        });
+        let unit = crate::langc::unit(&repo, &project.source_file.display().to_string())?;
+        let original_ns = crate::langc::bench_original(&project, &unit, repeat)?;
+        let (cpp_ns, calls) = crate::bench::run_port(&project, &driver, repeat)?;
+        crate::bench::BenchReport {
+            original_ns,
+            cpp_ns,
+            calls,
+            repeat,
+            original_label: "C",
+        }
+    } else {
+        crate::bench::run(&project, &driver, repeat)?
+    };
     if args.flag("json") {
         println!(
             "{}",

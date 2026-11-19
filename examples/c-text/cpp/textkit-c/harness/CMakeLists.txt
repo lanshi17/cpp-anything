@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.28)
+project(cppan_harness LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+add_executable(cppan_harness main.cpp "/mnt/data/Projects/OpenSource/cpp-anything/examples/c-text/textkit.c")
+target_include_directories(cppan_harness PRIVATE "/mnt/data/Projects/OpenSource/cpp-anything/examples/c-text/cpp/textkit-c/include")
+target_compile_definitions(cppan_harness PRIVATE word_count=cppan_original_word_count;digits_only=cppan_original_digits_only;repeat_count=cppan_original_repeat_count;average_word_length=cppan_original_average_word_length;alnum_count=cppan_original_alnum_count)
+if(MSVC)
+  target_compile_options(cppan_harness PRIVATE /W3 /utf-8)
+else()
+  target_compile_options(cppan_harness PRIVATE -Wall)
+endif()

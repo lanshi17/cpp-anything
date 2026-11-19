@@ -167,6 +167,41 @@ fn app_step(root: &Path) -> Result<Step, String> {
     })
 }
 
+fn c_step(root: &Path) -> Result<Step, String> {
+    let project = root
+        .join("examples")
+        .join("c-text")
+        .join("cpp")
+        .join("textkit-c");
+    if !project.join("cases.jsonl").exists() {
+        return Ok(Step {
+            name: "self c",
+            ok: false,
+            detail: "examples/c-text has no recorded cases".into(),
+        });
+    }
+    let build = run_cli(root, &["build", &project.display().to_string()])?;
+    let diff = run_cli(root, &["diff", &project.display().to_string()])?;
+    let ok = diff.contains("match") && !diff.contains("MISMATCH");
+    Ok(Step {
+        name: "self c",
+        ok,
+        detail: if ok {
+            let line = diff.lines().next().unwrap_or("").to_string();
+            format!(
+                "rebuilt the C unit's port: {}",
+                util::truncate_text(&line, 120)
+            )
+        } else {
+            format!(
+                "{}{}",
+                util::truncate_text(&build, 80),
+                util::truncate_text(&diff, 160)
+            )
+        },
+    })
+}
+
 fn http_step(root: &Path) -> Result<Step, String> {
     let example = root.join("examples").join("http-app");
     if !example.join("cpp").join("app-cases").exists() {
@@ -258,6 +293,9 @@ fn check(root: &Path, args: &Parsed) -> Result<i32, String> {
 
     // 6. Server mode still starts a server, sends the recorded requests and compares.
     steps.push(http_step(root)?);
+
+    // 7. The C plugin still builds its port and matches the harness recording.
+    steps.push(c_step(root)?);
 
     if args.flag("json") {
         let doc = Json::obj([

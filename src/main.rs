@@ -25,6 +25,7 @@ mod langc;
 mod libs;
 mod matrix;
 mod mcp;
+mod modern;
 mod portmap;
 mod profile;
 mod project;

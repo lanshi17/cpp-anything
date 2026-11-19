@@ -147,6 +147,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 add_library(cppan_port_{ns} STATIC src/port.cpp)
+# The shadow library links this statically: the port must be position independent.
+set_target_properties(cppan_port_{ns} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(cppan_port_{ns} PUBLIC ${{CMAKE_CURRENT_SOURCE_DIR}}/include)
 target_compile_features(cppan_port_{ns} PUBLIC cxx_std_{std_num})
 if(MSVC)
@@ -695,6 +697,22 @@ fn render_readme(project: &Project, ns: &str) -> String {
         for name in &project.imports {
             out.push_str(&format!("- `{name}`\n"));
         }
+    }
+    if project.source_lang == "cpp" {
+        out.push_str("\n## Modernization is the job\n\n");
+        out.push_str(
+            "This unit is C-style C++: the port must preserve behaviour *and* be modern C++.\n\
+             `gate` fails on `NULL`, `malloc`/`free`, raw `new`/`delete`, `char*` string calls,\n\
+             `printf`, C-style casts and `typedef struct` left in `src/port.cpp`, unless a line (or\n\
+             the comment block right above it) says `// C-STYLE: why`.\n\n",
+        );
+        out.push_str(
+            "Use the facilities `include/cppan/profile.hpp` reports: `CPPAN_HAS_SPAN` for\n\
+             `std::span`, `CPPAN_HAS_RANGES` for views and algorithms, `CPPAN_HAS_FORMAT`/\n\
+             `CPPAN_HAS_PRINT` for formatting, `CPPAN_HAS_STRING_VIEW`-class facilities are C++17\n\
+             and always available here. Each mapping the analyzer printed above names the macro its\n\
+             replacement needs.\n",
+        );
     }
     if !project.risks.is_empty() {
         out.push_str("\n## Risks the analyzer flagged\n\n");

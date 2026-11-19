@@ -23,7 +23,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -33,7 +33,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int word_count(const char* text text)"
+        "C signature: int word_count(const char * text)"
       ]
     },
     {
@@ -42,7 +42,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -52,7 +52,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int digits_only(const char* text text)"
+        "C signature: int digits_only(const char * text)"
       ]
     },
     {
@@ -61,14 +61,14 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
         },
         {
           "name": "needle",
-          "annotation": "const char* needle",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -78,7 +78,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int repeat_count(const char* text text, const char* needle needle)"
+        "C signature: int repeat_count(const char * text, const char * needle)"
       ]
     },
     {
@@ -87,7 +87,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -97,7 +97,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: double average_word_length(const char* text text)"
+        "C signature: double average_word_length(const char * text)"
       ]
     },
     {
@@ -106,7 +106,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -116,11 +116,21 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int alnum_count(const char* text text)"
+        "C signature: int alnum_count(const char * text)"
       ]
     }
   ],
-  "skipped": [],
+  "skipped": [
+    {
+      "name": "is_ascii_alnum",
+      "reason": "parameter \"char c\" has no supported mapping"
+    }
+  ],
   "imports": [],
-  "risks": []
+  "risks": [
+    "C has no exceptions: a failure is a return code or an errno, and the port must mirror it",
+    "char* strings: null versus empty is observable, and the recorder treats a null return as null",
+    "Fixed-width C types are not Python's unbounded ints: the signature decides the width",
+    "Undefined behaviour on inputs outside the contract is a case, not a failure (the harness records the signal)"
+  ]
 }

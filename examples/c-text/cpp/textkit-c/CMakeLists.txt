@@ -10,6 +10,8 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 add_library(cppan_port_textkit STATIC src/port.cpp)
+# The shadow library links this statically: the port must be position independent.
+set_target_properties(cppan_port_textkit PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(cppan_port_textkit PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_features(cppan_port_textkit PUBLIC cxx_std_23)
 if(MSVC)

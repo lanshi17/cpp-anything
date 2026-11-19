@@ -177,6 +177,57 @@ pub fn run(project: &Project, options: &Options) -> Result<GateReport, String> {
         },
     });
 
+    // 2c2. A C-style C++ port must be modern C++: the idioms are the job, not a
+    //      preference. Anything kept deliberately is annotated `// C-STYLE: why`.
+    if project.source_lang == "cpp" {
+        let lines: Vec<&str> = port.lines().collect();
+        let mut c_style = Vec::new();
+        for (index, line) in lines.iter().enumerate() {
+            let code = line.split("//").next().unwrap_or("");
+            let Some(needle) = [
+                "NULL",
+                "malloc(",
+                "free(",
+                "strcpy",
+                "strlen",
+                "memcpy",
+                "printf(",
+                "sprintf(",
+                "(char*)",
+                "(int)",
+                "(double)",
+                "typedef struct",
+            ]
+            .iter()
+            .find(|needle| code.contains(**needle)) else {
+                continue;
+            };
+            let explained = lines[..index]
+                .iter()
+                .rev()
+                .take_while(|above| above.trim_start().starts_with("//"))
+                .any(|above| above.contains("C-STYLE:"))
+                || line.contains("C-STYLE:");
+            if !explained {
+                c_style.push(format!("src/port.cpp:{} `{needle}`", index + 1));
+            }
+        }
+        steps.push(Step {
+            name: "modern".into(),
+            ok: c_style.is_empty(),
+            detail: if c_style.is_empty() {
+                "no C idioms left in the port: string_view, spans, ranges and the profile-gated facilities"
+                    .into()
+            } else {
+                format!(
+                    "replace these with the modern facility the analyzer named, or annotate \
+                     `// C-STYLE: why it stays`: {}",
+                    c_style.join(", ")
+                )
+            },
+        });
+    }
+
     // 2d. A port that is much bigger than its source is usually a crate or a loop
     //     re-implemented by hand.
     let port_lines = port.lines().count();

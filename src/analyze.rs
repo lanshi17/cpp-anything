@@ -330,8 +330,12 @@ pub fn render_plan(doc: &Json, repo: &Path, whole_app: bool) -> String {
     let mut out = String::new();
     out.push_str(&format!("# Port plan for {}\n\n", repo.display()));
     let total_functions: usize = units.iter().map(|unit| unit.functions.len()).sum();
+    let language = doc
+        .get("language")
+        .and_then(Json::as_str)
+        .unwrap_or("source");
     out.push_str(&format!(
-        "{} Python module(s), {} function(s), {} dependency(ies). Port one unit at a time; \
+        "{} {language} unit(s), {} function(s), {} dependency(ies). Port one unit at a time; \
          `bridge`, `record`, `diff` and `gate` are per unit.\n\n",
         units.len(),
         total_functions,
@@ -407,8 +411,13 @@ pub fn render_plan(doc: &Json, repo: &Path, whole_app: bool) -> String {
         ));
     }
     if let Some(first) = units.iter().find(|unit| unit.status == "ready") {
+        let lang_flag = match doc.get("language").and_then(Json::as_str) {
+            Some("c") => " --lang c",
+            Some("cpp") => " --lang cpp",
+            _ => "",
+        };
         out.push_str(&format!(
-            "\nStart here: `cpp-anything bridge {} {}` then `cpp-anything record <project>`.\n",
+            "\nStart here: `cpp-anything bridge {} {}{lang_flag}` then `cpp-anything record <project>`.\n",
             repo.display(),
             first.module
         ));

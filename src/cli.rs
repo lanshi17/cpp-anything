@@ -183,9 +183,9 @@ Run `cpp-anything <command> --help` for one command's options.
   app front-door <repo> [--no-check] [--json]
   app wire    <repo> <unit> --command NAME
   app lift    <repo>
-  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python]
-  bridge  <repo> <unit> [--out DIR] [--toolchain gcc] [--version 13] [--std c++23]
-                        [--module-root DIR] [--force] [--batch function:param]…
+  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python|c|cpp]
+  bridge  <repo> <unit> [--lang c|cpp] [--out DIR] [--toolchain gcc] [--version 13]
+                        [--std c++23] [--module-root DIR] [--force] [--batch function:param]…
   refresh <project> [--batch function:param]…
   record  <project> [--count N] [--seed N] [--inputs FILE] [--float-tolerance F]
                     [--from-tests -- pytest -q]
@@ -507,12 +507,12 @@ fn check_lang(args: &Parsed) -> Result<(), String> {
     let Some(lang) = args.value("lang") else {
         return Ok(());
     };
-    if lang == "python" || lang == "py" || lang == "c" {
+    if lang == "python" || lang == "py" || crate::langc::parse_lang(lang).is_some() {
         Ok(())
     } else {
         Err(format!(
-            "cpp-anything reads Python and C today; {lang:?} is a language plugin that does not \
-             exist yet (TypeScript, Go, Ruby and Java are the next plugins)"
+            "cpp-anything reads Python, C and C-style C++ today; {lang:?} is a language plugin that \
+             does not exist yet (TypeScript, Go, Ruby and Java are the next plugins)"
         ))
     }
 }
@@ -585,10 +585,9 @@ fn analyze_command(args: &Parsed) -> Result<i32, String> {
     let repo = Path::new(repo);
     let whole_app = args.flag("whole-app");
     let lang = args.value("lang").unwrap_or("python");
-    let doc = if lang == "c" {
-        crate::langc::analyze_repo(repo)?
-    } else {
-        analyze::analyze(repo)?
+    let doc = match crate::langc::parse_lang(lang) {
+        Some(native) => crate::langc::analyze_repo(repo, native)?,
+        None => analyze::analyze(repo)?,
     };
     let json = analyze::to_json(&doc, repo, whole_app);
     if args.flag("json") {
@@ -618,8 +617,8 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
     let repo = Path::new(repo);
     let matrix = Matrix::get();
     let target = target_from(args, matrix)?;
-    let is_c_unit = args.value("lang") == Some("c");
-    let resolved = if is_c_unit {
+    let native = args.value("lang").and_then(crate::langc::parse_lang);
+    let resolved = if native.is_some() {
         analyze::Resolved {
             file: PathBuf::from(unit),
             module: unit.to_string(),
@@ -659,8 +658,8 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
         );
     }
 
-    let unit_doc = if is_c_unit {
-        crate::langc::unit(repo, unit)?
+    let unit_doc = if let Some(lang) = native {
+        crate::langc::unit(repo, unit, lang)?
     } else {
         crate::python::inventory(
             &resolved.file,
@@ -685,8 +684,8 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
         .canonicalize()
         .map_err(|error| format!("{}: {error}", dir.display()))?;
     let mut project = Project::from_unit(&unit_doc, target, dir.clone());
-    if is_c_unit {
-        project.source_lang = "c".into();
+    if let Some(lang) = native {
+        project.source_lang = lang.id().into();
     }
     project.batches = parse_batches(&project, &args.many("batch"))?;
     let written = crate::codegen::write_project(&project, args.flag("force"))?;
@@ -734,7 +733,7 @@ fn record_command(args: &Parsed) -> Result<i32, String> {
         .unwrap_or(64) as usize;
     let seed = args.number("seed").unwrap_or(20260819);
     let inputs = args.value("inputs").map(PathBuf::from);
-    let count = if project.source_lang == "c" {
+    let count = if let Some(lang) = crate::langc::parse_lang(&project.source_lang) {
         let repo = project.package_root.clone().unwrap_or_else(|| {
             project
                 .source_file
@@ -742,8 +741,8 @@ fn record_command(args: &Parsed) -> Result<i32, String> {
                 .map(Path::to_path_buf)
                 .unwrap_or_default()
         });
-        let unit = crate::langc::unit(&repo, &project.source_file.display().to_string())?;
-        let recorded = crate::langc::record(&project, &unit, cases)?;
+        let unit = crate::langc::unit(&repo, &project.source_file.display().to_string(), lang)?;
+        let recorded = crate::langc::record(&project, &unit, cases, lang)?;
         if recorded.crashes > 0 {
             println!(
                 "  {} case(s) crashed the original: recorded as crashes, and any port behaviour is accepted there (undefined behaviour)",
@@ -880,7 +879,7 @@ fn bench_command(args: &Parsed) -> Result<i32, String> {
         ));
     }
     let repeat = args.number("repeat").unwrap_or(1000) as usize;
-    let report = if project.source_lang == "c" {
+    let report = if let Some(lang) = crate::langc::parse_lang(&project.source_lang) {
         let repo = project.package_root.clone().unwrap_or_else(|| {
             project
                 .source_file
@@ -888,15 +887,15 @@ fn bench_command(args: &Parsed) -> Result<i32, String> {
                 .map(Path::to_path_buf)
                 .unwrap_or_default()
         });
-        let unit = crate::langc::unit(&repo, &project.source_file.display().to_string())?;
-        let original_ns = crate::langc::bench_original(&project, &unit, repeat)?;
+        let unit = crate::langc::unit(&repo, &project.source_file.display().to_string(), lang)?;
+        let original_ns = crate::langc::bench_original(&project, &unit, repeat, lang)?;
         let (cpp_ns, calls) = crate::bench::run_port(&project, &driver, repeat)?;
         crate::bench::BenchReport {
             original_ns,
             cpp_ns,
             calls,
             repeat,
-            original_label: "C",
+            original_label: lang.label(),
         }
     } else {
         crate::bench::run(&project, &driver, repeat)?
@@ -1047,11 +1046,22 @@ fn refresh_command(args: &Parsed) -> Result<i32, String> {
     let mut project = project_arg(args)?;
     // The Python signature is the contract: re-read it, then regenerate everything
     // that derives from it. `src/port.cpp` is never touched.
-    let unit = crate::python::inventory(
-        &project.source_file,
-        &project.module,
-        project.package_root.as_deref(),
-    )?;
+    let unit = if let Some(lang) = crate::langc::parse_lang(&project.source_lang) {
+        let repo = project.package_root.clone().unwrap_or_else(|| {
+            project
+                .source_file
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_default()
+        });
+        crate::langc::unit(&repo, &project.source_file.display().to_string(), lang)?
+    } else {
+        crate::python::inventory(
+            &project.source_file,
+            &project.module,
+            project.package_root.as_deref(),
+        )?
+    };
     project.functions = unit.functions;
     project.skipped = unit.skipped;
     project.risks = unit.risks;

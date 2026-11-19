@@ -1,0 +1,189 @@
+{
+  "schema": "cpp-anything/project@1",
+  "created_at": "2026-11-19T13:43:28Z",
+  "unit": {
+    "name": "legacy",
+    "module": "legacy.cpp",
+    "file": "/mnt/data/Projects/OpenSource/cpp-anything/examples/legacy-cpp/legacy.cpp",
+    "package_root": "/mnt/data/Projects/OpenSource/cpp-anything/examples/legacy-cpp",
+    "lang": "cpp",
+    "lines": 92
+  },
+  "target": {
+    "toolchain": "gcc",
+    "version": "13",
+    "std": "c++23"
+  },
+  "float_tolerance": 0.0,
+  "batches": [],
+  "functions": [
+    {
+      "name": "word_count",
+      "line": 9,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char *",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int word_count(const char * text)"
+      ]
+    },
+    {
+      "name": "digits_only",
+      "line": 23,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char *",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int digits_only(const char * text)"
+      ]
+    },
+    {
+      "name": "average_word_length",
+      "line": 35,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char *",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "double",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: double average_word_length(const char * text)"
+      ]
+    },
+    {
+      "name": "sum_ascii",
+      "line": 53,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char *",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: int sum_ascii(const char * text)"
+      ]
+    },
+    {
+      "name": "trim_copy",
+      "line": 59,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const std::string&",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "std::string",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: std::string trim_copy(const std::string& text)"
+      ]
+    },
+    {
+      "name": "repeat_join",
+      "line": 73,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const std::string&",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "times",
+          "annotation": "int",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "std::string",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: std::string repeat_join(const std::string& text, int times)"
+      ]
+    },
+    {
+      "name": "print_words",
+      "line": 82,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "const char *",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "void",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "C signature: void print_words(const char * text)"
+      ]
+    }
+  ],
+  "skipped": [
+    {
+      "name": "count_char",
+      "reason": "parameter \"char needle\" has no supported mapping"
+    }
+  ],
+  "imports": [],
+  "risks": [
+    "C-style C++ ports to modern C++: the behaviour must survive the idioms (span, string_view, ranges, format)",
+    "char* and raw arrays: every offset must be re-expressed on a modern container without changing results",
+    "printf/iostream formatting differs from std::format for padding, precision and floats: record the text",
+    "Undefined behaviour (out-of-bounds, dangling pointers) is recorded as a crash and accepts any port behaviour",
+    "word_count: modernize line 12: strlen in a loop → std::string_view::size() / std::ranges::distance (needs `__cpp_lib_string_view`)",
+    "word_count: modernize line 12: C-style cast → static_cast<int> / std::size_t with gsl::narrow semantics",
+    "word_count: modernize line 12: index loop → range-for / std::views on a span or container (needs `__cpp_lib_ranges`)",
+    "average_word_length: modernize line 39: index loop → range-for / std::views on a span or container (needs `__cpp_lib_ranges`)",
+    "average_word_length: modernize line 50: C-style cast → static_cast<double>",
+    "sum_ascii: modernize line 55: strlen in a loop → std::string_view::size() / std::ranges::distance (needs `__cpp_lib_string_view`)",
+    "sum_ascii: modernize line 55: C-style cast → static_cast<int> / std::size_t with gsl::narrow semantics",
+    "sum_ascii: modernize line 55: index loop → range-for / std::views on a span or container (needs `__cpp_lib_ranges`)",
+    "trim_copy: modernize line 61: C-style cast → static_cast<int> / std::size_t with gsl::narrow semantics",
+    "trim_copy: modernize line 65: malloc/free → std::vector / std::unique_ptr / std::array",
+    "trim_copy: modernize line 65: C-style cast → static_cast<char*> / reinterpret_cast where unavoidable",
+    "trim_copy: modernize line 66: memcpy → std::copy / std::ranges::copy, or a typed container (needs `__cpp_lib_ranges`)",
+    "trim_copy: modernize line 69: manual free → RAII: std::vector / std::unique_ptr",
+    "repeat_join: modernize line 75: index loop → range-for / std::views on a span or container (needs `__cpp_lib_ranges`)",
+    "print_words: modernize line 83: printf → std::print / std::format (needs `__cpp_lib_print`)"
+  ]
+}

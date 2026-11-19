@@ -12,6 +12,51 @@ use crate::json::Json;
 use crate::types::Ty;
 use crate::util;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Lang {
+    C,
+    /// C++ written in a C style: the port's job is to make it modern C++20/23.
+    Cpp,
+}
+
+impl Lang {
+    pub fn id(self) -> &'static str {
+        match self {
+            Lang::C => "c",
+            Lang::Cpp => "cpp",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Lang::C => "C",
+            Lang::Cpp => "C-style C++",
+        }
+    }
+
+    pub fn linkage(self) -> (&'static str, &'static str) {
+        match self {
+            Lang::C => ("extern \"C\" {", "}"),
+            Lang::Cpp => ("", ""),
+        }
+    }
+
+    pub fn cmake_languages(self) -> &'static str {
+        match self {
+            Lang::C => "C CXX",
+            Lang::Cpp => "CXX",
+        }
+    }
+}
+
+pub fn parse_lang(name: &str) -> Option<Lang> {
+    match name {
+        "c" => Some(Lang::C),
+        "cpp" | "c++" | "cxx" | "c-style" | "cstyle" | "modernize" | "modern" => Some(Lang::Cpp),
+        _ => None,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CFunction {
     pub name: String,
@@ -30,7 +75,7 @@ pub struct Analysis {
 
 /// A deliberately small C parser: top-level definitions with a supported signature.
 /// Anything else is reported as skipped, not guessed.
-pub fn analyze_file(path: &Path) -> Result<Analysis, String> {
+pub fn analyze_file(path: &Path, lang: Lang) -> Result<Analysis, String> {
     let source = util::read(path)?;
     let lines = source.lines().count() as u32;
     let stripped = strip_comments(&source);
@@ -67,7 +112,7 @@ pub fn analyze_file(path: &Path) -> Result<Analysis, String> {
             }
         };
         let params_text = stripped[open + 1..close].trim();
-        match map_signature(&ret_c, params_text) {
+        match map_signature(&ret_c, params_text, lang) {
             Ok((ret, params, params_c)) => functions.push(CFunction {
                 name,
                 line: stripped[..line_start].lines().count() as u32 + 1,
@@ -124,8 +169,8 @@ fn split_head(head: &str) -> Option<(String, String)> {
 
 type Signature = (Ty, Vec<(Ty, String)>, Vec<(String, String)>);
 
-fn map_signature(ret_c: &str, params_text: &str) -> Result<Signature, String> {
-    let ret = map_ctype(ret_c)
+fn map_signature(ret_c: &str, params_text: &str, lang: Lang) -> Result<Signature, String> {
+    let ret = map_ctype(ret_c, lang)
         .ok_or_else(|| format!("return type {ret_c:?} has no supported mapping"))?;
     if params_text.is_empty() || params_text == "void" {
         return Ok((ret, Vec::new(), Vec::new()));
@@ -138,7 +183,7 @@ fn map_signature(ret_c: &str, params_text: &str) -> Result<Signature, String> {
             return Err("variadic function: the port would need a C++ overload set".into());
         }
         let (type_text, name) = split_param(part);
-        let ty = map_ctype(&type_text)
+        let ty = map_ctype(&type_text, lang)
             .ok_or_else(|| format!("parameter {part:?} has no supported mapping"))?;
         let name = name.unwrap_or_else(|| format!("arg{index}"));
         params.push((ty, name.clone()));
@@ -185,7 +230,7 @@ fn split_param(part: &str) -> (String, Option<String>) {
     }
 }
 
-fn map_ctype(text: &str) -> Option<Ty> {
+fn map_ctype(text: &str, lang: Lang) -> Option<Ty> {
     let cleaned = text
         .replace("const", " ")
         .replace("volatile", " ")
@@ -205,6 +250,22 @@ fn map_ctype(text: &str) -> Option<Ty> {
         "float" => Some(Ty::Float),
         "bool" | "_Bool" => Some(Ty::Bool),
         "void" => Some(Ty::None),
+        _ if lang == Lang::Cpp => {
+            let cpp = cleaned
+                .replace("const", " ")
+                .replace("&", " ")
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            match cpp.trim() {
+                "std::string" | "string" | "std::string_view" | "string_view"
+                | "const std::string" | "const string" => Some(Ty::Str),
+                "std::int64_t" | "int64_t" | "std::int32_t" | "int32_t" => Some(Ty::Int),
+                "long long" | "long long int" | "unsigned long long" => Some(Ty::Int),
+                "long double" => Some(Ty::Float),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -254,7 +315,7 @@ fn strip_comments(source: &str) -> String {
 }
 
 /// Turns a parsed C file into the unit the rest of the tool understands.
-pub fn unit(repo: &Path, relative_or_path: &str) -> Result<Unit, String> {
+pub fn unit(repo: &Path, relative_or_path: &str, lang: Lang) -> Result<Unit, String> {
     let file = if Path::new(relative_or_path).is_absolute() {
         PathBuf::from(relative_or_path)
     } else {
@@ -262,7 +323,7 @@ pub fn unit(repo: &Path, relative_or_path: &str) -> Result<Unit, String> {
     }
     .canonicalize()
     .map_err(|error| format!("{relative_or_path}: {error}"))?;
-    let analysis = analyze_file(&file)?;
+    let analysis = analyze_file(&file, lang)?;
     if analysis.functions.is_empty() {
         return Err(format!(
             "{} has no functions with a supported C signature ({} skipped)",
@@ -280,12 +341,37 @@ pub fn unit(repo: &Path, relative_or_path: &str) -> Result<Unit, String> {
         .iter()
         .map(to_function)
         .collect::<Vec<_>>();
-    let risks = vec![
-        "C has no exceptions: a failure is a return code or an errno, and the port must mirror it".to_string(),
-        "char* strings: null versus empty is observable, and the recorder treats a null return as null".to_string(),
-        "Fixed-width C types are not Python's unbounded ints: the signature decides the width".to_string(),
-        "Undefined behaviour on inputs outside the contract is a case, not a failure (the harness records the signal)".to_string(),
-    ];
+    let mut risks = match lang {
+        Lang::C => vec![
+            "C has no exceptions: a failure is a return code or an errno, and the port must mirror it".to_string(),
+            "char* strings: null versus empty is observable, and the recorder treats a null return as null".to_string(),
+            "Fixed-width C types are not Python's unbounded ints: the signature decides the width".to_string(),
+            "Undefined behaviour on inputs outside the contract is a case, not a failure (the harness records the signal)".to_string(),
+        ],
+        Lang::Cpp => vec![
+            "C-style C++ ports to modern C++: the behaviour must survive the idioms (span, string_view, ranges, format)".to_string(),
+            "char* and raw arrays: every offset must be re-expressed on a modern container without changing results".to_string(),
+            "printf/iostream formatting differs from std::format for padding, precision and floats: record the text".to_string(),
+            "Undefined behaviour (out-of-bounds, dangling pointers) is recorded as a crash and accepts any port behaviour".to_string(),
+        ],
+    };
+    if lang == Lang::Cpp {
+        let source = util::read(&file).unwrap_or_default();
+        let opportunities = crate::modern::scan(&source, &analysis.functions);
+        for opportunity in opportunities.iter().take(20) {
+            risks.push(format!(
+                "{}: {}",
+                opportunity.function,
+                opportunity.describe()
+            ));
+        }
+        if opportunities.len() > 20 {
+            risks.push(format!(
+                "… {} more modernization opportunities; see `analyze --lang cpp`",
+                opportunities.len() - 20
+            ));
+        }
+    }
     Ok(Unit {
         unit: file
             .file_stem()
@@ -424,7 +510,7 @@ pub fn calls(unit: &Unit, count: usize) -> Vec<Json> {
 
 const HARNESS: &str = include_str!("cpp_runtime/harness_c.cpp.in");
 
-pub fn harness_source(_file: &Path, functions: &[CFunction]) -> String {
+pub fn harness_source(functions: &[CFunction], lang: Lang) -> String {
     let mut decls = String::new();
     for function in functions {
         let params = function
@@ -447,9 +533,17 @@ pub fn harness_source(_file: &Path, functions: &[CFunction]) -> String {
     for function in functions {
         dispatch.push_str(&format!("    if (name == \"{}\") {{\n", function.name));
         for (index, (ty, _)) in function.params.iter().enumerate() {
+            let original = function
+                .params_c
+                .get(index)
+                .map(|(c_type, _)| c_type.as_str())
+                .unwrap_or("");
             let decode = match ty {
+                Ty::Str if original.contains('*') => format!(
+                    "      const std::string arg{index}_text = args.at({index}).as_string();\n      const char* arg{index} = arg{index}_text.c_str();\n",
+                ),
                 Ty::Str => format!(
-                    "      const std::string arg{index}_text = args.at({index}).as_string();\n      const char* arg{index} = arg{index}_text.c_str();\n"
+                    "      const std::string arg{index}_text = args.at({index}).as_string();\n      const std::string& arg{index} = arg{index}_text;\n"
                 ),
                 Ty::Int => format!(
                     "      const auto arg{index} = static_cast<long long>(args.at({index}).as_int());\n"
@@ -468,8 +562,11 @@ pub fn harness_source(_file: &Path, functions: &[CFunction]) -> String {
             .join(", ");
         let call = format!("cppan_original_{}({arguments})", function.name);
         let encode = match function.ret {
-            Ty::Str => format!(
+            Ty::Str if function.ret_c.contains('*') => format!(
                 "      char* result = {call};\n      return ok_json(result != nullptr ? Json::string(std::string(result)) : Json::null());\n"
+            ),
+            Ty::Str => format!(
+                "      const std::string result = {call};\n      return ok_json(Json::string(result));\n"
             ),
             Ty::Int => format!("      return ok_json(Json::integer(static_cast<std::int64_t>({call})));\n"),
             Ty::Float => format!("      return ok_json(Json::real(static_cast<double>({call})));\n"),
@@ -479,7 +576,10 @@ pub fn harness_source(_file: &Path, functions: &[CFunction]) -> String {
         dispatch.push_str(&encode);
         dispatch.push_str("    }\n");
     }
+    let (linkage_open, linkage_close) = lang.linkage();
     HARNESS
+        .replace("{{LINKAGE_OPEN}}", linkage_open)
+        .replace("{{LINKAGE_CLOSE}}", linkage_close)
         .replace("{{DECLS}}", &decls)
         .replace("{{DISPATCH}}", &dispatch)
 }
@@ -488,7 +588,7 @@ pub fn harness_source(_file: &Path, functions: &[CFunction]) -> String {
 // repository analysis, recording and timing
 // ---------------------------------------------------------------------------
 
-pub fn analyze_repo(repo: &Path) -> Result<Json, String> {
+pub fn analyze_repo(repo: &Path, lang: Lang) -> Result<Json, String> {
     let mut modules = Vec::new();
     let mut stack = vec![(repo.to_path_buf(), 0usize)];
     while let Some((directory, depth)) = stack.pop() {
@@ -510,10 +610,15 @@ pub fn analyze_repo(repo: &Path) -> Result<Json, String> {
                 stack.push((path, depth + 1));
                 continue;
             }
-            if path.extension().and_then(|ext| ext.to_str()) != Some("c") {
+            let extension = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+            let wanted = match lang {
+                Lang::C => extension == "c",
+                Lang::Cpp => matches!(extension, "cpp" | "cc" | "cxx" | "c++"),
+            };
+            if !wanted {
                 continue;
             }
-            let Ok(analysis) = analyze_file(&path) else {
+            let Ok(analysis) = analyze_file(&path, lang) else {
                 continue;
             };
             if analysis.functions.is_empty() {
@@ -524,6 +629,12 @@ pub fn analyze_repo(repo: &Path) -> Result<Json, String> {
                 .unwrap_or(&path)
                 .display()
                 .to_string();
+            let modernization = if lang == Lang::Cpp {
+                let source = util::read(&path).unwrap_or_default();
+                crate::modern::scan(&source, &analysis.functions)
+            } else {
+                Vec::new()
+            };
             modules.push(Json::obj([
                 ("module", Json::str(relative.clone())),
                 ("path", Json::str(relative)),
@@ -547,11 +658,28 @@ pub fn analyze_repo(repo: &Path) -> Result<Json, String> {
                 ),
                 (
                     "risks",
-                    Json::Array(vec![
-                        Json::str("C return codes and errno are the failure contract"),
-                        Json::str("char* may be null; the port must keep the difference from \"\""),
-                        Json::str("undefined behaviour is recorded as a crash, not as a failure"),
-                    ]),
+                    Json::Array(match lang {
+                        Lang::C => vec![
+                            Json::str("C return codes and errno are the failure contract"),
+                            Json::str("char* may be null; the port must keep the difference from \"\""),
+                            Json::str("undefined behaviour is recorded as a crash, not as a failure"),
+                        ],
+                        Lang::Cpp => {
+                            let mut risks = vec![
+                                Json::str("C-style C++: the port replaces raw loops, buffers and printf with modern facilities"),
+                                Json::str("char* and fixed arrays must become string_view/span without changing offsets"),
+                                Json::str("undefined behaviour is recorded as a crash, not as a failure"),
+                            ];
+                            for opportunity in modernization.iter().take(30) {
+                                risks.push(Json::str(format!(
+                                    "{}: {}",
+                                    opportunity.function,
+                                    opportunity.describe()
+                                )));
+                            }
+                            risks
+                        }
+                    }),
                 ),
                 ("imports", Json::Array(Vec::new())),
                 ("entry_point", Json::Bool(false)),
@@ -560,6 +688,7 @@ pub fn analyze_repo(repo: &Path) -> Result<Json, String> {
     }
     Ok(Json::obj([
         ("root", Json::str(repo.display().to_string())),
+        ("language", Json::str(lang.id())),
         ("modules", Json::Array(modules)),
         ("dependencies", Json::Array(Vec::new())),
     ]))
@@ -582,13 +711,14 @@ fn harness_exe(project: &crate::project::Project) -> std::path::PathBuf {
 pub fn build_harness(
     project: &crate::project::Project,
     unit: &Unit,
+    lang: Lang,
 ) -> Result<std::path::PathBuf, String> {
-    let analysis = analyze_file(&project.source_file)?;
+    let analysis = analyze_file(&project.source_file, lang)?;
     let dir = harness_dir(project);
     std::fs::create_dir_all(&dir).map_err(|error| format!("{}: {error}", dir.display()))?;
     util::write(
         &dir.join("main.cpp"),
-        &harness_source(&project.source_file, &analysis.functions),
+        &harness_source(&analysis.functions, lang),
     )?;
     let definitions = analysis
         .functions
@@ -598,7 +728,7 @@ pub fn build_harness(
         .join(";");
     let cmake = format!(
         r#"cmake_minimum_required(VERSION 3.28)
-project(cppan_harness LANGUAGES C CXX)
+project(cppan_harness LANGUAGES {languages})
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -617,7 +747,8 @@ endif()
 "#,
         source = project.source_file.display(),
         include = project.dir.join("include").display(),
-        definitions = definitions
+        definitions = definitions,
+        languages = lang.cmake_languages()
     );
     util::write(&dir.join("CMakeLists.txt"), &cmake)?;
     let _ = unit;
@@ -676,8 +807,9 @@ pub fn record(
     project: &crate::project::Project,
     unit: &Unit,
     count: usize,
+    lang: Lang,
 ) -> Result<Recorded, String> {
-    let exe = build_harness(project, unit)?;
+    let exe = build_harness(project, unit, lang)?;
     let calls = calls(unit, count);
     let mut text = String::new();
     for call in &calls {
@@ -808,8 +940,9 @@ pub fn bench_original(
     project: &crate::project::Project,
     unit: &Unit,
     repeat: usize,
+    lang: Lang,
 ) -> Result<f64, String> {
-    let exe = build_harness(project, unit)?;
+    let exe = build_harness(project, unit, lang)?;
     let calls = calls(unit, 64);
     let mut text = String::new();
     for call in &calls {
@@ -831,7 +964,18 @@ pub fn bench_original(
     if !run.ok {
         return Err(format!("the harness bench failed: {}", run.failure()));
     }
-    let doc = Json::parse(run.stdout.trim())?;
+    let payload = if run.stdout.trim().starts_with('{') {
+        run.stdout.clone()
+    } else {
+        run.stderr.clone()
+    };
+    let last = payload
+        .lines()
+        .rev()
+        .find(|line| line.trim_start().starts_with('{'))
+        .unwrap_or("")
+        .to_string();
+    let doc = Json::parse(last.trim())?;
     doc.get("ns_per_call")
         .and_then(Json::as_f64)
         .ok_or_else(|| "the harness printed no ns_per_call".to_string())

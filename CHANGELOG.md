@@ -14,6 +14,19 @@ Full parity with the reference tool's loop, for a C++ target.
 - `data/libs.json` — the curated Python -> C++ library table; unknown packages are
   reported as unknown, never guessed.
 
+### C-style C++ -> modern C++
+
+- `--lang cpp` (aliases `c++`, `cxx`, `c-style`, `modernize`): analyze, bridge,
+  record, diff, bench and gate for C++ files written in a C style. The analyzer maps
+  every C idiom it finds to the C++20/23 facility that replaces it (and the
+  feature-test macro that facility needs); the generated README restates the policy;
+  `gate` adds a `modern` check that refuses C casts, `NULL`, `malloc`/`free`, raw
+  `new`/`delete`, `char*` string calls, `printf` and `typedef struct` in
+  `src/port.cpp` unless annotated `// C-STYLE: why`.
+- The generated CMake now sets `POSITION_INDEPENDENT_CODE` on the port library so the
+  shadow and batch libraries can link it; bench prints its numbers on stderr so an
+  original that prints cannot corrupt the measurement.
+
 ### Source languages
 
 - C: `analyze --lang c` (top-level definitions with supported signatures),

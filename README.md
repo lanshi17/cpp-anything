@@ -145,6 +145,26 @@ cpp-anything setup              # MCP server + skill for the agents found on thi
 cpp-anything mcp                # 21 tools + 2 prompts over stdio
 ```
 
+## Modernize C-style C++
+
+`--lang cpp` treats C-style C++ as the source language: the recording is the same,
+and the port's job is a modern rewrite. The analyzer maps each idiom to its
+replacement and to the feature-test macro that replacement needs; `gate` fails on
+`NULL`, `malloc`/`free`, raw `new`/`delete`, `char*` string calls, `printf`, C casts
+and `typedef struct` left in `src/port.cpp` unless the line (or the comment block
+above it) says `// C-STYLE: why`.
+
+```sh
+cpp-anything analyze . --lang cpp              # every function, every idiom, every mapping
+cpp-anything bridge . legacy.cpp --lang cpp --out cpp/legacy-cpp
+cpp-anything record cpp/legacy-cpp
+$EDITOR cpp/legacy-cpp/src/port.cpp            # string_view, spans, ranges, std::format/std::print
+cpp-anything gate cpp/legacy-cpp               # behaviour and modernization, together
+```
+
+`examples/legacy-cpp` is a complete one: 106 recorded cases, a modern port, and a
+`modern` gate check that fails the moment a C cast comes back.
+
 ## What it can't catch
 
 The recording is the contract. A branch no generated input reaches is not checked,
@@ -214,6 +234,7 @@ gates a port gates the tool.
 | --- | --- |
 | Python | the whole loop, shadow, whole-app (CLI and HTTP), batch, from-tests |
 | C | analyze, bridge, record (fork-per-case harness), diff, bench, gate; supported signatures are scalars, `char*` and `void`, others are reported as skipped |
+| C-style C++ (`--lang cpp`) | the same loop, with modernization as the job: the analyzer names every C idiom (`malloc`/`free`, `char*`, `printf`, C casts, index loops, `typedef struct`) and the C++20/23 facility that replaces it, the generated README and profile gate each replacement on the target toolchain, and `gate` refuses C idioms left in `src/port.cpp` |
 | Go, TypeScript, Java, C#, Ruby | planned, one plugin each: the loop, wire format, shadow, app, map and gate are language-independent; the analyzer, recorder and call mapping are not |
 
 [`docs/PARITY.md`](docs/PARITY.md) is the command-by-command checklist against the

@@ -13,9 +13,9 @@
 
 #include "cppan/json.hpp"
 
-extern "C" {
+{{LINKAGE_OPEN}}
 {{DECLS}}
-}
+{{LINKAGE_CLOSE}}
 
 namespace {
 
@@ -157,8 +157,10 @@ int main(int argc, char** argv) {
     const auto stop = std::chrono::steady_clock::now();
     const double nanos = std::chrono::duration<double, std::nano>(stop - start).count();
     const double calls = static_cast<double>(repeats) * static_cast<double>(lines.size());
-    std::printf("{\"calls\":%lld,\"ns_per_call\":%f,\"sink\":%zu}\n",
-                static_cast<long long>(calls), nanos / calls, sink);
+    // The original may itself print (printf in the unit): the bench number goes to
+    // stderr so it is the only thing a caller has to parse.
+    std::fprintf(stderr, "{\"calls\":%lld,\"ns_per_call\":%f,\"sink\":%zu}\n",
+                 static_cast<long long>(calls), nanos / calls, sink);
   }
   if (out != stdout) std::fclose(out);
   return 0;

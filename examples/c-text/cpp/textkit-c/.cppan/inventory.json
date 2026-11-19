@@ -11,7 +11,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -21,7 +21,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int word_count(const char* text text)"
+        "C signature: int word_count(const char * text)"
       ]
     },
     {
@@ -30,7 +30,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -40,7 +40,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int digits_only(const char* text text)"
+        "C signature: int digits_only(const char * text)"
       ]
     },
     {
@@ -49,14 +49,14 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
         },
         {
           "name": "needle",
-          "annotation": "const char* needle",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -66,7 +66,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int repeat_count(const char* text text, const char* needle needle)"
+        "C signature: int repeat_count(const char * text, const char * needle)"
       ]
     },
     {
@@ -75,7 +75,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -85,7 +85,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: double average_word_length(const char* text text)"
+        "C signature: double average_word_length(const char * text)"
       ]
     },
     {
@@ -94,7 +94,7 @@
       "params": [
         {
           "name": "text",
-          "annotation": "const char* text",
+          "annotation": "const char *",
           "default": null,
           "has_default": false,
           "keyword_only": false
@@ -104,7 +104,7 @@
       "raises": false,
       "doc": [],
       "risks": [
-        "C signature: int alnum_count(const char* text text)"
+        "C signature: int alnum_count(const char * text)"
       ]
     }
   ],

@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.28)
+project(cppan_harness LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+add_executable(cppan_harness main.cpp "/mnt/data/Projects/OpenSource/cpp-anything/examples/legacy-cpp/legacy.cpp")
+target_include_directories(cppan_harness PRIVATE "/mnt/data/Projects/OpenSource/cpp-anything/examples/legacy-cpp/cpp/legacy-cpp/include")
+target_compile_definitions(cppan_harness PRIVATE word_count=cppan_original_word_count;digits_only=cppan_original_digits_only;average_word_length=cppan_original_average_word_length;sum_ascii=cppan_original_sum_ascii;trim_copy=cppan_original_trim_copy;repeat_join=cppan_original_repeat_join;print_words=cppan_original_print_words)
+if(MSVC)
+  target_compile_options(cppan_harness PRIVATE /W3 /utf-8)
+else()
+  target_compile_options(cppan_harness PRIVATE -Wall)
+endif()

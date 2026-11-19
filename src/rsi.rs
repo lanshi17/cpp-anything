@@ -167,6 +167,44 @@ fn app_step(root: &Path) -> Result<Step, String> {
     })
 }
 
+fn cpp_step(root: &Path) -> Result<Step, String> {
+    let project = root
+        .join("examples")
+        .join("legacy-cpp")
+        .join("cpp")
+        .join("legacy-cpp");
+    if !project.join("cases.jsonl").exists() {
+        return Ok(Step {
+            name: "self cpp",
+            ok: false,
+            detail: "examples/legacy-cpp has no recorded cases".into(),
+        });
+    }
+    let build = run_cli(root, &["build", &project.display().to_string()])?;
+    let gate = run_cli(root, &["gate", &project.display().to_string()]);
+    let gate = gate?;
+    let ok = gate.contains("PASS") && gate.contains("modern");
+    Ok(Step {
+        name: "self cpp",
+        ok,
+        detail: if ok {
+            let diff = gate
+                .lines()
+                .find(|line| line.contains("diff "))
+                .unwrap_or("")
+                .trim()
+                .to_string();
+            format!("modernized C-style C++ passes gate ({diff})")
+        } else {
+            format!(
+                "{}{}",
+                util::truncate_text(&build, 80),
+                util::truncate_text(&gate, 200)
+            )
+        },
+    })
+}
+
 fn c_step(root: &Path) -> Result<Step, String> {
     let project = root
         .join("examples")
@@ -296,6 +334,9 @@ fn check(root: &Path, args: &Parsed) -> Result<i32, String> {
 
     // 7. The C plugin still builds its port and matches the harness recording.
     steps.push(c_step(root)?);
+
+    // 8. The C-style C++ language still modernizes without changing behaviour.
+    steps.push(cpp_step(root)?);
 
     if args.flag("json") {
         let doc = Json::obj([

@@ -71,8 +71,19 @@ pub fn run_port(project: &Project, driver: &Path, repeat: usize) -> Result<(f64,
     if !run.ok {
         return Err(format!("the C++ driver's bench failed: {}", run.failure()));
     }
-    let cpp =
-        Json::parse(run.stdout.trim()).map_err(|error| format!("driver bench output: {error}"))?;
+    // The port may print: take the last JSON object line from whichever stream has it.
+    let payload = if run.stdout.trim_start().starts_with('{') {
+        run.stdout.clone()
+    } else {
+        run.stderr.clone()
+    };
+    let last = payload
+        .lines()
+        .rev()
+        .find(|line| line.trim_start().starts_with('{'))
+        .unwrap_or("")
+        .to_string();
+    let cpp = Json::parse(last.trim()).map_err(|error| format!("driver bench output: {error}"))?;
     Ok((
         cpp.get("ns_per_call").and_then(Json::as_f64).unwrap_or(0.0),
         cpp.get("calls").and_then(Json::as_i64).unwrap_or(0) as usize,
@@ -87,12 +98,12 @@ pub fn render(report: &BenchReport, project: &Project) -> String {
         project.module, report.calls, cases, report.repeat
     ));
     out.push_str(&format!(
-        "  {:<22} {:>12} ns/call\n",
+        "  {:<26} {:>12}/call\n",
         format!("original ({})", report.original_label),
         format_ns(report.original_ns)
     ));
     out.push_str(&format!(
-        "  {:<22} {:>12} ns/call\n",
+        "  {:<26} {:>12}/call\n",
         "port (C++)",
         format_ns(report.cpp_ns)
     ));

@@ -46,6 +46,7 @@ called as plain functions (decorated, `async`, `*args`): `bridge` reports those.
 ```sh
 cpp-anything bridge <repo> <module>     # cpp/<unit>; never overwrites without --force
 cpp-anything bridge <repo> <file.c> --lang c
+cpp-anything bridge <repo> <file.cpp> --lang cpp   # C-style C++: modernize as you port
 cpp-anything record cpp/<unit>          # the original's behaviour -> cases.jsonl
 ```
 
@@ -75,7 +76,10 @@ your file.
   `std::sort` is not.
 - Use `CPPAN_HAS_*` from `include/cppan/profile.hpp` for optional facilities; do not
   guess what the compiler has.
-- No `unsafe`, no C casts, no `malloc`; the driver owns memory.
+- No `unsafe`, no C casts, no `malloc`; the driver owns memory. For `--lang cpp`,
+  `gate`'s `modern` check refuses C idioms in `src/port.cpp`: use `string_view`,
+  `span`, ranges and the `CPPAN_HAS_*`-gated formatting facilities, or annotate
+  `// C-STYLE: why` when one has to stay.
 
 ## 4. Diff, then gate
 

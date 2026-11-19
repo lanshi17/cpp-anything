@@ -162,7 +162,9 @@ int main(int argc, char** argv) {
     const double nanos =
         std::chrono::duration<double, std::nano>(stop - start).count();
     const auto calls = static_cast<double>(options.bench) * static_cast<double>(cases.size());
-    std::cout << "{\"calls\":" << static_cast<long long>(calls)
+    // The port may print (the original did): the bench number goes to stderr so a
+    // caller can parse it without filtering the app's own output.
+    std::cerr << "{\"calls\":" << static_cast<long long>(calls)
               << ",\"ns_per_call\":" << (nanos / calls)
               << ",\"sink\":" << sink << "}\n";
     return 0;

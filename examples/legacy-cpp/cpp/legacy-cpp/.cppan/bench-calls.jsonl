@@ -1,0 +1,106 @@
+{"id":"word_count:0","fn":"word_count","args":[""]}
+{"id":"word_count:1","fn":"word_count","args":[" "]}
+{"id":"word_count:2","fn":"word_count","args":["Hello World"]}
+{"id":"word_count:3","fn":"word_count","args":["  Mixed CASE  "]}
+{"id":"word_count:4","fn":"word_count","args":["café — naïve"]}
+{"id":"word_count:5","fn":"word_count","args":["a"]}
+{"id":"word_count:6","fn":"word_count","args":["123"]}
+{"id":"word_count:7","fn":"word_count","args":["-"]}
+{"id":"word_count:8","fn":"word_count","args":["trailing---"]}
+{"id":"word_count:9","fn":"word_count","args":[" leading"]}
+{"id":"word_count:10","fn":"word_count","args":["one\ntwo"]}
+{"id":"word_count:11","fn":"word_count","args":["Москва"]}
+{"id":"word_count:12","fn":"word_count","args":["0"]}
+{"id":"word_count:13","fn":"word_count","args":["a-b_c"]}
+{"id":"word_count:14","fn":"word_count","args":["x"]}
+{"id":"digits_only:0","fn":"digits_only","args":[""]}
+{"id":"digits_only:1","fn":"digits_only","args":[" "]}
+{"id":"digits_only:2","fn":"digits_only","args":["Hello World"]}
+{"id":"digits_only:3","fn":"digits_only","args":["  Mixed CASE  "]}
+{"id":"digits_only:4","fn":"digits_only","args":["café — naïve"]}
+{"id":"digits_only:5","fn":"digits_only","args":["a"]}
+{"id":"digits_only:6","fn":"digits_only","args":["123"]}
+{"id":"digits_only:7","fn":"digits_only","args":["-"]}
+{"id":"digits_only:8","fn":"digits_only","args":["trailing---"]}
+{"id":"digits_only:9","fn":"digits_only","args":[" leading"]}
+{"id":"digits_only:10","fn":"digits_only","args":["one\ntwo"]}
+{"id":"digits_only:11","fn":"digits_only","args":["Москва"]}
+{"id":"digits_only:12","fn":"digits_only","args":["0"]}
+{"id":"digits_only:13","fn":"digits_only","args":["a-b_c"]}
+{"id":"digits_only:14","fn":"digits_only","args":["x"]}
+{"id":"average_word_length:0","fn":"average_word_length","args":[""]}
+{"id":"average_word_length:1","fn":"average_word_length","args":[" "]}
+{"id":"average_word_length:2","fn":"average_word_length","args":["Hello World"]}
+{"id":"average_word_length:3","fn":"average_word_length","args":["  Mixed CASE  "]}
+{"id":"average_word_length:4","fn":"average_word_length","args":["café — naïve"]}
+{"id":"average_word_length:5","fn":"average_word_length","args":["a"]}
+{"id":"average_word_length:6","fn":"average_word_length","args":["123"]}
+{"id":"average_word_length:7","fn":"average_word_length","args":["-"]}
+{"id":"average_word_length:8","fn":"average_word_length","args":["trailing---"]}
+{"id":"average_word_length:9","fn":"average_word_length","args":[" leading"]}
+{"id":"average_word_length:10","fn":"average_word_length","args":["one\ntwo"]}
+{"id":"average_word_length:11","fn":"average_word_length","args":["Москва"]}
+{"id":"average_word_length:12","fn":"average_word_length","args":["0"]}
+{"id":"average_word_length:13","fn":"average_word_length","args":["a-b_c"]}
+{"id":"average_word_length:14","fn":"average_word_length","args":["x"]}
+{"id":"sum_ascii:0","fn":"sum_ascii","args":[""]}
+{"id":"sum_ascii:1","fn":"sum_ascii","args":[" "]}
+{"id":"sum_ascii:2","fn":"sum_ascii","args":["Hello World"]}
+{"id":"sum_ascii:3","fn":"sum_ascii","args":["  Mixed CASE  "]}
+{"id":"sum_ascii:4","fn":"sum_ascii","args":["café — naïve"]}
+{"id":"sum_ascii:5","fn":"sum_ascii","args":["a"]}
+{"id":"sum_ascii:6","fn":"sum_ascii","args":["123"]}
+{"id":"sum_ascii:7","fn":"sum_ascii","args":["-"]}
+{"id":"sum_ascii:8","fn":"sum_ascii","args":["trailing---"]}
+{"id":"sum_ascii:9","fn":"sum_ascii","args":[" leading"]}
+{"id":"sum_ascii:10","fn":"sum_ascii","args":["one\ntwo"]}
+{"id":"sum_ascii:11","fn":"sum_ascii","args":["Москва"]}
+{"id":"sum_ascii:12","fn":"sum_ascii","args":["0"]}
+{"id":"sum_ascii:13","fn":"sum_ascii","args":["a-b_c"]}
+{"id":"sum_ascii:14","fn":"sum_ascii","args":["x"]}
+{"id":"trim_copy:0","fn":"trim_copy","args":[""]}
+{"id":"trim_copy:1","fn":"trim_copy","args":[" "]}
+{"id":"trim_copy:2","fn":"trim_copy","args":["Hello World"]}
+{"id":"trim_copy:3","fn":"trim_copy","args":["  Mixed CASE  "]}
+{"id":"trim_copy:4","fn":"trim_copy","args":["café — naïve"]}
+{"id":"trim_copy:5","fn":"trim_copy","args":["a"]}
+{"id":"trim_copy:6","fn":"trim_copy","args":["123"]}
+{"id":"trim_copy:7","fn":"trim_copy","args":["-"]}
+{"id":"trim_copy:8","fn":"trim_copy","args":["trailing---"]}
+{"id":"trim_copy:9","fn":"trim_copy","args":[" leading"]}
+{"id":"trim_copy:10","fn":"trim_copy","args":["one\ntwo"]}
+{"id":"trim_copy:11","fn":"trim_copy","args":["Москва"]}
+{"id":"trim_copy:12","fn":"trim_copy","args":["0"]}
+{"id":"trim_copy:13","fn":"trim_copy","args":["a-b_c"]}
+{"id":"trim_copy:14","fn":"trim_copy","args":["x"]}
+{"id":"repeat_join:0","fn":"repeat_join","args":["",0]}
+{"id":"repeat_join:1","fn":"repeat_join","args":[" ",1]}
+{"id":"repeat_join:2","fn":"repeat_join","args":["Hello World",-1]}
+{"id":"repeat_join:3","fn":"repeat_join","args":["  Mixed CASE  ",7]}
+{"id":"repeat_join:4","fn":"repeat_join","args":["café — naïve",42]}
+{"id":"repeat_join:5","fn":"repeat_join","args":["a",12]}
+{"id":"repeat_join:6","fn":"repeat_join","args":["123",100]}
+{"id":"repeat_join:7","fn":"repeat_join","args":["-",-100]}
+{"id":"repeat_join:8","fn":"repeat_join","args":["trailing---",10000]}
+{"id":"repeat_join:9","fn":"repeat_join","args":[" leading",3]}
+{"id":"repeat_join:10","fn":"repeat_join","args":["one\ntwo",19]}
+{"id":"repeat_join:11","fn":"repeat_join","args":["Москва",255]}
+{"id":"repeat_join:12","fn":"repeat_join","args":["0",-7]}
+{"id":"repeat_join:13","fn":"repeat_join","args":["a-b_c",2000000]}
+{"id":"repeat_join:14","fn":"repeat_join","args":["x",8]}
+{"id":"repeat_join:15","fn":"repeat_join","args":["",11]}
+{"id":"print_words:0","fn":"print_words","args":[""]}
+{"id":"print_words:1","fn":"print_words","args":[" "]}
+{"id":"print_words:2","fn":"print_words","args":["Hello World"]}
+{"id":"print_words:3","fn":"print_words","args":["  Mixed CASE  "]}
+{"id":"print_words:4","fn":"print_words","args":["café — naïve"]}
+{"id":"print_words:5","fn":"print_words","args":["a"]}
+{"id":"print_words:6","fn":"print_words","args":["123"]}
+{"id":"print_words:7","fn":"print_words","args":["-"]}
+{"id":"print_words:8","fn":"print_words","args":["trailing---"]}
+{"id":"print_words:9","fn":"print_words","args":[" leading"]}
+{"id":"print_words:10","fn":"print_words","args":["one\ntwo"]}
+{"id":"print_words:11","fn":"print_words","args":["Москва"]}
+{"id":"print_words:12","fn":"print_words","args":["0"]}
+{"id":"print_words:13","fn":"print_words","args":["a-b_c"]}
+{"id":"print_words:14","fn":"print_words","args":["x"]}

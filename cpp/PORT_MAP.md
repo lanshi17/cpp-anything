@@ -1,11 +1,12 @@
 # Port map: cpp-anything
 
-2 unit(s) have a C++ port; no original changed since it was recorded., 2 still only in Python.
+3 unit(s) have a C++ port; no original changed since it was recorded., 2 still only in Python.
 
 ## Ports
 
 | Unit | Project | In C++ | Cases | Last diff | Original |
 | --- | --- | --- | ---: | --- | --- |
+| `legacy` | `examples/legacy-cpp/cpp/legacy-cpp` | `word_count`, `digits_only`, `average_word_length`, `sum_ascii`, `trim_copy`, `repeat_join`, `print_words` | 106 | 106/106 | unchanged |
 | `textkit` | `examples/c-text/cpp/textkit-c` | `word_count`, `digits_only`, `repeat_count`, `average_word_length`, `alnum_count` | 75 | 75/75 | unchanged |
 | `textkit.words` | `examples/textkit-cpp` | `slug`, `truncate`, `word_count`, `digits_only`, `summarize`, `require_positive` | 146 | not run | unchanged |
 

@@ -159,6 +159,7 @@ impl Config {
 
 #[derive(Clone, Debug)]
 pub struct Case {
+    pub request: Option<HttpRequest>,
     pub name: String,
     pub args: Vec<String>,
     pub stdin: String,
@@ -171,7 +172,23 @@ pub struct Case {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct HttpRequest {
+    pub method: String,
+    pub path: String,
+    pub headers: Vec<(String, String)>,
+    pub body: String,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct HttpExpect {
+    pub status: u16,
+    pub content_type: String,
+    pub body: String,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Expect {
+    pub http: Option<HttpExpect>,
     pub stdout: String,
     pub stderr: String,
     pub exit: i32,
@@ -208,6 +225,29 @@ impl Case {
                 ),
             ),
             (
+                "request",
+                self.request
+                    .as_ref()
+                    .map(|request| {
+                        Json::obj([
+                            ("method", Json::str(request.method.clone())),
+                            ("path", Json::str(request.path.clone())),
+                            (
+                                "headers",
+                                Json::Object(
+                                    request
+                                        .headers
+                                        .iter()
+                                        .map(|(key, value)| (key.clone(), Json::str(value.clone())))
+                                        .collect(),
+                                ),
+                            ),
+                            ("body", Json::str(request.body.clone())),
+                        ])
+                    })
+                    .unwrap_or(Json::Null),
+            ),
+            (
                 "expect",
                 Json::obj([
                     ("stdout", Json::str(self.expect.stdout.clone())),
@@ -224,6 +264,20 @@ impl Case {
                         ),
                     ),
                     ("fallback", Json::Bool(self.expect.fallback)),
+                    (
+                        "http",
+                        self.expect
+                            .http
+                            .as_ref()
+                            .map(|http| {
+                                Json::obj([
+                                    ("status", Json::Int(i64::from(http.status))),
+                                    ("content_type", Json::str(http.content_type.clone())),
+                                    ("body", Json::str(http.body.clone())),
+                                ])
+                            })
+                            .unwrap_or(Json::Null),
+                    ),
                     (
                         "effects",
                         Json::Array(
@@ -265,7 +319,51 @@ impl Case {
                 .unwrap_or_default()
         };
         let expect = doc.get("expect").cloned().unwrap_or(Json::Null);
+        let request = doc.get("request").and_then(Json::as_object).map(|_| {
+            let query = doc.get("request").cloned().unwrap_or(Json::Null);
+            HttpRequest {
+                method: query
+                    .get("method")
+                    .and_then(Json::as_str)
+                    .unwrap_or("GET")
+                    .to_string(),
+                path: query
+                    .get("path")
+                    .and_then(Json::as_str)
+                    .unwrap_or("/")
+                    .to_string(),
+                headers: pairs(query.get("headers")),
+                body: query
+                    .get("body")
+                    .and_then(Json::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+            }
+        });
+        let http = expect
+            .get("http")
+            .and_then(Json::as_object)
+            .map(|_| HttpExpect {
+                status: expect
+                    .get("http")
+                    .and_then(|http| http.get("status"))
+                    .and_then(Json::as_i64)
+                    .unwrap_or(0) as u16,
+                content_type: expect
+                    .get("http")
+                    .and_then(|http| http.get("content_type"))
+                    .and_then(Json::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                body: expect
+                    .get("http")
+                    .and_then(|http| http.get("body"))
+                    .and_then(Json::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+            });
         Ok(Case {
+            request,
             name: doc
                 .get("name")
                 .and_then(Json::as_str)
@@ -280,6 +378,7 @@ impl Case {
             env: pairs(doc.get("env")),
             files: pairs(doc.get("files")),
             expect: Expect {
+                http,
                 stdout: expect
                     .get("stdout")
                     .and_then(Json::as_str)
@@ -690,6 +789,7 @@ pub fn settle(
         env: Vec::new(),
         files: Vec::new(),
         expect: Expect {
+            http: None,
             stdout,
             stderr,
             exit: first.exit,
@@ -699,6 +799,7 @@ pub fn settle(
         },
         unstable,
         source: source.to_string(),
+        request: None,
     }
 }
 

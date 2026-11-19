@@ -5,6 +5,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use crate::appcase::{self, Case, Config, RunOptions};
+use crate::apphttp;
 use crate::cli::Parsed;
 use crate::json::Json;
 use crate::util;
@@ -79,6 +80,14 @@ fn repo_of<'a>(view: &ParsedView<'a>) -> PathBuf {
 
 fn record(view: &ParsedView<'_>) -> Result<i32, String> {
     let repo = repo_of(view);
+    if view.flag("http")
+        || view.number("port").is_some()
+        || Config::load(&repo.join(crate::appcase::CASES_DIR))
+            .map(|config| config.http)
+            .unwrap_or(false)
+    {
+        return record_http(view, &repo);
+    }
     let dir = repo.join(appcase::CASES_DIR);
     let mut config = Config::load(&dir).unwrap_or_default();
 
@@ -158,6 +167,7 @@ fn record(view: &ParsedView<'_>) -> Result<i32, String> {
                 expect: Default::default(),
                 unstable: false,
                 source: "no-args".into(),
+                request: None,
             },
         ));
     }
@@ -498,6 +508,7 @@ fn case_from_command(command: &str, app: &str) -> Option<Case> {
         expect: Default::default(),
         unstable: false,
         source: "docs".into(),
+        request: None,
     })
 }
 
@@ -606,6 +617,7 @@ fn read_inputs(path: &Path) -> Result<Vec<(String, Case)>, String> {
                 expect: Default::default(),
                 unstable: false,
                 source: "inputs".into(),
+                request: None,
             },
         ));
     }
@@ -688,6 +700,13 @@ fn replay(view: &ParsedView<'_>) -> Result<i32, String> {
     let repo = repo_of(view);
     let dir = repo.join(appcase::CASES_DIR);
     let config = Config::load(&dir)?;
+    if config.http {
+        let build: Vec<String> = match view.value("build") {
+            Some(command) => command.split_whitespace().map(str::to_string).collect(),
+            None => config.run.clone(),
+        };
+        return replay_http(&repo, &config, &build, view);
+    }
     let mut cases = appcase::load_cases(&repo)?;
     if let Some(only) = view.value("case") {
         cases.retain(|case| case.name == only);
@@ -797,6 +816,368 @@ fn replay(view: &ParsedView<'_>) -> Result<i32, String> {
 }
 
 // ---------------------------------------------------------------------------
+// HTTP: servers
+// ---------------------------------------------------------------------------
+
+fn record_http(view: &ParsedView<'_>, repo: &Path) -> Result<i32, String> {
+    let dir = repo.join(crate::appcase::CASES_DIR);
+    let mut config = Config::load(&dir).unwrap_or_default();
+    let run: Vec<String> = if view.trailing().is_empty() {
+        config.run.clone()
+    } else {
+        view.trailing().to_vec()
+    };
+    if run.is_empty() {
+        return Err(
+            "app record --http needs the command that starts the server, after `--`:              `cpp-anything app record . --http -- python3 server.py`"
+                .into(),
+        );
+    }
+    config.http = true;
+    config.run = run;
+    config.timeout_secs = view.number("timeout").unwrap_or(config.timeout_secs).max(1);
+    if let Some(name) = view.value("name") {
+        config.name = name.to_string();
+    } else if config.name.is_empty() {
+        config.name = discover_name(repo, &config.run);
+    }
+    if let Some(port) = view.number("port") {
+        config.port = Some(port as u16);
+    }
+    if !view.values("arg").is_empty() {
+        config.args = view.values("arg");
+    }
+    if !view.values("normalize").is_empty() {
+        config.normalize = view.values("normalize");
+    }
+    if !view.values("fresh").is_empty() {
+        config.fresh = view.values("fresh");
+    }
+    if let Some(pace) = view.number("pace") {
+        config.pace_ms = pace;
+    }
+
+    let port = config.port.unwrap_or(apphttp::free_port()?);
+    let sandbox = std::env::temp_dir()
+        .join("cpp-anything")
+        .join("app-http")
+        .join(format!("{}-{}", std::process::id(), config.name));
+    let _ = std::fs::remove_dir_all(&sandbox);
+    std::fs::create_dir_all(&sandbox).map_err(|error| format!("{}: {error}", sandbox.display()))?;
+    for path in &config.fresh {
+        let source = repo.join(path);
+        let target = sandbox.join(path);
+        if source.is_dir() {
+            copy_tree(&source, &target)?;
+        } else if source.is_file() {
+            if let Some(parent) = target.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|error| format!("{}: {error}", parent.display()))?;
+            }
+            std::fs::copy(&source, &target)
+                .map_err(|error| format!("{}: {error}", source.display()))?;
+        }
+    }
+
+    {
+        let mut server = apphttp::start(
+            &config.run,
+            repo,
+            &sandbox,
+            port,
+            config.timeout_secs,
+            &[],
+        )
+        .or_else(|error| {
+            // A server that ignores PORT can still be recorded on a fixed port.
+            match config.port {
+                Some(port) => {
+                    apphttp::start(&config.run, repo, &sandbox, port, config.timeout_secs, &[])
+                }
+                None => Err(error),
+            }
+        })?;
+
+        let mut requests: Vec<(String, apphttp::HttpRequest)> = Vec::new();
+        for path in walk_docs(repo, 0) {
+            let text = util::read(&path).unwrap_or_default();
+            for request in apphttp::requests_in(&text) {
+                if !request.path.is_empty() {
+                    requests.push(("docs".to_string(), request));
+                }
+            }
+        }
+        requests.extend(read_http_inputs()?);
+        if requests.is_empty() {
+            requests.push((
+                "no-request".to_string(),
+                apphttp::HttpRequest {
+                    method: "GET".into(),
+                    path: "/".into(),
+                    headers: Vec::new(),
+                    body: String::new(),
+                },
+            ));
+        }
+        if !view.flag("no-traps") {
+            let mut trapped = Vec::new();
+            for (source, request) in &requests {
+                trapped.push((source.clone(), request.clone()));
+                for (path, body) in [
+                    ("/%C3%BCnicode", String::new()),
+                    ("/?q=%F0%9F%91%8D", String::new()),
+                ] {
+                    let mut clone = request.clone();
+                    clone.path = path.to_string();
+                    if body.is_empty() {
+                        trapped.push(("trap".to_string(), clone));
+                    }
+                }
+                if !request.body.is_empty() {
+                    for body in ["{}", "{\"n\":1e21,\"neg\":-0.0,\"s\":\"café\"}", ""] {
+                        let mut clone = request.clone();
+                        clone.body = body.to_string();
+                        trapped.push(("trap".to_string(), clone));
+                    }
+                }
+            }
+            requests = trapped;
+        }
+
+        let mut cases = Vec::new();
+        let mut taken: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        for (index, (source, request)) in requests.into_iter().enumerate() {
+            let base = format!(
+                "{}-{:03}-{}",
+                label_of(&source),
+                index + 1,
+                slug_of(request.path.trim_start_matches('/'))
+            );
+            let mut name = base.clone();
+            let mut suffix = 2;
+            while !taken.insert(name.clone()) {
+                name = format!("{base}-{suffix}");
+                suffix += 1;
+            }
+            let response = apphttp::request(server.port, &request)?;
+            let expect_http = apphttp::expectation(response);
+            cases.push(Case {
+                request: Some(request),
+                name,
+                args: Vec::new(),
+                stdin: String::new(),
+                env: Vec::new(),
+                files: Vec::new(),
+                expect: appcase::Expect {
+                    http: Some(expect_http),
+                    ..Default::default()
+                },
+                unstable: false,
+                source,
+            });
+            if config.pace_ms > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(config.pace_ms));
+            }
+        }
+        server.stop();
+        config.save(&dir)?;
+        appcase::save_cases(repo, &cases)?;
+        if view.flag("json") {
+            let doc = Json::obj([
+                ("schema", Json::str("cpp-anything/app-record@1")),
+                ("app", Json::str(config.name.clone())),
+                ("http", Json::Bool(true)),
+                ("port", Json::Int(i64::from(port))),
+                ("cases", Json::Int(cases.len() as i64)),
+            ]);
+            println!("{}", doc.to_string_pretty());
+        } else {
+            println!(
+                "cpp-anything app record: {} — {} HTTP case(s) on port {port} in {}",
+                config.name,
+                cases.len(),
+                dir.display()
+            );
+            println!("  next: `cpp-anything app replay .` and `cpp-anything app front-door .`");
+        }
+    }
+    Ok(0)
+}
+
+fn replay_http(
+    repo: &Path,
+    config: &Config,
+    build: &[String],
+    view: &ParsedView<'_>,
+) -> Result<i32, String> {
+    let cases = appcase::load_cases(repo)?;
+    let port = config.port.unwrap_or(apphttp::free_port()?);
+    let sandbox = std::env::temp_dir()
+        .join("cpp-anything")
+        .join("app-http-replay")
+        .join(std::process::id().to_string());
+    let _ = std::fs::remove_dir_all(&sandbox);
+    std::fs::create_dir_all(&sandbox).map_err(|error| format!("{}: {error}", sandbox.display()))?;
+    let mut server = apphttp::start(build, repo, &sandbox, port, config.timeout_secs, &[])?;
+    let mut passed = 0usize;
+    let mut failures = Vec::new();
+    for case in &cases {
+        if let Some(only) = view.value("case") {
+            if case.name != only {
+                continue;
+            }
+        }
+        let Some(request) = &case.request else {
+            continue;
+        };
+        match apphttp::request(server.port, request) {
+            Ok(response) => {
+                if let Some(expected) = &case.expect.http {
+                    let body = appcase::normalize(&response.body, &config.normalize);
+                    let expected_body = appcase::normalize(&expected.body, &config.normalize);
+                    let content_type = apphttp::content_type(&response);
+                    if response.status != expected.status {
+                        failures.push((
+                            case.name.clone(),
+                            format!(
+                                "status: expected {}, got {}",
+                                expected.status, response.status
+                            ),
+                        ));
+                    } else if !expected.content_type.is_empty()
+                        && content_type != expected.content_type
+                    {
+                        failures.push((
+                            case.name.clone(),
+                            format!(
+                                "content-type: expected {:?}, got {content_type:?}",
+                                expected.content_type
+                            ),
+                        ));
+                    } else if body != expected_body {
+                        failures.push((
+                            case.name.clone(),
+                            format!(
+                                "body: expected {:?}, got {:?}",
+                                util::truncate_text(&expected_body, 120),
+                                util::truncate_text(&body, 120)
+                            ),
+                        ));
+                    } else {
+                        passed += 1;
+                    }
+                }
+            }
+            Err(error) => failures.push((case.name.clone(), error)),
+        }
+        if config.pace_ms > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(config.pace_ms));
+        }
+    }
+    server.stop();
+    if view.flag("json") {
+        let doc = Json::obj([
+            ("schema", Json::str("cpp-anything/app-replay@1")),
+            ("app", Json::str(config.name.clone())),
+            ("http", Json::Bool(true)),
+            ("cases", Json::Int(cases.len() as i64)),
+            ("passed", Json::Int(passed as i64)),
+            (
+                "failures",
+                Json::Array(
+                    failures
+                        .iter()
+                        .map(|(name, reason)| {
+                            Json::obj([
+                                ("case", Json::str(name.clone())),
+                                ("reason", Json::str(reason.clone())),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
+        ]);
+        println!("{}", doc.to_string_pretty());
+    } else {
+        println!(
+            "cpp-anything app replay: {} (HTTP) — {}/{} cases passed",
+            config.name,
+            passed,
+            cases.len()
+        );
+        for (name, reason) in failures.iter().take(10) {
+            println!("  ✗ {name}\n    {reason}");
+        }
+    }
+    Ok(if failures.is_empty() { 0 } else { 1 })
+}
+
+fn read_http_inputs() -> Result<Vec<(String, apphttp::HttpRequest)>, String> {
+    let Some(path) = std::env::var_os("CPPAN_APP_INPUTS").map(PathBuf::from) else {
+        return Ok(Vec::new());
+    };
+    let text = util::read(&path)?;
+    let mut out = Vec::new();
+    for (number, line) in text.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let doc = Json::parse(line)
+            .map_err(|error| format!("{}:{}: {error}", path.display(), number + 1))?;
+        let headers = doc
+            .get("headers")
+            .and_then(Json::as_object)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.as_str().unwrap_or("").to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.push((
+            "inputs".to_string(),
+            apphttp::HttpRequest {
+                method: doc
+                    .get("method")
+                    .and_then(Json::as_str)
+                    .unwrap_or("GET")
+                    .to_string(),
+                path: doc
+                    .get("path")
+                    .and_then(Json::as_str)
+                    .unwrap_or("/")
+                    .to_string(),
+                headers,
+                body: doc
+                    .get("body")
+                    .map(|body| {
+                        body.as_str()
+                            .map(str::to_string)
+                            .unwrap_or_else(|| body.to_string_compact())
+                    })
+                    .unwrap_or_default(),
+            },
+        ));
+    }
+    Ok(out)
+}
+
+fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(to).map_err(|error| format!("{}: {error}", to.display()))?;
+    for entry in std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))? {
+        let entry = entry.map_err(|error| format!("{}: {error}", from.display()))?;
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_tree(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)
+                .map_err(|error| format!("{}: {error}", target.display()))?;
+        }
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // front door
 // ---------------------------------------------------------------------------
 
@@ -804,13 +1185,7 @@ fn front_door(view: &ParsedView<'_>) -> Result<i32, String> {
     let repo = repo_of(view);
     let dir = repo.join(appcase::CASES_DIR);
     let config = Config::load(&dir)?;
-    if config.http {
-        return Err(
-            "app front-door covers CLIs; servers are replayed with `app replay --build` against the \
-             rewritten server until the HTTP front door lands"
-                .into(),
-        );
-    }
+    // Servers get a proxy front door: it owns PORT and forwards to the original.
     let app_dir = repo.join("cpp").join("app");
     let routes = crate::appfront::write(&app_dir, &config)?;
     println!(
@@ -825,7 +1200,14 @@ fn front_door(view: &ParsedView<'_>) -> Result<i32, String> {
     }
     let build = crate::appfront::build(&app_dir)?;
     println!("  built {}", util::short_path(&build));
-    let code = replay_build(&repo, &build, view)?;
+    let dir = repo.join(appcase::CASES_DIR);
+    let config = Config::load(&dir)?;
+    let code = if config.http {
+        let options = ParsedView::new(view.args, 0);
+        replay_http(&repo, &config, &[build.display().to_string()], &options)?
+    } else {
+        replay_build(&repo, &build, view)?
+    };
     Ok(code)
 }
 
@@ -897,6 +1279,16 @@ fn lift(view: &ParsedView<'_>) -> Result<i32, String> {
     let repo = repo_of(view);
     let dir = repo.join(appcase::CASES_DIR);
     let mut config = Config::load(&dir)?;
+    if config.http {
+        return Err(
+            "servers ship behind the proxy front door, but no HTTP route is wired yet: `app lift` \
+             needs the proxy to stop forwarding, and this build has no native route. Port the \
+             server's units, then teach the front door the routes they answer (`app wire` on a server \
+             is not implemented yet) — until then keep the proxy: every case passes and every \
+             request is accounted for in the fallback log."
+                .into(),
+        );
+    }
     let build = repo
         .join("cpp")
         .join("app")

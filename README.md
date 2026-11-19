@@ -118,6 +118,20 @@ Fallback is explicit: `CPPAN_UNIT_<NAME>=original` forces a unit back, the fallb
 log counts what ran the original, and `app lift` will not call an app standalone
 while a case still needs it.
 
+## Servers
+
+`app record --http` starts the server, sends the `curl` lines from its docs (plus
+`--inputs` and semantic traps), and stores what it answered. `app replay` starts any
+build the same way and compares status, content type and body. `app front-door`
+generates a proxy that owns `PORT` and runs the original behind it, so a server
+ships immediately and every request is accounted for in the fallback log; `app lift`
+stays refused until the proxy has native HTTP routes.
+
+```sh
+cpp-anything app record . --http -- python3 server.py
+cpp-anything app replay . --build ./cpp/app/build/cppan_app
+```
+
 ## Map, setup, and the agent loop
 
 ```sh

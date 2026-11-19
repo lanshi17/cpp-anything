@@ -9,6 +9,7 @@ mod analyze;
 mod app;
 mod appcase;
 mod appfront;
+mod apphttp;
 mod bench;
 mod build;
 mod cli;

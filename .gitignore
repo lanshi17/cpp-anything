@@ -12,3 +12,4 @@ examples/*/cpp/app/build/
 examples/*/results.jsonl
 examples/textkit-cpp/shadow/*.jsonl
 .DS_Store
+examples/http-app/cpp/app/build/

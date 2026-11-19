@@ -32,6 +32,11 @@ Full parity with the reference tool's loop, for a C++ target.
 - `app replay` — any build against the cases, per-case report, `--case`, JSON.
 - `app front-door` — a C++ binary that owns the entry point, routes wired commands,
   execs the original for the rest, with a fallback log and kill switches.
+- `app record --http` / `app replay` for servers: the server is started on a free
+  port, requests come from docs `curl` lines, `--inputs` and traps, and responses
+  are compared by status, content type and body (normalisable). `--fresh`/`--pace`
+  supported; the front door for a server is a C++ proxy that owns `PORT` and runs
+  the original behind it.
 - `app wire` — routes, glue stub, per-unit library linking, kill switch.
 - `app lift` — refuses while any case falls back; marks the app standalone at zero.
 

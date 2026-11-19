@@ -167,6 +167,28 @@ fn app_step(root: &Path) -> Result<Step, String> {
     })
 }
 
+fn http_step(root: &Path) -> Result<Step, String> {
+    let example = root.join("examples").join("http-app");
+    if !example.join("cpp").join("app-cases").exists() {
+        return Ok(Step {
+            name: "self http",
+            ok: false,
+            detail: "examples/http-app has no recorded cases".into(),
+        });
+    }
+    let output = run_cli(&example, &["app", "replay", "."])?;
+    let ok = output.contains("cases passed") && !output.contains("✗");
+    Ok(Step {
+        name: "self http",
+        ok,
+        detail: if ok {
+            "started the server, sent every recorded request and matched the responses".to_string()
+        } else {
+            util::truncate_text(&output, 200)
+        },
+    })
+}
+
 fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
     for entry in std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))? {
         let entry = entry.map_err(|error| format!("{}: {error}", from.display()))?;
@@ -233,6 +255,9 @@ fn check(root: &Path, args: &Parsed) -> Result<i32, String> {
 
     // 5. The whole-app loop still records, builds a front door and lifts.
     steps.push(app_step(root)?);
+
+    // 6. Server mode still starts a server, sends the recorded requests and compares.
+    steps.push(http_step(root)?);
 
     if args.flag("json") {
         let doc = Json::obj([

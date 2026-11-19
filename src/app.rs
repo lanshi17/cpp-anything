@@ -1382,7 +1382,7 @@ fn lift(view: &ParsedView<'_>) -> Result<i32, String> {
                 .into(),
         );
     }
-    let build = repo
+    let mut build = repo
         .join("cpp")
         .join("app")
         .join("build")
@@ -1390,12 +1390,15 @@ fn lift(view: &ParsedView<'_>) -> Result<i32, String> {
             "cppan_app.exe"
         } else {
             "cppan_app"
-        })
-        .canonicalize()
-        .map_err(|error| format!("{}: {error}", repo.join("cpp/app/build").display()))?;
+        });
     if !build.exists() {
-        return Err("no built front door: run `cpp-anything app front-door .` first".into());
+        // A fresh checkout has no build tree: build it here rather than make the user
+        // discover the order.
+        build = crate::appfront::build(&repo.join("cpp").join("app"))?;
     }
+    let build = build
+        .canonicalize()
+        .map_err(|error| format!("{}: {error}", build.display()))?;
     let code = replay_build(&repo, &build, view)?;
     if code != 0 {
         return Ok(code);

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 import importlib
 import importlib.util
 import json
@@ -268,18 +269,46 @@ def module_functions(path: Path) -> tuple[list[dict], str]:
     return functions, source
 
 
-def module_imports(path: Path) -> list[str]:
+# `tkinter` is stdlib but it is also the one stdlib import that keeps a unit in
+# Python: the library table decides that, not the import filter.
+STDLIB = (set(getattr(sys, "stdlib_module_names", set())) | {"__future__"}) - {"tkinter"}
+
+
+def module_imports(path: Path, module: str = "") -> list[str]:
+    """Imports reduced to what a dependency table can name: absolute packages, no
+    stdlib, no relative modules (those are units of the same repository)."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
     except SyntaxError:
         return []
+    package = module.split(".")[:-1]
     names = []
+
+    def add(name: str):
+        """Keep the dotted path: the Rust side reduces it for the dependency table
+        and needs the full path to order units by their imports."""
+        if not name or name in names:
+            return
+        if name.split(".")[0] in STDLIB:
+            return
+        names.append(name)
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
-            names.extend(alias.name.split(".")[0] for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            names.append(node.module.split(".")[0])
-    return sorted(set(names))
+            for alias in node.names:
+                add(alias.name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                # level 1 is the current package, level 2 its parent, ...
+                keep = package[: max(0, len(package) - node.level + 1)]
+                if node.module:
+                    keep = keep + node.module.split(".")
+                target = ".".join(keep)
+                if target:
+                    add(target)
+            elif node.module:
+                add(node.module)
+    return sorted(names)
 
 
 def module_risks(source: str) -> list[str]:
@@ -341,6 +370,9 @@ def mode_analyze(args) -> int:
             continue
         if path.name in SKIP_FILES or not path.is_file():
             continue
+        # Test modules are the suite, not the app: `record --from-tests` uses them.
+        if path.name.startswith("test_") or path.name.endswith("_test.py"):
+            continue
         try:
             functions, source = module_functions(path)
         except SyntaxError:
@@ -351,6 +383,7 @@ def mode_analyze(args) -> int:
         modules.append({
             "path": str(path.relative_to(root)),
             "module": ".".join(path.relative_to(root).with_suffix("").parts),
+            "entry_point": "__name__" in source and "__main__" in source,
             "lines": line_count,
             "functions": [
                 {
@@ -362,10 +395,53 @@ def mode_analyze(args) -> int:
                 for function in functions
             ],
             "risks": module_risks(source),
-            "imports": module_imports(path),
+            "imports": module_imports(path, ".".join(path.relative_to(root).with_suffix("").parts)),
         })
-    print(json.dumps({"root": str(root), "modules": modules}, ensure_ascii=False))
+    print(json.dumps({
+        "root": str(root),
+        "modules": modules,
+        "dependencies": declared_dependencies(root),
+    }, ensure_ascii=False))
     return 0
+
+
+def declared_dependencies(root):
+    """Packages the project declares, without a TOML parser: enough to map them."""
+    names = []
+    pyproject = root / "pyproject.toml"
+    if pyproject.exists():
+        text = pyproject.read_text(encoding="utf-8", errors="replace")
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith(("\"", "'")):
+                head = stripped.strip(",").strip("\"'")
+                if head and not head.startswith(("http", "[")):
+                    name = re.split(r"[<>=!~ \[]", head)[0]
+                    if name and name not in names:
+                        names.append(name)
+    for candidate in ("requirements.txt", "requirements-dev.txt", "requirements/base.txt"):
+        path = root / candidate
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith("-"):
+                continue
+            name = re.split(r"[<>=!~ \[]", stripped)[0]
+            if name and name not in names:
+                names.append(name)
+    package = root / "package.json"
+    if package.exists():
+        try:
+            import json as _json
+            doc = _json.loads(package.read_text(encoding="utf-8"))
+            for key in ("dependencies", "devDependencies"):
+                for name in (doc.get(key) or {}):
+                    if name not in names:
+                        names.append(name)
+        except Exception:
+            pass
+    return names
 
 
 def mode_inventory(args) -> int:
@@ -390,7 +466,7 @@ def mode_inventory(args) -> int:
         "functions": functions,
         "skipped": skipped,
         "risks": module_risks(source),
-        "imports": module_imports(path),
+        "imports": module_imports(path, args.module),
     }, ensure_ascii=False))
     return 0
 

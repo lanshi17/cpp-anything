@@ -1,8 +1,12 @@
-//! `analyze`: what is in the repository, what it costs to port, and where to start.
+//! `analyze`: what is in the repository, what porting each unit costs, and where to
+//! start. `--whole-app` adds the app's shape, every dependency with its C++ library,
+//! the port order and the decisions the user has to make.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::json::Json;
+use crate::libs::{self, Fit};
 use crate::util;
 
 pub struct Resolved {
@@ -57,11 +61,7 @@ pub fn resolve(repo: &Path, unit: &str, module_root: Option<&Path>) -> Result<Re
         }
     };
 
-    let package_root = file
-        .strip_prefix(&base)
-        .ok()
-        .map(|_| base.clone())
-        .or_else(|| Some(base.clone()));
+    let package_root = Some(base.clone());
     Ok(Resolved {
         file,
         module,
@@ -93,101 +93,424 @@ pub fn analyze(repo: &Path) -> Result<Json, String> {
     crate::python::analyze(repo)
 }
 
-pub fn render_plan(doc: &Json, repo: &Path) -> String {
-    let modules = doc
+// ---------------------------------------------------------------------------
+// the plan
+// ---------------------------------------------------------------------------
+
+struct Unit {
+    module: String,
+    lines: u32,
+    functions: Vec<Json>,
+    risks: Vec<String>,
+    imports: Vec<String>,
+    entry_point: bool,
+    status: &'static str,
+    note: String,
+    readiness: i64,
+    priority: i64,
+    wave: usize,
+}
+
+fn units(doc: &Json) -> Vec<Unit> {
+    let mut out = Vec::new();
+    for module in doc
         .get("modules")
         .and_then(Json::as_array)
-        .unwrap_or_default();
-    let mut rows: Vec<(String, u32, usize, usize, usize)> = modules
-        .iter()
-        .map(|module| {
-            let name = module
+        .unwrap_or_default()
+    {
+        let imports: Vec<String> = module
+            .get("imports")
+            .and_then(Json::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let risks: Vec<String> = module
+            .get("risks")
+            .and_then(Json::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| item.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let functions = module
+            .get("functions")
+            .and_then(Json::as_array)
+            .map(<[Json]>::to_vec)
+            .unwrap_or_default();
+        let lines = module.get("lines").and_then(Json::as_i64).unwrap_or(0) as u32;
+
+        let mut none_deps = 0;
+        let mut unknown_deps = 0;
+        let mut kept = false;
+        let mut blockers = Vec::new();
+        for import in &imports {
+            let package = libs::reduce(import);
+            match libs::find(package) {
+                Some(entry) if entry.fit == Fit::None => {
+                    none_deps += 1;
+                    blockers.push(format!("`{package}` has no C++ equivalent in the table"));
+                }
+                Some(entry) if entry.libs.is_empty() && entry.fit != Fit::Partial => kept = true,
+                Some(_) => {}
+                None => unknown_deps += 1,
+            }
+        }
+        if imports.iter().any(|import| {
+            matches!(
+                libs::reduce(import),
+                "tkinter" | "PyQt5" | "PyQt6" | "PySide2" | "PySide6" | "kivy" | "pygame"
+            )
+        }) {
+            kept = true;
+        }
+
+        let (status, mut note) = if kept {
+            (
+                "keep",
+                "UI code stays in Python; port what it calls".to_string(),
+            )
+        } else if none_deps > 0 {
+            ("blocked", blockers.join("; "))
+        } else {
+            ("ready", String::new())
+        };
+        if none_deps == 0 && unknown_deps > 0 {
+            let suffix = format!(
+                "{unknown_deps} dependency(ies) not in the library table: check them by hand"
+            );
+            note = if note.is_empty() {
+                suffix
+            } else {
+                format!("{note}; {suffix}")
+            };
+        }
+
+        let risk_count = risks.len() as i64;
+        let readiness = (100
+            - 6 * risk_count
+            - (i64::from(lines).saturating_sub(600) / 10)
+            - 12 * i64::from(none_deps as u32)
+            - 4 * i64::from(unknown_deps as u32))
+        .clamp(0, 100);
+        let value = (functions.len() as i64 * 8 + i64::from(lines) / 25).min(100);
+        let priority = (readiness + value) / 2;
+
+        out.push(Unit {
+            module: module
                 .get("module")
                 .and_then(Json::as_str)
                 .unwrap_or("?")
-                .to_string();
-            let lines = module.get("lines").and_then(Json::as_i64).unwrap_or(0) as u32;
-            let functions = module
-                .get("functions")
-                .and_then(Json::as_array)
-                .unwrap_or_default();
-            let typed = functions
-                .iter()
-                .map(|function| function.get("typed").and_then(Json::as_i64).unwrap_or(0) as usize)
-                .sum::<usize>();
-            let params = functions
-                .iter()
-                .map(|function| function.get("params").and_then(Json::as_i64).unwrap_or(0) as usize)
-                .sum::<usize>();
-            let risks = module
-                .get("risks")
-                .and_then(Json::as_array)
-                .map(<[Json]>::len)
-                .unwrap_or(0);
-            let _ = (typed, params);
-            (name, lines, functions.len(), risks, params)
-        })
-        .collect();
-    // Start with units that are big enough to matter and low on risks.
-    rows.sort_by_key(|row| (row.3, std::cmp::Reverse(row.2)));
-
-    let mut out = String::new();
-    out.push_str(&format!("# Port plan for {}\n\n", repo.display()));
-    out.push_str(&format!(
-        "{} Python modules hold {} functions. Port one module at a time, lowest risk first; \
-         `bridge`, `record`, `diff` and `gate` are per unit.\n\n",
-        rows.len(),
-        rows.iter().map(|row| row.2).sum::<usize>()
-    ));
-    out.push_str(
-        "| # | module | lines | functions | risks |\n| ---: | --- | ---: | ---: | ---: |\n",
-    );
-    for (index, (name, lines, functions, risks, _)) in rows.iter().enumerate() {
-        out.push_str(&format!(
-            "| {} | `{}` | {} | {} | {} |\n",
-            index + 1,
-            name,
+                .to_string(),
             lines,
             functions,
-            risks
-        ));
+            risks,
+            imports,
+            entry_point: module
+                .get("entry_point")
+                .and_then(Json::as_bool)
+                .unwrap_or(false),
+            status,
+            note,
+            readiness,
+            priority,
+            wave: 0,
+        });
     }
-    if let Some((name, _, functions, _, _)) = rows.first() {
-        out.push_str(&format!(
-            "\nStart here: `cpp-anything bridge {} {}` then `cpp-anything record <project>`.\n",
-            repo.display(),
-            name
-        ));
-        let _ = functions;
-    }
-
-    out.push_str("\n## Risks per module\n\n");
-    for module in modules {
-        let name = module.get("module").and_then(Json::as_str).unwrap_or("?");
-        let risks = module
-            .get("risks")
-            .and_then(Json::as_array)
-            .unwrap_or_default();
-        if risks.is_empty() {
-            continue;
+    // Waves follow imports: a module that imports another local module ports after it.
+    let local: Vec<(String, Vec<String>)> = out
+        .iter()
+        .map(|unit| {
+            let package = unit
+                .module
+                .rsplit_once('.')
+                .map(|(parent, _)| parent)
+                .unwrap_or("");
+            let deps = unit
+                .imports
+                .iter()
+                .filter(|import| {
+                    out.iter().any(|other| other.module == **import)
+                        || (!package.is_empty()
+                            && out
+                                .iter()
+                                .any(|other| other.module == format!("{package}.{import}")))
+                })
+                .cloned()
+                .collect();
+            (unit.module.clone(), deps)
+        })
+        .collect();
+    let mut depths: BTreeMap<String, usize> = BTreeMap::new();
+    for _ in 0..local.len() + 1 {
+        for (module, deps) in &local {
+            let depth = deps
+                .iter()
+                .filter_map(|dep| depths.get(dep).copied())
+                .max()
+                .map(|depth| depth + 1)
+                .unwrap_or(0);
+            let entry = depths.entry(module.clone()).or_insert(0);
+            *entry = (*entry).max(depth);
         }
-        out.push_str(&format!("### `{name}`\n\n"));
-        for risk in risks {
-            if let Some(text) = risk.as_str() {
-                out.push_str(&format!("- {text}\n"));
-            }
-        }
-        out.push('\n');
     }
-    out.push_str("\n## What the numbers mean\n\n");
-    out.push_str("- **risks** are heuristics from the analyzer: unicode offsets, int parsing, regex engines, float formatting, integer width. Each one is a place the port can differ while still compiling.\n");
-    out.push_str("- **functions** counts module-level functions with a plain signature; decorated, async and `*args` functions are reported by `cpp-anything bridge` as skipped.\n");
-    out.push_str("- Read the unit's risks at their file:line before writing C++ for it; the same list is copied into the generated project's README.\n");
+    for unit in &mut out {
+        unit.wave = depths.get(&unit.module).copied().unwrap_or(0);
+    }
+    // Within a wave: the best first port first.
+    out.sort_by(|a, b| {
+        (a.wave, std::cmp::Reverse(a.priority), a.module.clone()).cmp(&(
+            b.wave,
+            std::cmp::Reverse(b.priority),
+            b.module.clone(),
+        ))
+    });
     out
 }
 
-pub fn to_json(doc: &Json, repo: &Path) -> Json {
-    Json::obj([
+fn dependency_rows(
+    doc: &Json,
+    units: &[Unit],
+) -> Vec<(String, String, &'static str, String, Vec<String>)> {
+    let mut seen: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for unit in units {
+        for import in &unit.imports {
+            let package = libs::reduce(import).to_string();
+            if package.is_empty() || package.starts_with('.') {
+                continue;
+            }
+            seen.entry(package).or_default().push(unit.module.clone());
+        }
+    }
+    for declared in doc
+        .get("dependencies")
+        .and_then(Json::as_array)
+        .unwrap_or_default()
+    {
+        if let Some(name) = declared.as_str() {
+            seen.entry(name.to_string()).or_default();
+        }
+    }
+    let local: Vec<String> = units.iter().map(|unit| unit.module.clone()).collect();
+    let is_local = |package: &str| {
+        local
+            .iter()
+            .any(|module| module == package || module.starts_with(&format!("{package}.")))
+    };
+    let mut rows = Vec::new();
+    for (package, mut users) in seen {
+        if is_local(&package) {
+            continue;
+        }
+        users.sort();
+        users.dedup();
+        match libs::find(&package) {
+            Some(entry) => rows.push((
+                package,
+                entry.libs.clone(),
+                entry.fit.label(),
+                entry.note.clone(),
+                users,
+            )),
+            None => rows.push((package, String::new(), "unknown", String::new(), users)),
+        }
+    }
+    rows.sort_by(|a, b| (a.2 == "unknown", &a.0).cmp(&(b.2 == "unknown", &b.0)));
+    rows
+}
+
+pub fn render_plan(doc: &Json, repo: &Path, whole_app: bool) -> String {
+    let units = units(doc);
+    let dependencies = dependency_rows(doc, &units);
+    let mut out = String::new();
+    out.push_str(&format!("# Port plan for {}\n\n", repo.display()));
+    let total_functions: usize = units.iter().map(|unit| unit.functions.len()).sum();
+    out.push_str(&format!(
+        "{} Python module(s), {} function(s), {} dependency(ies). Port one unit at a time; \
+         `bridge`, `record`, `diff` and `gate` are per unit.\n\n",
+        units.len(),
+        total_functions,
+        dependencies.len()
+    ));
+
+    if whole_app {
+        out.push_str("## What the app is\n\n");
+        let shape = app_shape(&units);
+        out.push_str(&format!("- shape: **{shape}**\n"));
+        let entry: Vec<&Unit> = units.iter().filter(|unit| unit.entry_point).collect();
+        if !entry.is_empty() {
+            out.push_str(&format!(
+                "- entry points: {}\n",
+                entry
+                    .iter()
+                    .map(|unit| format!("`{}`", unit.module))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        let servers: Vec<&Unit> = units
+            .iter()
+            .filter(|unit| {
+                unit.imports.iter().any(|import| {
+                    matches!(
+                        libs::reduce(import),
+                        "flask" | "fastapi" | "django" | "starlette" | "uvicorn" | "aiohttp"
+                    )
+                })
+            })
+            .collect();
+        if !servers.is_empty() {
+            out.push_str(&format!(
+                "- servers: {}\n",
+                servers
+                    .iter()
+                    .map(|unit| format!("`{}`", unit.module))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        let kept: Vec<&Unit> = units.iter().filter(|unit| unit.status == "keep").collect();
+        let blocked: Vec<&Unit> = units
+            .iter()
+            .filter(|unit| unit.status == "blocked")
+            .collect();
+        out.push_str(&format!(
+            "- {} ready, {} kept in Python, {} blocked\n",
+            units.iter().filter(|unit| unit.status == "ready").count(),
+            kept.len(),
+            blocked.len()
+        ));
+        out.push_str(
+            "\nFor a whole app, `app record`, `app replay` and `app front-door` come first: the \
+             front door ships with every command answered by the original until a unit is wired.\n",
+        );
+    }
+
+    out.push_str("\n## Units in port order\n\n");
+    out.push_str("| # | wave | unit | lines | functions | readiness | priority | status |\n| ---: | ---: | --- | ---: | ---: | ---: | ---: | --- |\n");
+    for (index, unit) in units.iter().enumerate() {
+        out.push_str(&format!(
+            "| {} | {} | `{}` | {} | {} | {} | {} | {} |\n",
+            index + 1,
+            unit.wave,
+            unit.module,
+            unit.lines,
+            unit.functions.len(),
+            unit.readiness,
+            unit.priority,
+            unit.status
+        ));
+    }
+    if let Some(first) = units.iter().find(|unit| unit.status == "ready") {
+        out.push_str(&format!(
+            "\nStart here: `cpp-anything bridge {} {}` then `cpp-anything record <project>`.\n",
+            repo.display(),
+            first.module
+        ));
+        if first.entry_point {
+            out.push_str(
+                "\nThis unit is an entry point: port it together with what it calls, and wire the \
+                 command into `cpp/app` when it passes gate.\n",
+            );
+        }
+    } else if units.iter().all(|unit| unit.status == "keep") {
+        out.push_str("\nEvery unit is UI code that stays in Python: nothing to port here.\n");
+    } else {
+        out.push_str("\nNothing is ready: every unit is blocked. See the dependencies table.\n");
+    }
+
+    if whole_app {
+        out.push_str("\n## Dependencies\n\n| package | C++ library | fit | used by |\n| --- | --- | --- | --- |\n");
+        for (package, libs, fit, _note, users) in &dependencies {
+            out.push_str(&format!(
+                "| `{}` | {} | {} | {} |\n",
+                package,
+                if libs.is_empty() {
+                    "—".to_string()
+                } else {
+                    format!("`{libs}`")
+                },
+                fit,
+                if users.is_empty() {
+                    "declared only".to_string()
+                } else {
+                    users.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
+                }
+            ));
+        }
+        let notes: Vec<&(String, String, &'static str, String, Vec<String>)> = dependencies
+            .iter()
+            .filter(|row| !row.3.is_empty())
+            .collect();
+        if !notes.is_empty() {
+            out.push_str("\nNotes on the mappings that are not drop-in:\n\n");
+            for (package, _, fit, note, _) in notes {
+                out.push_str(&format!("- `{package}` ({fit}): {note}\n"));
+            }
+        }
+    }
+
+    out.push_str("\n## Risks per module\n\n");
+    for unit in &units {
+        if unit.risks.is_empty() && unit.note.is_empty() {
+            continue;
+        }
+        out.push_str(&format!("### `{}`\n\n", unit.module));
+        if !unit.note.is_empty() {
+            out.push_str(&format!("- status: {}\n", unit.note));
+        }
+        for risk in &unit.risks {
+            out.push_str(&format!("- {risk}\n"));
+        }
+        out.push('\n');
+    }
+
+    out.push_str("\n## Decisions to confirm before porting\n\n");
+    out.push_str("1. **Target toolchain and standard**: `cpp-anything matrix features --toolchain gcc --version 13 --std c++23` says what it can express; the default is GCC 13 with C++23.\n");
+    out.push_str("2. **Which unit first**: the order above is by dependency wave, then readiness, then value. Porting a lower-priority unit first is fine if the user says so.\n");
+    if whole_app {
+        out.push_str("3. **The app's shape**: a CLI or server keeps its entry point in `cpp/app`; a library becomes the front door's public API. Confirm which one this is.\n");
+        out.push_str("4. **Dependencies marked `none`**: their units are blocked. Decide per package: keep that unit in Python, hand-roll the missing piece, or change the app.\n");
+        out.push_str("5. **Dependencies marked `unknown`**: not in `data/libs.json`, so nobody has judged the fit. Check each before porting a unit that uses it.\n");
+    } else {
+        out.push_str("3. **Badged units**: blocked and keep units are decisions for the user, not the agent.\n");
+    }
+
+    out.push_str("\n## What the numbers mean\n\n");
+    out.push_str("- **readiness** = 100 - 6 x risks - size over 600 lines - 12 x each `none` dependency - 4 x each unknown dependency, clamped to 0..100.\n");
+    out.push_str("- **priority** = the mean of readiness and value, where value = 8 x functions + lines/25 (capped at 100).\n");
+    out.push_str("- **wave** = 1 + the deepest wave among the local modules this one imports: port dependencies first.\n");
+    out.push_str("- **risks** are heuristics from the analyzer: unicode offsets, int parsing, regex engines, float formatting, integer width, dynamic dispatch. Each one is a place the port can differ while still compiling.\n");
+    out.push_str("- **status**: `ready` ports now; `keep` is UI code that stays in Python; `blocked` has a dependency with no C++ equivalent.\n");
+    out
+}
+
+fn app_shape(units: &[Unit]) -> &'static str {
+    let imports_server = units.iter().any(|unit| {
+        unit.imports.iter().any(|import| {
+            matches!(
+                libs::reduce(import),
+                "flask" | "fastapi" | "django" | "starlette" | "uvicorn" | "aiohttp" | "bottle"
+            )
+        })
+    });
+    if imports_server {
+        return "server";
+    }
+    if units.iter().any(|unit| unit.entry_point) {
+        "CLI"
+    } else {
+        "library"
+    }
+}
+
+pub fn to_json(doc: &Json, repo: &Path, whole_app: bool) -> Json {
+    let mut fields = vec![
         ("schema", Json::str("cpp-anything/analyze@1")),
         ("root", Json::str(repo.display().to_string())),
         (
@@ -196,7 +519,17 @@ pub fn to_json(doc: &Json, repo: &Path) -> Json {
                 .cloned()
                 .unwrap_or(Json::Array(Vec::new())),
         ),
-    ])
+        (
+            "dependencies",
+            doc.get("dependencies")
+                .cloned()
+                .unwrap_or(Json::Array(Vec::new())),
+        ),
+    ];
+    if whole_app {
+        fields.push(("whole_app", Json::Bool(true)));
+    }
+    Json::obj(fields)
 }
 
 pub fn summarize(doc: &Json) -> String {

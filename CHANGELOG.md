@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.2.0
+
+Full parity with the reference tool's loop, for a C++ target.
+
+### Measurement and planning
+
+- `profile` — runs the workload under the language's own profiler, ranks hot
+  functions with callers, and advises batch vs port-with-callers vs third-party.
+- `analyze --whole-app` — the app's shape, entry points, every dependency with its
+  C++ library and fit (`good`/`partial`/`none`/`unknown`), units in dependency waves
+  with readiness and priority, `keep`/`blocked` status, and the decisions to confirm.
+- `data/libs.json` — the curated Python -> C++ library table; unknown packages are
+  reported as unknown, never guessed.
+
+### Recording and verification
+
+- `record --from-tests` — a `sitecustomize` hook captures every call the original's
+  own suite makes (any runner), appends them to `cases.jsonl`, and records line
+  coverage; `recorded-from.json` fingerprints the source so a stale recording fails
+  `gate`.
+- `record --float-tolerance` is saved with the project and used by `diff` and `gate`.
+- `gate` adds error-path, panic/abort, size, staleness and coverage checks.
+- `shadow` — a generated drop-in module that returns the original's result, runs the
+  C++ port second through a C ABI, logs disagreements, and reports them.
+
+### Whole app
+
+- `app record` — black-box CLI cases from docs examples, `--inputs`, semantic traps,
+  run twice in a sandbox with files/stdin/env, normalisation, unstable-case marking.
+- `app replay` — any build against the cases, per-case report, `--case`, JSON.
+- `app front-door` — a C++ binary that owns the entry point, routes wired commands,
+  execs the original for the rest, with a fallback log and kill switches.
+- `app wire` — routes, glue stub, per-unit library linking, kill switch.
+- `app lift` — refuses while any case falls back; marks the app standalone at zero.
+
+### Around the loop
+
+- `map` — `cpp/PORT_MAP.md`: ports, cases, last diff, not-ported units, glue that
+  still falls back, and which originals changed since they were recorded.
+- `setup` — registers the MCP server (and skill) with Claude Code, Codex, Cursor,
+  Gemini CLI and OpenCode, preserves other settings, backs up before writing,
+  idempotent, `--remove`/`--dry-run`/`--json`.
+- `mcp` — 21 tools, 2 prompts, progress notifications and structured error codes.
+- `doctor` — cmake, compiler, python3, matrix, guides, the MCP server's own answer,
+  and every agent's entry.
+
+### RSI
+
+- The self-check now also records, rebuilds and lifts the shipped CLI example with
+  zero fallback, on top of the unit example and the CLI goldens.
+
 ## 0.1.0
 
 First release: the loop, the matrix and the self-check.

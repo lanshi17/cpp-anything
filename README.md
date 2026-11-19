@@ -55,6 +55,23 @@ that can run a terminal or call a tool gets the same loop.
 | Says "done" when it compiles | `gate` fails on a stub body, a missing function, a warning-free build that still disagrees, or a toolchain that cannot express the port |
 | Silently changes the public API | the generated `port.hpp` fixes the signatures the driver calls |
 
+## Everything rust-anything does, for a C++ target
+
+| Step | Command | What it gives you |
+| --- | --- | --- |
+| measure | `profile . -- python3 bench.py` | hot functions with callers and advice (batch vs port with callers vs third-party) |
+| plan | `analyze . [--whole-app]` | units, waves, readiness/priority, risks, every dependency's C++ library, blocked/keep units |
+| bridge | `bridge . unit` | a C++20/23 project with real signatures, a JSON driver and `profile.hpp` |
+| record | `record cpp/unit [--from-tests -- pytest -q]` | generated edges **and** every call the original's own suite makes, plus coverage |
+| port | `$EDITOR cpp/unit/src/port.cpp` | the only file you write |
+| build / diff | `build`, `diff` | every recorded case, replayed through the C++ driver |
+| shadow | `shadow cpp/unit` | a drop-in module: original returns, port runs second, disagreements logged |
+| bench | `bench cpp/unit` | per-call timing on both sides |
+| gate | `gate cpp/unit` | matrix, stubs, error paths, panics, size, staleness, coverage, build, dispatch, diff |
+| whole app | `app record`, `app replay`, `app front-door`, `app wire`, `app lift` | a C++ front door that ships with everything falling back, then lifts to standalone |
+| map | `map --write` | every unit's port, cases, last diff, and which originals changed upstream |
+| setup | `setup` | MCP server + skill registered with Claude Code, Codex, Cursor, Gemini CLI, OpenCode |
+
 ## The loop
 
 1. **analyze** — modules, functions, and the risks each one carries: unicode
@@ -73,6 +90,41 @@ that can run a terminal or call a tool gets the same loop.
 
 `refresh` regenerates the declarations and dispatch after a signature change, and
 never touches `src/port.cpp`.
+
+## Shadow: the port beside the original on real traffic
+
+`shadow` generates a drop-in Python module that calls the original first and returns
+its result, then runs the C++ port through a C ABI and logs every disagreement. The
+port cannot change what a caller sees, so shadow traffic can run in staging — or
+production — while the port proves itself.
+
+```sh
+cpp-anything shadow cpp/textkit-words
+# sys.path.insert(0, "cpp/textkit-words/shadow"); import textkit_words_shadow as words
+cpp-anything shadow cpp/textkit-words --report
+```
+
+## Whole app: a C++ front door, then lift
+
+```sh
+cpp-anything app record . -- python3 cli.py      # docs examples, --inputs, semantic traps, twice each
+cpp-anything app replay . --build <build>        # per-case report, exit code
+cpp-anything app front-door .                    # cpp/app: routes first, exec the original otherwise
+cpp-anything app wire . textkit.words --command slug --project cpp/textkit-words
+cpp-anything app lift .                          # refuses while any case falls back
+```
+
+Fallback is explicit: `CPPAN_UNIT_<NAME>=original` forces a unit back, the fallback
+log counts what ran the original, and `app lift` will not call an app standalone
+while a case still needs it.
+
+## Map, setup, and the agent loop
+
+```sh
+cpp-anything map --write        # cpp/PORT_MAP.md: ports, cases, last diff, changed upstream
+cpp-anything setup              # MCP server + skill for the agents found on this machine
+cpp-anything mcp                # 21 tools + 2 prompts over stdio
+```
 
 ## What it can't catch
 

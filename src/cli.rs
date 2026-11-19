@@ -135,6 +135,8 @@ pub fn run(argv: &[String]) -> Result<i32, String> {
         "refresh" => refresh_command(&args),
         "shadow" => shadow_command(&args),
         "rsi" => crate::rsi::command(&args),
+        "setup" => crate::setup::command(&args),
+        "map" => map_command(&args),
         "doctor" => crate::doctor::command(&args),
         "mcp" => crate::mcp::serve(),
         "help" | "--help" => {
@@ -162,6 +164,8 @@ cpp-anything — rewrite your app in C++ (C++20/23) and prove it still behaves t
   gate      build + diff + matrix + dispatch checks; done means this passes
   shadow    generate a drop-in module that runs the original and the port side by side
   refresh   regenerate the generated files after a signature change
+  map       every unit, its port, its cases and last diff, and which originals changed
+  setup     register the MCP server (and skill) with Claude Code, Codex, Cursor, Gemini CLI, OpenCode
   rsi       verify cpp-anything itself with its own loop
   doctor    check the tools a port needs
   mcp       run as an MCP server on stdio
@@ -179,7 +183,7 @@ Run `cpp-anything <command> --help` for one command's options.
   app front-door <repo> [--no-check] [--json]
   app wire    <repo> <unit> --command NAME
   app lift    <repo>
-  analyze <repo>  [-o plan.md] [--json]
+  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python]
   bridge  <repo> <unit> [--out DIR] [--toolchain gcc] [--version 13] [--std c++23]
                         [--module-root DIR] [--force]
   record  <project> [--count N] [--seed N] [--inputs FILE] [--float-tolerance F]
@@ -187,6 +191,8 @@ Run `cpp-anything <command> --help` for one command's options.
   diff    <project> [--json] [--strict-errors] [--tolerance F] [--only FN] [--max-report N]
   shadow  <project> [--report] [--check] [--json]
   gate    <project> [--json] [--clean] [--cxx PATH] [--jobs N] [--bench]
+  map     [<repo>] [--crates DIR] [--write] [--check] [--json]
+  setup   [--agent claude|codex|cursor|gemini|opencode] [--remove] [--dry-run] [--json]
   rsi     check|record [--json]
 ";
 
@@ -530,6 +536,26 @@ fn profile_command(args: &Parsed) -> Result<i32, String> {
     Ok(0)
 }
 
+fn map_command(args: &Parsed) -> Result<i32, String> {
+    let repo = PathBuf::from(args.positional.first().map(String::as_str).unwrap_or("."));
+    let extra: Vec<PathBuf> = args.many("crates").into_iter().map(PathBuf::from).collect();
+    let map = crate::portmap::build(&repo, &extra)?;
+    if args.flag("json") {
+        println!("{}", map.to_json().to_string_pretty());
+    } else {
+        print!("{}", map.markdown());
+    }
+    if args.flag("write") {
+        let path = map.root.join(crate::portmap::MAP_FILE);
+        util::write(&path, &map.markdown())?;
+        println!("Wrote {}", util::short_path(&path));
+    }
+    if args.flag("check") && map.changed() > 0 {
+        return Ok(1);
+    }
+    Ok(0)
+}
+
 fn target_from(args: &Parsed, matrix: &Matrix) -> Result<Target, String> {
     let default = Target::default();
     let toolchain = matrix
@@ -556,13 +582,14 @@ fn analyze_command(args: &Parsed) -> Result<i32, String> {
         .first()
         .ok_or("analyze needs a repository path")?;
     let repo = Path::new(repo);
+    let whole_app = args.flag("whole-app");
     let doc = analyze::analyze(repo)?;
-    let json = analyze::to_json(&doc, repo);
+    let json = analyze::to_json(&doc, repo, whole_app);
     if args.flag("json") {
         println!("{}", json.to_string_pretty());
         return Ok(0);
     }
-    let plan = analyze::render_plan(&doc, repo);
+    let plan = analyze::render_plan(&doc, repo, whole_app);
     match args.value("out") {
         Some(path) => {
             analyze::write_plan(Path::new(path), &plan)?;

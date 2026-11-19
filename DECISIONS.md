@@ -49,3 +49,17 @@ Choices made so far, with the reason. Each one can be revisited.
 | M4 | `rsi check` = data + guides + CLI goldens + a rebuilt example replayed through its own diff. | The tool's claims are data, generated text, printed output and generated code; each is checked by the machinery it would use on a user's port. |
 | M5 | MCP tools shell out to the CLI binary instead of re-implementing commands. | One implementation cannot drift from itself; the subprocess boundary also keeps the JSON-RPC stream clean of command output. |
 | M6 | CLI goldens are re-recorded explicitly (`rsi record`), never auto-updated. | A golden that updates itself proves nothing; an intentional output change should be a reviewed diff in `tests/golden/cli.jsonl`. |
+
+## Whole app and around the loop
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| W1 | Whole-app cases are JSONL of `{name, args, stdin, env, files, expect{stdout, stderr, exit, files, fallback}}`, stored in `cpp/app-cases/`. | One file a human can read and an agent can diff; binary or structured formats buy nothing the recording needs. |
+| W2 | Every case runs twice; a case that differs is recorded but marked unstable and never fails replay. | A timestamp the normalisers miss should not make the gate red forever; the honest answer is "the app does not produce one output here". |
+| W3 | The front door `exec`s the original, it does not wrap it. | exec gives identical stdout, stderr, exit code and signals; a wrapper changes the process a case observes. |
+| W4 | `app lift` requires zero fallback across every case. | "Standalone" must mean no path to the original, not "mostly ported". |
+| W5 | `record --from-tests` injects a `sitecustomize` hook through PYTHONPATH instead of rewriting the project. | It works for pytest, unittest and plain scripts, leaves no trace in the user's tree, and cannot corrupt sources it edits. |
+| W6 | `map` writes `cpp/PORT_MAP.md` and is committed. | The drift it detects is upstream change; a committed map makes the next `map` a reviewable diff. |
+| W7 | `setup` writes only its own entries, keeps key order, and backs up first. | The user's agent config is not ours; a tool that rewrites it wholesale loses settings it never understood. |
+| W8 | MCP tools shell out to the CLI binary. | One implementation cannot drift from itself, and the subprocess boundary keeps JSON-RPC output clean. |
+| W9 | `profile` advises batching when per-call cost is low and calls are many. | One call per item costs more than the work; the advice is the difference between a port that pays and one that does not. |

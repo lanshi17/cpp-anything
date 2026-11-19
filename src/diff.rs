@@ -186,7 +186,26 @@ pub fn run(project: &Project, driver: &Path, options: &Options) -> Result<DiffRe
         .into_iter()
         .map(|(name, (total, passed))| (name, total, passed))
         .collect();
+    record_history(project, &report);
     Ok(report)
+}
+
+/// Keeps the last few diff results so `map` can say whether a port still passes.
+fn record_history(project: &Project, report: &DiffReport) {
+    let path = project
+        .dir
+        .join(crate::project::META_DIR)
+        .join("diff-history.jsonl");
+    let entry = Json::obj([
+        ("at", Json::str(util::now_iso8601())),
+        ("passed", Json::Int(report.matched as i64)),
+        ("total", Json::Int(report.total as i64)),
+        ("ok", Json::Bool(report.passed())),
+    ]);
+    let mut text = util::read(&path).unwrap_or_default();
+    text.push_str(&entry.to_string_compact());
+    text.push('\n');
+    let _ = util::write(&path, &text);
 }
 
 pub fn compare(expected: &Json, got: &Json, options: &Options) -> Result<(), String> {

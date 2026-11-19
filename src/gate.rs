@@ -96,6 +96,151 @@ pub fn run(project: &Project, options: &Options) -> Result<GateReport, String> {
         },
     });
 
+    // 2b. The original fails somewhere: each such function needs a recorded failure,
+    //     and the port must not turn that into a crash.
+    let cases = crate::diff::load_cases(&project.dir.join("cases.jsonl")).unwrap_or_default();
+    let failing: Vec<&crate::inventory::Function> = project
+        .functions
+        .iter()
+        .filter(|function| function.raises)
+        .collect();
+    if failing.is_empty() {
+        steps.push(Step {
+            name: "error cases".into(),
+            ok: true,
+            detail: "the original fails on purpose nowhere".into(),
+        });
+    } else {
+        let missing: Vec<String> = failing
+            .iter()
+            .filter(|function| {
+                !cases
+                    .iter()
+                    .any(|case| case.function == function.name && case.expect.get("err").is_some())
+            })
+            .map(|function| function.name.clone())
+            .collect();
+        steps.push(Step {
+            name: "error cases".into(),
+            ok: missing.is_empty(),
+            detail: if missing.is_empty() {
+                format!(
+                    "each of the {} function(s) that fail in the original has a recorded failing case",
+                    failing.len()
+                )
+            } else {
+                format!(
+                    "no recorded case reaches these error paths: {} (add inputs that fail: \
+                     `record --from-tests` or `--inputs`)",
+                    missing.join(", ")
+                )
+            },
+        });
+    }
+
+    // 2c. A port must return an error where the original raises one, not abort.
+    let mut crashes = Vec::new();
+    if !failing.is_empty() {
+        let lines: Vec<&str> = port.lines().collect();
+        for (index, line) in lines.iter().enumerate() {
+            let code = line.split("//").next().unwrap_or("");
+            let token = ["std::abort", "std::terminate", "assert(", "throw "]
+                .iter()
+                .find(|token| code.contains(**token));
+            let Some(token) = token else { continue };
+            let explained = lines[..index]
+                .iter()
+                .rev()
+                .take_while(|above| above.trim_start().starts_with("//"))
+                .any(|above| above.contains("INFALLIBLE:"))
+                || line.contains("INFALLIBLE:");
+            if !explained {
+                crashes.push(format!("src/port.cpp:{} `{token}`", index + 1));
+            }
+        }
+    }
+    steps.push(Step {
+        name: "panics".into(),
+        ok: crashes.is_empty(),
+        detail: if crashes.is_empty() {
+            if failing.is_empty() {
+                "no abort/assert/throw to review".into()
+            } else {
+                "no abort, assert or throw where the original returns an error".into()
+            }
+        } else {
+            format!(
+                "return `cppan::unexpected(PortError{{...}})` instead, or mark an impossible state \
+                 with `// INFALLIBLE: <why>`: {}",
+                crashes.join(", ")
+            )
+        },
+    });
+
+    // 2d. A port that is much bigger than its source is usually a crate or a loop
+    //     re-implemented by hand.
+    let port_lines = port.lines().count();
+    let source_lines = project.lines as usize;
+    if source_lines > 0 {
+        let growth = port_lines as f64 / source_lines as f64;
+        let allowed = 3.0 * source_lines as f64 + 50.0;
+        steps.push(Step {
+            name: "size".into(),
+            ok: (port_lines as f64) <= allowed,
+            detail: format!(
+                "{port_lines} lines of C++ for {source_lines} lines of {} ({growth:.1}x)",
+                project.source_lang
+            ),
+        });
+    }
+
+    // 2e. The recording must describe the source as it is now.
+    let recorded_from = project
+        .dir
+        .join(crate::project::META_DIR)
+        .join("recorded-from.json");
+    let recorded = util::read(&recorded_from)
+        .ok()
+        .and_then(|text| Json::parse(&text).ok());
+    let source_hash = util::hash64(&util::read(&project.source_file).unwrap_or_default());
+    let stored_hash = recorded
+        .as_ref()
+        .and_then(|doc| doc.get("source_hash"))
+        .and_then(Json::as_str)
+        .unwrap_or("")
+        .to_string();
+    steps.push(Step {
+        name: "recording".into(),
+        ok: stored_hash.is_empty() || stored_hash == source_hash,
+        detail: if stored_hash.is_empty() {
+            "no recorded-from.json: record again after editing the original".into()
+        } else if stored_hash == source_hash {
+            "the cases were recorded from this version of the original".into()
+        } else {
+            format!(
+                "{} changed since it was recorded: `cpp-anything record {}` again",
+                util::short_path(&project.source_file),
+                project.dir.display()
+            )
+        },
+    });
+
+    // 2f. Coverage is information, never a failure: it says what the cases miss.
+    if let Some(coverage) = recorded.as_ref().and_then(|doc| doc.get("coverage")) {
+        let reached = coverage.get("reached").and_then(Json::as_i64).unwrap_or(0);
+        let lines = coverage.get("lines").and_then(Json::as_i64).unwrap_or(0);
+        if lines > 0 {
+            let percent = (reached as f64 / lines as f64 * 100.0).round() as i64;
+            steps.push(Step {
+                name: "coverage".into(),
+                ok: true,
+                detail: format!(
+                    "the recorded cases ran {reached} of {lines} source lines ({percent}%)"
+                ),
+            });
+        }
+    }
+
     // 3. It has to build.
     let build = crate::build::build(project, options.clean, options.cxx.as_deref(), options.jobs);
     let driver = match build {

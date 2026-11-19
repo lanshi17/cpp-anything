@@ -8,5 +8,7 @@ __pycache__/
 .venv/
 scripts/.cache/
 examples/*/build/
+examples/*/cpp/app/build/
 examples/*/results.jsonl
+examples/textkit-cpp/shadow/*.jsonl
 .DS_Store

@@ -1,0 +1,24 @@
+{
+  "routes": [
+    {
+      "command": "slug",
+      "unit": "textkit_words",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/examples/textkit-cpp"
+    },
+    {
+      "command": "count",
+      "unit": "textkit_words",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/examples/textkit-cpp"
+    },
+    {
+      "command": "fail",
+      "unit": "textkit_words",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/examples/textkit-cpp"
+    },
+    {
+      "command": "*",
+      "unit": "textkit_words",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/examples/textkit-cpp"
+    }
+  ]
+}

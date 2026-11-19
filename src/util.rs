@@ -29,8 +29,21 @@ impl Run {
 /// Runs a command, capturing output. Missing binaries come back as a failure with
 /// `status = None`, so callers can report "python3 not found" instead of panicking.
 pub fn run(program: &str, args: &[String], cwd: Option<&Path>) -> Run {
+    run_with_env(program, args, cwd, &[])
+}
+
+/// Same, with extra environment entries (the recorder's hook relies on PYTHONPATH).
+pub fn run_with_env(
+    program: &str,
+    args: &[String],
+    cwd: Option<&Path>,
+    envs: &[(String, String)],
+) -> Run {
     let mut command = Command::new(program);
     command.args(args).stdin(Stdio::null());
+    for (key, value) in envs {
+        command.env(key, value);
+    }
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }

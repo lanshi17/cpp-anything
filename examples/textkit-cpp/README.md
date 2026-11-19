@@ -17,6 +17,22 @@ A port of `textkit.words` (python), one function at a time, checked against reco
 | `summarize` | `summarize(text: str, max_words: int = …) -> list[str]` | `std::vector<std::string> summarize(std::string_view text, std::int64_t max_words)` |
 | `require_positive` | `require_positive(n: int) -> int` | `std::int64_t require_positive(std::int64_t n)` |
 
+Skipped by the analyzer (not ported as plain functions):
+
+- `memoized_score`: decorated
+
+## Risks the analyzer flagged
+
+- len() on str counts code points; std::string::size() counts bytes
+- slice offsets: Python indexes code points, C++ indexes bytes
+- int() accepts underscores, unicode digits and surrounding space; std::from_chars does not
+- str.split() with no argument splits on unicode whitespace
+- str.strip() strips unicode whitespace, not just ASCII
+- f-strings format floats with Python's shortest repr
+- str.lower() is unicode-aware; std::tolower is ASCII-only
+- Python ints are unbounded: values beyond 2**63-1 do not fit std::int64_t
+- classes stay in Python until the unit is ported to structs by hand
+
 ## Build, replay, gate
 
 ```sh

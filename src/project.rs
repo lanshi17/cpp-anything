@@ -50,6 +50,8 @@ pub struct Project {
     pub lines: u32,
     pub created_at: String,
     pub recorded: Option<Recorded>,
+    /// Saved by `record --float-tolerance`: what `diff` and `gate` compare with.
+    pub tolerance: f64,
     pub dir: PathBuf,
 }
 
@@ -69,6 +71,7 @@ impl Project {
             lines: unit.lines,
             created_at: util::now_iso8601(),
             recorded: None,
+            tolerance: 0.0,
             dir,
         }
     }
@@ -123,6 +126,10 @@ impl Project {
                 cases: recorded.get("cases").and_then(Json::as_i64).unwrap_or(0) as usize,
                 at: text_of(recorded, "at"),
             }),
+            tolerance: doc
+                .get("float_tolerance")
+                .and_then(Json::as_f64)
+                .unwrap_or(0.0),
             dir: dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf()),
         })
     }

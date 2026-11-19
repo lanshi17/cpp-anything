@@ -24,6 +24,9 @@ pub struct Function {
     pub returns_annotation: String,
     pub doc: String,
     pub risks: Vec<String>,
+    /// The original raises somewhere in this function: a port must too, and a
+    /// recorded failing case must exist.
+    pub raises: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -91,6 +94,7 @@ impl Function {
             returns_annotation,
             doc: first_line(item.get("doc")),
             risks: strings(item.get("risks")),
+            raises: item.get("raises").and_then(Json::as_bool).unwrap_or(false),
         })
     }
 
@@ -113,6 +117,7 @@ impl Function {
             ("line", Json::Int(i64::from(self.line))),
             ("params", Json::Array(params)),
             ("returns", Json::str(self.returns_annotation.clone())),
+            ("raises", Json::Bool(self.raises)),
             (
                 "doc",
                 Json::Array(

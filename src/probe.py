@@ -244,10 +244,12 @@ def describe_function(source: str, node) -> dict | None:
             "literal_default": ok,
             "keyword_only": True,
         })
+    raises = any(isinstance(child, ast.Raise) for child in ast.walk(node))
     return {
         "name": node.name,
         "line": node.lineno,
         "params": params,
+        "raises": raises,
         "returns": annotation_text(node.returns),
         "doc": (ast.get_docstring(node) or "").strip().splitlines()[0:1],
         "risks": function_risks(source, node),
@@ -508,6 +510,64 @@ def mode_bench(args) -> int:
     return 0
 
 
+def mode_profile(args) -> int:
+    """Run a workload under cProfile and emit what it cost, as JSON."""
+    import pstats
+    import subprocess
+    import tempfile
+
+    command = list(args.command)
+    if command and command[0] in ("python", "python3"):
+        command = command[1:]
+    if not command:
+        print(json.dumps({"error": "no workload: pass -- python3 bench.py"}))
+        return 2
+    script = command[0]
+    if not Path(script).exists():
+        print(json.dumps({"error": f"{script}: no such file"}))
+        return 2
+    with tempfile.TemporaryDirectory() as tmp:
+        profile_path = str(Path(tmp) / "prof.out")
+        run = subprocess.run(
+            [sys.executable, "-m", "cProfile", "-o", profile_path, *command],
+            capture_output=True,
+            text=True,
+        )
+        if run.returncode != 0:
+            print(json.dumps({
+                "error": "the workload failed",
+                "exit": run.returncode,
+                "stderr": run.stderr[-4000:],
+            }))
+            return 1
+        stats = pstats.Stats(profile_path)
+        stats.calc_callees()
+
+    def name_of(key):
+        file, line, function = key
+        return {"file": file, "line": line, "function": function}
+
+    entries = []
+    for key, (cc, nc, tt, ct, callers) in stats.stats.items():
+        if key[0] == "~":
+            continue
+        if key[2] in ("<module>",) and key[0].endswith("probe.py"):
+            continue
+        entry = name_of(key)
+        entry.update({
+            "calls": nc,
+            "primitive_calls": cc,
+            "self_seconds": tt,
+            "cum_seconds": ct,
+            "per_call_seconds": (tt / nc) if nc else 0.0,
+            "callers": [name_of(caller) for caller in callers.keys()],
+        })
+        entries.append(entry)
+    entries.sort(key=lambda item: item["self_seconds"], reverse=True)
+    print(json.dumps({"workload": args.command, "functions": entries}, ensure_ascii=False))
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="mode", required=True)
@@ -541,7 +601,14 @@ def main() -> int:
     bench.add_argument("--repeat", type=int, default=1000)
     bench.set_defaults(handler=mode_bench)
 
+    profile = sub.add_parser("profile")
+    profile.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+    profile.add_argument("command", nargs=argparse.REMAINDER)
+    profile.set_defaults(handler=mode_profile)
+
     args = parser.parse_args()
+    if getattr(args, "command", None) and args.command and args.command[0] == "--":
+        args.command = args.command[1:]
     return args.handler(args)
 
 

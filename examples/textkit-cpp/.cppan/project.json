@@ -28,6 +28,7 @@
         }
       ],
       "returns": "str",
+      "raises": false,
       "doc": [
         "Lowercase, keep ascii alphanumerics, collapse everything else to '-'."
       ],
@@ -56,6 +57,7 @@
         }
       ],
       "returns": "str",
+      "raises": true,
       "doc": [
         "Cut to `limit` code points, adding an ellipsis."
       ],
@@ -78,6 +80,7 @@
         }
       ],
       "returns": "int",
+      "raises": false,
       "doc": [],
       "risks": [
         "len() on str counts code points; std::string::size() counts bytes",
@@ -97,6 +100,7 @@
         }
       ],
       "returns": "int",
+      "raises": false,
       "doc": [],
       "risks": [
         "int() accepts underscores, unicode digits and surrounding space; std::from_chars does not",
@@ -124,6 +128,7 @@
         }
       ],
       "returns": "list[str]",
+      "raises": true,
       "doc": [],
       "risks": [
         "slice offsets: Python indexes code points, C++ indexes bytes",
@@ -143,9 +148,15 @@
         }
       ],
       "returns": "int",
+      "raises": true,
       "doc": [],
       "risks": []
     }
   ],
-  "skipped": []
+  "skipped": [
+    {
+      "name": "memoized_score",
+      "reason": "decorated"
+    }
+  ]
 }

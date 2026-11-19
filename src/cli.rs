@@ -14,6 +14,10 @@ pub struct Parsed {
     pub positional: Vec<String>,
     pub values: BTreeMap<String, String>,
     pub flags: BTreeSet<String>,
+    /// Everything after `--`, verbatim: workloads and test commands.
+    pub trailing: Vec<String>,
+    /// Repeated options (`--agent claude --agent codex`), in order.
+    pub multi: BTreeMap<String, Vec<String>>,
 }
 
 impl Parsed {
@@ -23,6 +27,10 @@ impl Parsed {
 
     pub fn flag(&self, name: &str) -> bool {
         self.flags.contains(name)
+    }
+
+    pub fn many(&self, name: &str) -> Vec<String> {
+        self.multi.get(name).cloned().unwrap_or_default()
     }
 
     pub fn number(&self, name: &str) -> Option<u64> {
@@ -35,13 +43,24 @@ pub fn parse_args(argv: &[String]) -> Result<Parsed, String> {
         positional: Vec::new(),
         values: BTreeMap::new(),
         flags: BTreeSet::new(),
+        trailing: Vec::new(),
+        multi: BTreeMap::new(),
     };
     let mut index = 0;
     while index < argv.len() {
         let arg = &argv[index];
+        if arg == "--" {
+            parsed.trailing = argv[index + 1..].to_vec();
+            break;
+        }
         if let Some(body) = arg.strip_prefix("--") {
             if let Some((key, value)) = body.split_once('=') {
                 parsed.values.insert(key.to_string(), value.to_string());
+                parsed
+                    .multi
+                    .entry(key.to_string())
+                    .or_default()
+                    .push(value.to_string());
             } else if matches!(
                 body,
                 "json"
@@ -53,6 +72,7 @@ pub fn parse_args(argv: &[String]) -> Result<Parsed, String> {
                     | "list"
                     | "bench"
                     | "refresh"
+                    | "offline"
             ) {
                 parsed.flags.insert(body.to_string());
             } else {
@@ -60,6 +80,11 @@ pub fn parse_args(argv: &[String]) -> Result<Parsed, String> {
                 match next {
                     Some(value) if !value.starts_with("--") => {
                         parsed.values.insert(body.to_string(), value.clone());
+                        parsed
+                            .multi
+                            .entry(body.to_string())
+                            .or_default()
+                            .push(value.clone());
                         index += 1;
                     }
                     _ => {
@@ -98,6 +123,8 @@ pub fn run(argv: &[String]) -> Result<i32, String> {
     }
     match command {
         "matrix" => matrix_command(&args),
+        "app" => crate::app::command(&args),
+        "profile" => profile_command(&args),
         "analyze" => analyze_command(&args),
         "bridge" => bridge_command(&args),
         "record" => record_command(&args),
@@ -106,6 +133,7 @@ pub fn run(argv: &[String]) -> Result<i32, String> {
         "bench" => bench_command(&args),
         "gate" => gate_command(&args),
         "refresh" => refresh_command(&args),
+        "shadow" => shadow_command(&args),
         "rsi" => crate::rsi::command(&args),
         "doctor" => crate::doctor::command(&args),
         "mcp" => crate::mcp::serve(),
@@ -123,13 +151,16 @@ const HELP: &str = "\
 cpp-anything — rewrite your app in C++ (C++20/23) and prove it still behaves the same
 
   matrix    what compilers and standards support, from cppreference's tables
+  profile   what the workload actually costs, and which function to move first
+  app       record a whole CLI, replay any build against it, and put a C++ front door in front
   analyze   the units in a repository and what porting each one costs
   bridge    generate the C++ project for one unit (port skeleton + driver)
-  record    run the original on generated edge cases and save what it returns
+  record    run the original on generated edge cases (and optionally its test suite) and save what it returns
   build     configure and build the C++ project with CMake
   diff      replay every recorded case through the port and compare
   bench     the original's per-call cost against the port's
   gate      build + diff + matrix + dispatch checks; done means this passes
+  shadow    generate a drop-in module that runs the original and the port side by side
   refresh   regenerate the generated files after a signature change
   rsi       verify cpp-anything itself with its own loop
   doctor    check the tools a port needs
@@ -142,11 +173,19 @@ Run `cpp-anything <command> --help` for one command's options.
   matrix profile  [--toolchain gcc] [--version 13] [--std c++23] [-o FILE]
   matrix docs     [--out DIR] [--check]
   matrix sync     [--offline]
+  profile <repo> [--json] [--top N] -- python3 bench.py
+  app record  <repo> [--inputs FILE] [--normalize RULE] [--no-traps] [--timeout S] [-- python3 cli.py]
+  app replay  <repo> [--build CMD] [--case NAME] [--json]
+  app front-door <repo> [--no-check] [--json]
+  app wire    <repo> <unit> --command NAME
+  app lift    <repo>
   analyze <repo>  [-o plan.md] [--json]
   bridge  <repo> <unit> [--out DIR] [--toolchain gcc] [--version 13] [--std c++23]
                         [--module-root DIR] [--force]
-  record  <project> [--cases N] [--seed N] [--inputs FILE]
+  record  <project> [--count N] [--seed N] [--inputs FILE] [--float-tolerance F]
+                    [--from-tests -- pytest -q]
   diff    <project> [--json] [--strict-errors] [--tolerance F] [--only FN] [--max-report N]
+  shadow  <project> [--report] [--check] [--json]
   gate    <project> [--json] [--clean] [--cxx PATH] [--jobs N] [--bench]
   rsi     check|record [--json]
 ";
@@ -457,6 +496,40 @@ fn matrix_command(args: &Parsed) -> Result<i32, String> {
     }
 }
 
+fn check_lang(args: &Parsed) -> Result<(), String> {
+    let Some(lang) = args.value("lang") else {
+        return Ok(());
+    };
+    if lang == "python" || lang == "py" {
+        Ok(())
+    } else {
+        Err(format!(
+            "cpp-anything reads Python today; {lang:?} is a language plugin that does not exist yet \
+             (analyze/bridge/record for C, TypeScript, Go, Ruby, Java are the next plugins)"
+        ))
+    }
+}
+
+fn profile_command(args: &Parsed) -> Result<i32, String> {
+    let root = args.positional.first().map(String::as_str).unwrap_or(".");
+    check_lang(args)?;
+    let root = Path::new(root);
+    let report = crate::profile::run(
+        root,
+        &args.trailing,
+        args.number("top").unwrap_or(12) as usize,
+    )?;
+    if args.flag("json") {
+        println!(
+            "{}",
+            crate::profile::to_json(&report, root).to_string_pretty()
+        );
+    } else {
+        print!("{}", crate::profile::render(&report));
+    }
+    Ok(0)
+}
+
 fn target_from(args: &Parsed, matrix: &Matrix) -> Result<Target, String> {
     let default = Target::default();
     let toolchain = matrix
@@ -604,12 +677,29 @@ fn project_arg(args: &Parsed) -> Result<Project, String> {
 }
 
 fn record_command(args: &Parsed) -> Result<i32, String> {
-    let project = project_arg(args)?;
-    let cases = args.number("cases").unwrap_or(16) as usize;
+    let mut project = project_arg(args)?;
+    let cases = args
+        .number("count")
+        .or_else(|| args.number("cases"))
+        .unwrap_or(64) as usize;
     let seed = args.number("seed").unwrap_or(20260819);
     let inputs = args.value("inputs").map(PathBuf::from);
     let count = crate::python::record(&project, cases, seed, inputs.as_deref())?;
-    let mut project = project;
+    if let Some(tolerance) = args.value("float-tolerance") {
+        project.tolerance = tolerance
+            .parse()
+            .map_err(|_| format!("--float-tolerance {tolerance:?} is not a number"))?;
+    }
+    let mut suite = None;
+    if args.flag("from-tests") {
+        if args.trailing.is_empty() {
+            return Err(
+                "--from-tests needs the test command after `--`, e.g. `record . --from-tests -- pytest -q`"
+                    .into(),
+            );
+        }
+        suite = Some(crate::python::record_from_tests(&project, &args.trailing)?);
+    }
     project.recorded = Some(crate::project::Recorded {
         cases: count,
         at: util::now_iso8601(),
@@ -621,6 +711,33 @@ fn record_command(args: &Parsed) -> Result<i32, String> {
         project.module,
         project.dir.display()
     );
+    if let Some(suite) = suite {
+        println!(
+            "  from tests ({}): {} call(s) captured, {} new case(s), suite {}",
+            suite.command.join(" "),
+            suite.calls,
+            suite.added,
+            if suite.suite_ok {
+                "passed".to_string()
+            } else {
+                format!("failed ({})", suite.suite_error)
+            }
+        );
+        if let Some((reached, lines)) = suite.coverage {
+            println!("  coverage: {reached} of {lines} source lines reached by the suite");
+        }
+        if !suite.suite_ok {
+            println!(
+                "  the cases the suite did reach were kept; fix the suite to capture the rest"
+            );
+        }
+    }
+    if project.tolerance > 0.0 {
+        println!(
+            "  float tolerance: {} (saved with the project; diff and gate use it)",
+            project.tolerance
+        );
+    }
     println!(
         "  next: write src/port.cpp, then `cpp-anything diff {}`",
         project.dir.display()
@@ -731,12 +848,89 @@ fn gate_command(args: &Parsed) -> Result<i32, String> {
     Ok(if report.passed() { 0 } else { 1 })
 }
 
-fn refresh_command(args: &Parsed) -> Result<i32, String> {
+fn shadow_command(args: &Parsed) -> Result<i32, String> {
     let project = project_arg(args)?;
-    let written = crate::codegen::refresh(&project)?;
+    if args.flag("report") || args.flag("check") {
+        let report = crate::shadow::read_report(&project)?;
+        if args.flag("json") {
+            println!(
+                "{}",
+                crate::shadow::to_json(&report, &project).to_string_pretty()
+            );
+        } else {
+            print!("{}", crate::shadow::render(&report, &project));
+        }
+        return Ok(if args.flag("check") && !report.clean() {
+            1
+        } else {
+            0
+        });
+    }
+    crate::codegen::refresh(&project)?;
+    let outcome = crate::build::build(
+        &project,
+        false,
+        args.value("cxx"),
+        args.number("jobs").unwrap_or_else(default_jobs) as usize,
+    )?;
     println!(
-        "cpp-anything refresh: {} regenerated, src/port.cpp untouched",
-        written.join(", ")
+        "cpp-anything shadow: {} shadowed by {}",
+        project.module, project.unit
     );
+    println!(
+        "  library: {}",
+        util::short_path(&outcome.driver.with_file_name(library_name()))
+    );
+    println!(
+        "  module:  {}",
+        util::short_path(&project.dir.join("shadow").join(format!(
+            "{}_shadow.py",
+            crate::codegen::namespace_of(&project)
+        )))
+    );
+    println!(
+        "\nimport it where the original was imported:\n  sys.path.insert(0, \"{}\")\n  import {}_shadow as {}",
+        project.dir.join("shadow").display(),
+        crate::codegen::namespace_of(&project),
+        crate::codegen::namespace_of(&project)
+    );
+    println!("\ncallers keep the original's results; disagreements go to shadow/{}.shadow.jsonl\n  cpp-anything shadow {} --report", crate::codegen::namespace_of(&project), project.dir.display());
+    Ok(0)
+}
+
+fn library_name() -> &'static str {
+    if cfg!(windows) {
+        "cppan_shadow.dll"
+    } else if cfg!(target_os = "macos") {
+        "libcppan_shadow.dylib"
+    } else {
+        "libcppan_shadow.so"
+    }
+}
+
+fn refresh_command(args: &Parsed) -> Result<i32, String> {
+    let mut project = project_arg(args)?;
+    // The Python signature is the contract: re-read it, then regenerate everything
+    // that derives from it. `src/port.cpp` is never touched.
+    let unit = crate::python::inventory(
+        &project.source_file,
+        &project.module,
+        project.package_root.as_deref(),
+    )?;
+    project.functions = unit.functions;
+    project.skipped = unit.skipped;
+    project.risks = unit.risks;
+    project.imports = unit.imports;
+    project.lines = unit.lines;
+    let written = crate::codegen::refresh(&project)?;
+    project.save()?;
+    println!(
+        "cpp-anything refresh: {} function(s), {} file(s) regenerated, src/port.cpp untouched",
+        project.functions.len(),
+        written.len()
+    );
+    for function in &project.functions {
+        println!("  · {}", function.signature_line());
+    }
     Ok(0)
 }

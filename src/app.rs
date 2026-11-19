@@ -1,0 +1,960 @@
+//! `app`: record a CLI black-box, replay any build against it, and put a C++ front
+//! door in front of the original so the app can ship before every unit is ported.
+
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
+use crate::appcase::{self, Case, Config, RunOptions};
+use crate::cli::Parsed;
+use crate::json::Json;
+use crate::util;
+
+pub fn command(args: &Parsed) -> Result<i32, String> {
+    let sub = args
+        .positional
+        .first()
+        .map(String::as_str)
+        .unwrap_or("record");
+    let rest = ParsedView::new(args, 1);
+    match sub {
+        "record" => record(&rest),
+        "replay" => replay(&rest),
+        "front-door" | "front_door" => front_door(&rest),
+        "wire" => wire(&rest),
+        "lift" => lift(&rest),
+        other => Err(format!(
+            "unknown app command {other:?}; try record, replay, front-door, wire, lift"
+        )),
+    }
+}
+
+/// Positional arguments after the subcommand, keeping the same option maps.
+struct ParsedView<'a> {
+    args: &'a Parsed,
+    skip: usize,
+}
+
+impl<'a> ParsedView<'a> {
+    fn new(args: &'a Parsed, skip: usize) -> Self {
+        ParsedView { args, skip }
+    }
+
+    fn positional(&self, index: usize) -> Option<&str> {
+        self.args
+            .positional
+            .get(index + self.skip)
+            .map(String::as_str)
+    }
+
+    fn value(&self, name: &str) -> Option<&str> {
+        self.args.value(name)
+    }
+
+    fn flag(&self, name: &str) -> bool {
+        self.args.flag(name)
+    }
+
+    fn number(&self, name: &str) -> Option<u64> {
+        self.args.number(name)
+    }
+
+    fn values(&self, name: &str) -> Vec<String> {
+        self.args.many(name)
+    }
+
+    fn trailing(&self) -> &[String] {
+        &self.args.trailing
+    }
+}
+
+fn repo_of<'a>(view: &ParsedView<'a>) -> PathBuf {
+    view.positional(0)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+// ---------------------------------------------------------------------------
+// record
+// ---------------------------------------------------------------------------
+
+fn record(view: &ParsedView<'_>) -> Result<i32, String> {
+    let repo = repo_of(view);
+    let dir = repo.join(appcase::CASES_DIR);
+    let mut config = Config::load(&dir).unwrap_or_default();
+
+    let mut run: Vec<String> = view.trailing().to_vec();
+    if run.is_empty() {
+        run = config.run.clone();
+    }
+    if run.is_empty() {
+        return Err(
+            "app record needs the command that runs the original, after `--`: \
+             `cpp-anything app record . -- python3 cli.py`"
+                .into(),
+        );
+    }
+    // The recorded command keeps its repository-relative words: a checkout at another
+    // path still runs it, and `observe` resolves them against the repository.
+    config.run = run.clone();
+    config.timeout_secs = view.number("timeout").unwrap_or(config.timeout_secs).max(1);
+    if !view.values("normalize").is_empty() {
+        config.normalize = view.values("normalize");
+    }
+    if let Some(tolerance) = view.value("float-tolerance") {
+        config.float_tolerance = tolerance
+            .parse()
+            .map_err(|_| "--float-tolerance is not a number".to_string())?;
+    }
+    if !view.values("effects").is_empty() {
+        config.effects = view
+            .values("effects")
+            .into_iter()
+            .flat_map(|value| value.split(',').map(str::to_string).collect::<Vec<_>>())
+            .collect();
+    }
+    if view.flag("http") || view.number("port").is_some() {
+        config.http = true;
+    }
+    if let Some(port) = view.number("port") {
+        config.port = Some(port as u16);
+    }
+    if !view.values("arg").is_empty() {
+        config.args = view.values("arg");
+    }
+    if !view.values("fresh").is_empty() {
+        config.fresh = view.values("fresh");
+    }
+    if let Some(pace) = view.number("pace") {
+        config.pace_ms = pace;
+    }
+    if let Some(name) = view.value("name") {
+        config.name = name.to_string();
+    } else if config.name.is_empty() {
+        config.name = discover_name(&repo, &run);
+    }
+
+    let mut cases: Vec<Case> = Vec::new();
+    let mut sources: Vec<(String, Case)> = Vec::new();
+    if !view.flag("no-traps") {
+        let found = discover_cases(&repo, &config)?;
+        for (source, case) in found.examples.into_iter().chain(found.inputs) {
+            sources.push((source, case));
+        }
+    } else {
+        let found = discover_cases(&repo, &config)?;
+        for (source, case) in found.inputs {
+            sources.push((source, case));
+        }
+    }
+    if sources.is_empty() {
+        sources.push((
+            "no-args".to_string(),
+            Case {
+                name: String::new(),
+                args: Vec::new(),
+                stdin: String::new(),
+                env: Vec::new(),
+                files: Vec::new(),
+                expect: Default::default(),
+                unstable: false,
+                source: "no-args".into(),
+            },
+        ));
+    }
+
+    // Semantic traps: vary each argument and the stdin, so the app meets values the
+    // docs never show. This is where whole-app ports break.
+    let mut trapped: Vec<(String, Case)> = Vec::new();
+    for (source, case) in &sources {
+        trapped.push((source.clone(), case.clone()));
+    }
+    if !view.flag("no-traps") {
+        for (_, case) in &sources {
+            trapped.extend(trap_cases(case));
+        }
+    }
+    trapped.truncate(300);
+
+    let mut taken: BTreeSet<String> = BTreeSet::new();
+    for (index, (source, mut case)) in trapped.into_iter().enumerate() {
+        let base = format!(
+            "{}-{:03}-{}",
+            label_of(&source),
+            index + 1,
+            slug_of(case.args.first().map(String::as_str).unwrap_or("no-args"))
+        );
+        let mut name = base.clone();
+        let mut suffix = 2;
+        while !taken.insert(name.clone()) {
+            name = format!("{base}-{suffix}");
+            suffix += 1;
+        }
+        case.name = name;
+        case.source = source;
+
+        let options = RunOptions {
+            repo: &repo,
+            command: &config.run,
+            timeout: config.timeout_secs,
+            extra_env: Vec::new(),
+        };
+        let first = appcase::observe(&case, &options)?;
+        let second = appcase::observe(&case, &options)?;
+        let settled = appcase::settle(&case.name, &case.source, first, second, &config.normalize);
+        let mut settled = settled;
+        // `settle` only describes what it saw; the case's own inputs are what ran.
+        settled.args = case.args.clone();
+        settled.stdin = case.stdin.clone();
+        settled.env = case.env.clone();
+        settled.files = case.files.clone();
+        if view.flag("verbose") {
+            println!(
+                "  {:<40} exit {:<4} {:>6} bytes out{}",
+                settled.name,
+                settled.expect.exit,
+                settled.expect.stdout.len(),
+                if settled.unstable { "  (unstable)" } else { "" }
+            );
+        }
+        cases.push(settled);
+    }
+
+    std::fs::create_dir_all(&dir).map_err(|error| format!("{}: {error}", dir.display()))?;
+    config.save(&dir)?;
+    appcase::save_cases(&repo, &cases)?;
+    if view.flag("json") {
+        let doc = Json::obj([
+            ("schema", Json::str("cpp-anything/app-record@1")),
+            ("app", Json::str(config.name.clone())),
+            (
+                "run",
+                Json::Array(
+                    config
+                        .run
+                        .iter()
+                        .map(|part| Json::str(part.clone()))
+                        .collect(),
+                ),
+            ),
+            ("cases", Json::Int(cases.len() as i64)),
+            (
+                "unstable",
+                Json::Int(cases.iter().filter(|case| case.unstable).count() as i64),
+            ),
+            ("dir", Json::str(dir.display().to_string())),
+        ]);
+        println!("{}", doc.to_string_pretty());
+    } else {
+        println!(
+            "cpp-anything app record: {} — {} case(s) in {} ({} unstable)",
+            config.name,
+            cases.len(),
+            dir.display(),
+            cases.iter().filter(|case| case.unstable).count()
+        );
+        println!("  next: `cpp-anything app replay .` to check the original against its own cases");
+        println!("        `cpp-anything app front-door .` to put a C++ front door in front of it");
+    }
+    Ok(0)
+}
+
+fn label_of(source: &str) -> String {
+    match source {
+        "docs" => "example".into(),
+        "inputs" => "input".into(),
+        "trap" => "trap".into(),
+        other => other.to_string(),
+    }
+}
+
+fn slug_of(text: &str) -> String {
+    let slug: String = text
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = slug.trim_matches('-').to_string();
+    if trimmed.is_empty() {
+        "no-args".into()
+    } else {
+        trimmed.chars().take(40).collect()
+    }
+}
+
+const INT_TRAPS: &[&str] = &[
+    "-7",
+    "0",
+    "-1",
+    "2147483648",
+    "9007199254740993",
+    "9223372036854775807",
+];
+const FLOAT_TRAPS: &[&str] = &[
+    "-0.0",
+    "0.1",
+    "1e21",
+    "1e-7",
+    "5e-324",
+    "1.7976931348623157e308",
+];
+const STRING_TRAPS: &[&str] = &[
+    "héllo wörld",
+    "👍🏽 thumbs",
+    "日本語",
+    "",
+    "İstanbul",
+    "straße",
+    "👨‍👩‍👧 family",
+    "a\u{a0}b",
+];
+const STDIN_TRAPS: &[&str] = &["", "naïve café 👍🏽\nsecond line\n", "  spaced   out  \n\n"];
+
+fn trap_cases(case: &Case) -> Vec<(String, Case)> {
+    let mut out = Vec::new();
+    for (index, arg) in case.args.iter().enumerate() {
+        if arg.starts_with('-') && arg.parse::<f64>().is_err() {
+            continue; // a flag, not a value
+        }
+        let values: Vec<String> = if arg.parse::<i128>().is_ok() {
+            INT_TRAPS.iter().map(|value| value.to_string()).collect()
+        } else if arg.contains('.') && arg.parse::<f64>().is_ok() {
+            FLOAT_TRAPS.iter().map(|value| value.to_string()).collect()
+        } else {
+            STRING_TRAPS.iter().map(|value| value.to_string()).collect()
+        };
+        for value in values {
+            if value == *arg {
+                continue;
+            }
+            let mut clone = case.clone();
+            clone.args[index] = value;
+            clone.source = "trap".into();
+            out.push(("trap".to_string(), clone));
+        }
+    }
+    for stdin in STDIN_TRAPS {
+        if *stdin == case.stdin {
+            continue;
+        }
+        let mut clone = case.clone();
+        clone.stdin = (*stdin).to_string();
+        clone.source = "trap".into();
+        out.push(("trap".to_string(), clone));
+    }
+    out
+}
+
+// ---------------------------------------------------------------------------
+// discovery: docs examples and --inputs
+// ---------------------------------------------------------------------------
+
+type Found = Vec<(String, Case)>;
+
+struct Discovered {
+    examples: Found,
+    inputs: Found,
+}
+
+fn discover_cases(repo: &Path, config: &Config) -> Result<Discovered, String> {
+    let mut examples = Vec::new();
+    for path in walk_docs(repo, 0) {
+        let text = util::read(&path).unwrap_or_default();
+        let is_shell = path.extension().map(|ext| ext == "sh").unwrap_or(false);
+        for line in commands_in(&text, is_shell) {
+            let Some(case) = case_from_command(&line, &config.name) else {
+                continue;
+            };
+            examples.push(("docs".to_string(), case));
+        }
+    }
+    let mut inputs = Vec::new();
+    if let Some(path) = std::env::var_os("CPPAN_APP_INPUTS").map(PathBuf::from) {
+        inputs.extend(read_inputs(&path)?);
+    }
+    Ok(Discovered { examples, inputs })
+}
+
+fn walk_docs(directory: &Path, depth: usize) -> Vec<PathBuf> {
+    if depth > 4 {
+        return Vec::new();
+    }
+    let skip = [
+        ".git",
+        "node_modules",
+        "target",
+        "vendor",
+        "dist",
+        "build",
+        "cpp",
+        "out",
+        ".venv",
+        "venv",
+        "__pycache__",
+    ];
+    let mut out = Vec::new();
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return out;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if skip.contains(&name.as_str()) || name.starts_with('.') {
+                continue;
+            }
+            out.extend(walk_docs(&path, depth + 1));
+            continue;
+        }
+        if matches!(
+            path.extension().and_then(|ext| ext.to_str()),
+            Some("md") | Some("markdown") | Some("sh")
+        ) {
+            out.push(path);
+        }
+    }
+    out
+}
+
+fn commands_in(text: &str, shell_file: bool) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut in_fence = false;
+    let mut fence_shell = false;
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if let Some(info) = trimmed.strip_prefix("```") {
+            if in_fence {
+                in_fence = false;
+                fence_shell = false;
+            } else {
+                in_fence = true;
+                fence_shell = matches!(info.trim(), "sh" | "bash" | "shell" | "zsh");
+            }
+            continue;
+        }
+        let command = if shell_file || (in_fence && fence_shell) {
+            trimmed.strip_prefix("$ ").unwrap_or(trimmed)
+        } else {
+            match trimmed.strip_prefix("$ ") {
+                Some(command) => command,
+                None => continue,
+            }
+        };
+        if command.is_empty() || command.starts_with('#') {
+            continue;
+        }
+        if command.contains("$(")
+            || command.contains('`')
+            || command.contains('|')
+            || command.contains('>')
+            || command.contains('<')
+            || command.contains("&&")
+            || command.contains(';')
+        {
+            continue;
+        }
+        out.push(command.to_string());
+    }
+    out
+}
+
+fn case_from_command(command: &str, app: &str) -> Option<Case> {
+    let words = tokenize(command)?;
+    let mut env = Vec::new();
+    let mut index = 0;
+    while index < words.len() {
+        if let Some((key, value)) = words[index].split_once('=') {
+            if !key.is_empty()
+                && key
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+            {
+                env.push((key.to_string(), value.to_string()));
+                index += 1;
+                continue;
+            }
+        }
+        break;
+    }
+    let program = words.get(index)?.clone();
+    let stem = Path::new(&program)
+        .file_stem()?
+        .to_string_lossy()
+        .into_owned();
+    if !app.is_empty() && stem != app {
+        return None;
+    }
+    let args = words[index + 1..].to_vec();
+    Some(Case {
+        name: String::new(),
+        args,
+        stdin: String::new(),
+        env,
+        files: Vec::new(),
+        expect: Default::default(),
+        unstable: false,
+        source: "docs".into(),
+    })
+}
+
+fn tokenize(command: &str) -> Option<Vec<String>> {
+    let mut out = Vec::new();
+    let mut current = String::new();
+    let mut quote: Option<char> = None;
+    let mut chars = command.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match quote {
+            Some(q) if ch == q => quote = None,
+            Some(_) => {
+                if ch == '\\' {
+                    if let Some(next) = chars.next() {
+                        current.push(next);
+                    }
+                } else {
+                    current.push(ch);
+                }
+            }
+            None => match ch {
+                '"' | '\'' => quote = Some(ch),
+                '\\' => {
+                    if let Some(next) = chars.next() {
+                        current.push(next);
+                    }
+                }
+                ' ' | '\t' => {
+                    if !current.is_empty() {
+                        out.push(std::mem::take(&mut current));
+                    }
+                }
+                _ => current.push(ch),
+            },
+        }
+    }
+    if quote.is_some() {
+        return None;
+    }
+    if !current.is_empty() {
+        out.push(current);
+    }
+    if out.is_empty() {
+        None
+    } else {
+        Some(out)
+    }
+}
+
+fn read_inputs(path: &Path) -> Result<Vec<(String, Case)>, String> {
+    let text = util::read(path)?;
+    let mut out = Vec::new();
+    for (number, line) in text.lines().enumerate() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let doc = Json::parse(line)
+            .map_err(|error| format!("{}:{}: {error}", path.display(), number + 1))?;
+        let strings = |key: &str| -> Vec<String> {
+            doc.get(key)
+                .and_then(Json::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| item.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let env = doc
+            .get("env")
+            .and_then(Json::as_object)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.as_str().unwrap_or("").to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let files = doc
+            .get("files")
+            .and_then(Json::as_object)
+            .map(|entries| {
+                entries
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.as_str().unwrap_or("").to_string()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        out.push((
+            "inputs".to_string(),
+            Case {
+                name: doc
+                    .get("name")
+                    .and_then(Json::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                args: strings("args"),
+                stdin: doc
+                    .get("stdin")
+                    .and_then(Json::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                env,
+                files,
+                expect: Default::default(),
+                unstable: false,
+                source: "inputs".into(),
+            },
+        ));
+    }
+    Ok(out)
+}
+
+fn discover_name(repo: &Path, run: &[String]) -> String {
+    for word in run {
+        if word.starts_with('-') || word.contains('/') || word.contains('\\') {
+            continue;
+        }
+        let stem = Path::new(word)
+            .file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned());
+        if let Some(stem) = stem {
+            if !matches!(
+                stem.as_str(),
+                "python"
+                    | "python3"
+                    | "node"
+                    | "sh"
+                    | "bash"
+                    | "ruby"
+                    | "go"
+                    | "java"
+                    | "php"
+                    | "dotnet"
+            ) {
+                return stem;
+            }
+        }
+    }
+    for manifest in ["pyproject.toml", "package.json"] {
+        let path = repo.join(manifest);
+        let Ok(text) = util::read(&path) else {
+            continue;
+        };
+        if let Some(name) = script_name(&text) {
+            return name;
+        }
+    }
+    "app".to_string()
+}
+
+fn script_name(text: &str) -> Option<String> {
+    // `[project.scripts]` or `"bin": { "name": ... }` without a TOML/JSON dependency:
+    // find the first `name =` / `"name":` after the marker.
+    let mut lines = text.lines().peekable();
+    while let Some(line) = lines.next() {
+        let trimmed = line.trim();
+        if trimmed == "[project.scripts]"
+            || trimmed == "[tool.poetry.scripts]"
+            || trimmed.contains("\"bin\"")
+        {
+            for candidate in lines.by_ref().take(4) {
+                let candidate = candidate.trim();
+                if let Some((key, _)) = candidate.split_once('=') {
+                    let key = key.trim().trim_matches('"');
+                    if !key.is_empty() && key != "}" {
+                        return Some(key.to_string());
+                    }
+                }
+                if let Some((key, _)) = candidate.split_once(':') {
+                    let key = key.trim().trim_matches('"');
+                    if !key.is_empty() && key != "}" && key != "{" {
+                        return Some(key.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
+// replay
+// ---------------------------------------------------------------------------
+
+fn replay(view: &ParsedView<'_>) -> Result<i32, String> {
+    let repo = repo_of(view);
+    let dir = repo.join(appcase::CASES_DIR);
+    let config = Config::load(&dir)?;
+    let mut cases = appcase::load_cases(&repo)?;
+    if let Some(only) = view.value("case") {
+        cases.retain(|case| case.name == only);
+        if cases.is_empty() {
+            return Err(format!(
+                "no case named {only:?}: `app replay --json` lists them"
+            ));
+        }
+    }
+    let build: Vec<String> = match view.value("build") {
+        Some(command) => command.split_whitespace().map(str::to_string).collect(),
+        None => config.run.clone(),
+    };
+    if build.is_empty() {
+        return Err("no build command: pass `--build <command>` or record with one".into());
+    }
+    let options = RunOptions {
+        repo: &repo,
+        command: &build,
+        timeout: view.number("timeout").unwrap_or(config.timeout_secs),
+        extra_env: Vec::new(),
+    };
+
+    let mut passed = 0usize;
+    let mut unstable = 0usize;
+    let mut fallbacks = 0usize;
+    let mut failures = Vec::new();
+    let mut effects_checked = 0usize;
+    for case in &cases {
+        let observed = appcase::observe(case, &options)?;
+        if case.unstable {
+            unstable += 1;
+        }
+        if observed.fallback {
+            fallbacks += 1;
+        }
+        if !case.expect.effects.is_empty() {
+            effects_checked += 1;
+            if observed.effects != case.expect.effects {
+                failures.push((
+                    case.name.clone(),
+                    format!("effects: expected {:?}", case.expect.effects),
+                ));
+                continue;
+            }
+        }
+        match appcase::compare(case, &observed, &config.normalize) {
+            None => passed += 1,
+            Some(reason) => failures.push((case.name.clone(), reason)),
+        }
+    }
+
+    let total = cases.len();
+    if view.flag("json") {
+        let doc = Json::obj([
+            ("schema", Json::str("cpp-anything/app-replay@1")),
+            ("app", Json::str(config.name.clone())),
+            (
+                "build",
+                Json::Array(build.iter().map(|part| Json::str(part.clone())).collect()),
+            ),
+            ("cases", Json::Int(total as i64)),
+            ("passed", Json::Int(passed as i64)),
+            ("unstable", Json::Int(unstable as i64)),
+            ("fallback", Json::Int(fallbacks as i64)),
+            ("effects_checked", Json::Int(effects_checked as i64)),
+            (
+                "failures",
+                Json::Array(
+                    failures
+                        .iter()
+                        .map(|(name, reason)| {
+                            Json::obj([
+                                ("case", Json::str(name.clone())),
+                                ("reason", Json::str(reason.clone())),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
+        ]);
+        println!("{}", doc.to_string_pretty());
+    } else {
+        println!(
+            "cpp-anything app replay: {} — {}/{} cases passed{}",
+            config.name,
+            passed,
+            total,
+            if unstable > 0 {
+                format!(" ({unstable} unstable)")
+            } else {
+                String::new()
+            }
+        );
+        println!("  build: {}", build.join(" "));
+        if fallbacks > 0 {
+            println!("  fallback: {fallbacks}/{total} cases ran the original instead of the build");
+        }
+        for (name, reason) in failures.iter().take(10) {
+            println!("  ✗ {name}\n    {reason}");
+        }
+        if failures.len() > 10 {
+            println!("  … {} more", failures.len() - 10);
+        }
+    }
+    Ok(if failures.is_empty() { 0 } else { 1 })
+}
+
+// ---------------------------------------------------------------------------
+// front door
+// ---------------------------------------------------------------------------
+
+fn front_door(view: &ParsedView<'_>) -> Result<i32, String> {
+    let repo = repo_of(view);
+    let dir = repo.join(appcase::CASES_DIR);
+    let config = Config::load(&dir)?;
+    if config.http {
+        return Err(
+            "app front-door covers CLIs; servers are replayed with `app replay --build` against the \
+             rewritten server until the HTTP front door lands"
+                .into(),
+        );
+    }
+    let app_dir = repo.join("cpp").join("app");
+    let routes = crate::appfront::write(&app_dir, &config)?;
+    println!(
+        "cpp-anything app front-door: {} — {} file(s) in {}, {} route(s)",
+        config.name,
+        routes,
+        util::short_path(&app_dir),
+        crate::appfront::route_count(&app_dir)
+    );
+    if view.flag("no-check") {
+        return Ok(0);
+    }
+    let build = crate::appfront::build(&app_dir)?;
+    println!("  built {}", util::short_path(&build));
+    let code = replay_build(&repo, &build, view)?;
+    Ok(code)
+}
+
+fn replay_build(repo: &Path, build: &Path, view: &ParsedView<'_>) -> Result<i32, String> {
+    let dir = repo.join(appcase::CASES_DIR);
+    let config = Config::load(&dir)?;
+    let cases = appcase::load_cases(repo)?;
+    let options = RunOptions {
+        repo,
+        command: &[build.display().to_string()],
+        timeout: view.number("timeout").unwrap_or(config.timeout_secs),
+        extra_env: Vec::new(),
+    };
+    let mut passed = 0usize;
+    let mut fallbacks = 0usize;
+    let mut failures = Vec::new();
+    for case in &cases {
+        let observed = appcase::observe(case, &options)?;
+        if observed.fallback {
+            fallbacks += 1;
+        }
+        match appcase::compare(case, &observed, &config.normalize) {
+            None => passed += 1,
+            Some(reason) => failures.push((case.name.clone(), reason)),
+        }
+    }
+    println!(
+        "  replay: {}/{} passed, {} fallback",
+        passed,
+        cases.len(),
+        fallbacks
+    );
+    for (name, reason) in failures.iter().take(5) {
+        println!("  ✗ {name}\n    {reason}");
+    }
+    Ok(if failures.is_empty() { 0 } else { 1 })
+}
+
+// ---------------------------------------------------------------------------
+// wire
+// ---------------------------------------------------------------------------
+
+fn wire(view: &ParsedView<'_>) -> Result<i32, String> {
+    let repo = repo_of(view);
+    let unit = view
+        .positional(1)
+        .ok_or("app wire needs a unit: the folder or unit id it was bridged from")?;
+    let command = view
+        .value("command")
+        .ok_or("app wire needs `--command NAME`: the CLI command this unit answers")?;
+    let app_dir = repo.join("cpp").join("app");
+    if !app_dir.exists() {
+        return Err("no front door yet: run `cpp-anything app front-door .` first".into());
+    }
+    let project = view.value("project").map(Path::new);
+    let file = crate::appfront::wire(&app_dir, &repo, unit, command, project)?;
+    println!(
+        "cpp-anything app wire: {command} → {unit}\n  wrote {} — fill the handler, then `app front-door .`",
+        util::short_path(&file)
+    );
+    Ok(0)
+}
+
+// ---------------------------------------------------------------------------
+// lift
+// ---------------------------------------------------------------------------
+
+fn lift(view: &ParsedView<'_>) -> Result<i32, String> {
+    let repo = repo_of(view);
+    let dir = repo.join(appcase::CASES_DIR);
+    let mut config = Config::load(&dir)?;
+    let build = repo
+        .join("cpp")
+        .join("app")
+        .join("build")
+        .join(if cfg!(windows) {
+            "cppan_app.exe"
+        } else {
+            "cppan_app"
+        })
+        .canonicalize()
+        .map_err(|error| format!("{}: {error}", repo.join("cpp/app/build").display()))?;
+    if !build.exists() {
+        return Err("no built front door: run `cpp-anything app front-door .` first".into());
+    }
+    let code = replay_build(&repo, &build, view)?;
+    if code != 0 {
+        return Ok(code);
+    }
+    // Lifting means the front door answered every case itself: no fallback.
+    let cases = appcase::load_cases(&repo)?;
+    let options = RunOptions {
+        repo: &repo,
+        command: &[build.display().to_string()],
+        timeout: config.timeout_secs,
+        extra_env: Vec::new(),
+    };
+    let mut fallbacks = 0usize;
+    for case in &cases {
+        let observed = appcase::observe(case, &options)?;
+        if observed.fallback {
+            fallbacks += 1;
+        }
+    }
+    if fallbacks > 0 {
+        println!(
+            "cpp-anything app lift: {} case(s) still run the original; wire the units they need \
+             (`app wire`) and lift again",
+            fallbacks
+        );
+        return Ok(1);
+    }
+    config.lifted = true;
+    config.save(&dir)?;
+    util::write(
+        &dir.join("STANDALONE.md"),
+        &format!(
+            "# {} is standalone\n\nEvery recorded case is answered by the C++ front door in \
+             `cpp/app/`; the original is no longer on any path a case takes. Keep it as reference, \
+             keep `cpp-anything app replay .` in CI, and keep the cases: they are the contract.\n",
+            config.name
+        ),
+    )?;
+    println!(
+        "cpp-anything app lift: {} is standalone — {} case(s) answered by the front door, 0 fallback\n  \
+         wrote {}",
+        config.name,
+        cases.len(),
+        util::short_path(&dir.join("STANDALONE.md"))
+    );
+    Ok(0)
+}

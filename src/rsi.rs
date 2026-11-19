@@ -121,6 +121,73 @@ pub fn command(args: &Parsed) -> Result<i32, String> {
     }
 }
 
+/// Copies the shipped CLI example, rebuilds its front door from the committed cases
+/// and glue, and requires `app lift` to reach zero fallback.
+fn app_step(root: &Path) -> Result<Step, String> {
+    let example = root.join("examples").join("slugify-cli");
+    if !example.join("cpp").join("app-cases").exists() {
+        return Ok(Step {
+            name: "self app",
+            ok: false,
+            detail: "examples/slugify-cli has no recorded app cases".into(),
+        });
+    }
+    let scratch = std::env::temp_dir().join(format!("cpp-anything-rsi-app-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&scratch);
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).map_err(|error| format!("{}: {error}", scratch.display()))?;
+    copy_dir(&example, &scratch)?;
+    // The copied glue links the unit by absolute path: keep that path.
+    let front = run_cli(&scratch, &["app", "front-door", "."])?;
+    if front.contains("✗") || !front.contains("passed") {
+        return Ok(Step {
+            name: "self app",
+            ok: false,
+            detail: format!(
+                "app front-door did not replay: {}",
+                util::truncate_text(&front, 200)
+            ),
+        });
+    }
+    let lift = run_cli(&scratch, &["app", "lift", "."])?;
+    let ok = lift.contains("standalone") && lift.contains("0 fallback");
+    let detail = if ok {
+        let _ = std::fs::remove_dir_all(&scratch);
+        "recorded the CLI, rebuilt the front door and lifted it with 0 fallback".to_string()
+    } else {
+        format!(
+            "app lift did not reach standalone: {}",
+            util::truncate_text(&lift, 200)
+        )
+    };
+    Ok(Step {
+        name: "self app",
+        ok,
+        detail,
+    })
+}
+
+fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
+    for entry in std::fs::read_dir(from).map_err(|error| format!("{}: {error}", from.display()))? {
+        let entry = entry.map_err(|error| format!("{}: {error}", from.display()))?;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name == "build" || name == "__pycache__" || name == ".git" {
+            continue; // build trees and caches belong to the machine that made them
+        }
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() {
+            std::fs::create_dir_all(&target)
+                .map_err(|error| format!("{}: {error}", target.display()))?;
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)
+                .map_err(|error| format!("{}: {error}", target.display()))?;
+        }
+    }
+    Ok(())
+}
+
 fn check(root: &Path, args: &Parsed) -> Result<i32, String> {
     let mut steps = Vec::new();
 
@@ -163,6 +230,9 @@ fn check(root: &Path, args: &Parsed) -> Result<i32, String> {
 
     // 4. The generator still emits a project that compiles and passes its own diff.
     steps.push(self_port_step(root)?);
+
+    // 5. The whole-app loop still records, builds a front door and lifts.
+    steps.push(app_step(root)?);
 
     if args.flag("json") {
         let doc = Json::obj([

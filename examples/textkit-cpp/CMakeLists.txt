@@ -9,16 +9,22 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-add_library(cppan_port STATIC src/port.cpp)
-target_include_directories(cppan_port PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_compile_features(cppan_port PUBLIC cxx_std_23)
+add_library(cppan_port_textkit_words STATIC src/port.cpp)
+target_include_directories(cppan_port_textkit_words PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_features(cppan_port_textkit_words PUBLIC cxx_std_23)
 if(MSVC)
   # /Zc:__cplusplus makes __cplusplus tell the truth; without it the
   # static_assert in profile.hpp cannot pass.
-  target_compile_options(cppan_port PRIVATE /W4 /permissive- /Zc:__cplusplus /utf-8)
+  target_compile_options(cppan_port_textkit_words PRIVATE /W4 /permissive- /Zc:__cplusplus /utf-8)
 else()
-  target_compile_options(cppan_port PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+  target_compile_options(cppan_port_textkit_words PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 endif()
 
 add_executable(cppan_driver src/main.cpp src/dispatch.cpp)
-target_link_libraries(cppan_driver PRIVATE cppan_port)
+target_link_libraries(cppan_driver PRIVATE cppan_port_textkit_words)
+
+# The shadow library: the same port, callable from the original's runtime so both
+# can run on real traffic and be compared (`cpp-anything shadow .`).
+add_library(cppan_shadow_textkit_words SHARED src/shadow.cpp src/dispatch.cpp)
+target_link_libraries(cppan_shadow_textkit_words PRIVATE cppan_port_textkit_words)
+set_target_properties(cppan_shadow_textkit_words PROPERTIES OUTPUT_NAME cppan_shadow)

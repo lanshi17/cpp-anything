@@ -125,6 +125,48 @@ impl Json {
         }
     }
 
+    /// Order-independent text for keys and dedupe: object keys sorted, numbers
+    /// tagged by kind. Two values with the same `canonical()` compare equal.
+    pub fn canonical(&self) -> String {
+        let mut out = String::new();
+        self.write_canonical(&mut out);
+        out
+    }
+
+    fn write_canonical(&self, out: &mut String) {
+        match self {
+            Json::Null => out.push_str("null"),
+            Json::Bool(true) => out.push_str("true"),
+            Json::Bool(false) => out.push_str("false"),
+            Json::Int(value) => out.push_str(&format!("{value}i")),
+            Json::Real(value) => out.push_str(&format!("{:?}f", value)),
+            Json::Str(value) => out.push_str(&format!("{value:?}")),
+            Json::Array(items) => {
+                out.push('[');
+                for (index, item) in items.iter().enumerate() {
+                    if index > 0 {
+                        out.push(',');
+                    }
+                    item.write_canonical(out);
+                }
+                out.push(']');
+            }
+            Json::Object(pairs) => {
+                let mut sorted: Vec<&(String, Json)> = pairs.iter().collect();
+                sorted.sort_by(|a, b| a.0.cmp(&b.0));
+                out.push('{');
+                for (index, (key, value)) in sorted.iter().enumerate() {
+                    if index > 0 {
+                        out.push(',');
+                    }
+                    out.push_str(&format!("{key:?}:"));
+                    value.write_canonical(out);
+                }
+                out.push('}');
+            }
+        }
+    }
+
     pub fn to_string_compact(&self) -> String {
         let mut out = String::new();
         self.write_compact(&mut out);

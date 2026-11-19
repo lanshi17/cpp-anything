@@ -6,6 +6,9 @@
 //! using the same loop to check cpp-anything itself.
 
 mod analyze;
+mod app;
+mod appcase;
+mod appfront;
 mod bench;
 mod build;
 mod cli;
@@ -18,9 +21,11 @@ mod inventory;
 mod json;
 mod matrix;
 mod mcp;
+mod profile;
 mod project;
 mod python;
 mod rsi;
+mod shadow;
 mod types;
 mod util;
 

@@ -14,6 +14,8 @@ use crate::util;
 const JSON_HPP: &str = include_str!("cpp_runtime/json.hpp");
 const WIRE_HPP: &str = include_str!("cpp_runtime/wire.hpp");
 const MAIN_CPP: &str = include_str!("cpp_runtime/main.cpp");
+const SHADOW_CPP: &str = include_str!("cpp_runtime/shadow.cpp");
+const SHADOW_PY: &str = include_str!("cpp_runtime/shadow_module.py.in");
 
 pub fn namespace_of(project: &Project) -> String {
     util::sanitize_identifier(&project.unit)
@@ -44,6 +46,11 @@ pub fn project_files(project: &Project) -> Vec<(String, String)> {
             render_dispatch(project, &ns),
         ),
         ("src/main.cpp".to_string(), render_main(project)),
+        ("src/shadow.cpp".to_string(), SHADOW_CPP.to_string()),
+        (
+            format!("shadow/{ns}_shadow.py"),
+            render_shadow_py(project, &ns),
+        ),
         ("README.md".to_string(), render_readme(project, &ns)),
         (".clang-format".to_string(), CLANG_FORMAT.to_string()),
         (".gitignore".to_string(), "build/\n".to_string()),
@@ -132,19 +139,25 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-add_library(cppan_port STATIC src/port.cpp)
-target_include_directories(cppan_port PUBLIC ${{CMAKE_CURRENT_SOURCE_DIR}}/include)
-target_compile_features(cppan_port PUBLIC cxx_std_{std_num})
+add_library(cppan_port_{ns} STATIC src/port.cpp)
+target_include_directories(cppan_port_{ns} PUBLIC ${{CMAKE_CURRENT_SOURCE_DIR}}/include)
+target_compile_features(cppan_port_{ns} PUBLIC cxx_std_{std_num})
 if(MSVC)
   # /Zc:__cplusplus makes __cplusplus tell the truth; without it the
   # static_assert in profile.hpp cannot pass.
-  target_compile_options(cppan_port PRIVATE /W4 /permissive- /Zc:__cplusplus /utf-8)
+  target_compile_options(cppan_port_{ns} PRIVATE /W4 /permissive- /Zc:__cplusplus /utf-8)
 else()
-  target_compile_options(cppan_port PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
+  target_compile_options(cppan_port_{ns} PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 endif()
 
 add_executable(cppan_driver src/main.cpp src/dispatch.cpp)
-target_link_libraries(cppan_driver PRIVATE cppan_port)
+target_link_libraries(cppan_driver PRIVATE cppan_port_{ns})
+
+# The shadow library: the same port, callable from the original's runtime so both
+# can run on real traffic and be compared (`cpp-anything shadow .`).
+add_library(cppan_shadow_{ns} SHARED src/shadow.cpp src/dispatch.cpp)
+target_link_libraries(cppan_shadow_{ns} PRIVATE cppan_port_{ns})
+set_target_properties(cppan_shadow_{ns} PROPERTIES OUTPUT_NAME cppan_shadow)
 "#,
         module = project.module,
         toolchain = project.target.toolchain,
@@ -332,6 +345,52 @@ fn required_in_port(param: &crate::inventory::Param) -> bool {
         .as_ref()
         .and_then(|value| param.ty.cpp_default(value))
         .is_none()
+}
+
+fn render_shadow_py(project: &Project, ns: &str) -> String {
+    let shadow_dir = project.dir.join("shadow").display().to_string();
+    let library = project.dir.join("build").join(if cfg!(windows) {
+        "cppan_shadow.dll"
+    } else if cfg!(target_os = "macos") {
+        "libcppan_shadow.dylib"
+    } else {
+        "libcppan_shadow.so"
+    });
+    let functions = project
+        .functions
+        .iter()
+        .map(|function| format!("{:?}", function.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    SHADOW_PY
+        .replace("{{MODULE}}", &project.module)
+        .replace("{{NS}}", ns)
+        .replace("{{SHADOW_DIR}}", &shadow_dir)
+        .replace("{{PROJECT_DIR}}", &project.dir.display().to_string())
+        .replace("{{LIBRARY}}", &library.display().to_string())
+        .replace(
+            "{{ORIGINAL_FILE}}",
+            &project.source_file.display().to_string(),
+        )
+        .replace(
+            "{{ORIGINAL_ROOT}}",
+            &project
+                .package_root
+                .as_ref()
+                .map(|path| format!("r{:?}", path.display().to_string()))
+                .unwrap_or_else(|| "None".to_string()),
+        )
+        .replace(
+            "{{LOG}}",
+            &project
+                .dir
+                .join("shadow")
+                .join(format!("{ns}.shadow.jsonl"))
+                .display()
+                .to_string(),
+        )
+        .replace("{{FUNCTIONS}}", &format!("[{functions}]"))
+        .replace("{{TOLERANCE}}", &format!("{:?}", project.tolerance))
 }
 
 fn render_main(project: &Project) -> String {

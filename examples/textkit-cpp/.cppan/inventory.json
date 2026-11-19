@@ -18,6 +18,7 @@
         }
       ],
       "returns": "str",
+      "raises": false,
       "doc": [
         "Lowercase, keep ascii alphanumerics, collapse everything else to '-'."
       ],
@@ -46,6 +47,7 @@
         }
       ],
       "returns": "str",
+      "raises": true,
       "doc": [
         "Cut to `limit` code points, adding an ellipsis."
       ],
@@ -68,6 +70,7 @@
         }
       ],
       "returns": "int",
+      "raises": false,
       "doc": [],
       "risks": [
         "len() on str counts code points; std::string::size() counts bytes",
@@ -87,6 +90,7 @@
         }
       ],
       "returns": "int",
+      "raises": false,
       "doc": [],
       "risks": [
         "int() accepts underscores, unicode digits and surrounding space; std::from_chars does not",
@@ -114,6 +118,7 @@
         }
       ],
       "returns": "list[str]",
+      "raises": true,
       "doc": [],
       "risks": [
         "slice offsets: Python indexes code points, C++ indexes bytes",
@@ -133,9 +138,20 @@
         }
       ],
       "returns": "int",
+      "raises": true,
       "doc": [],
       "risks": []
     }
   ],
-  "risks": []
+  "risks": [
+    "len() on str counts code points; std::string::size() counts bytes",
+    "slice offsets: Python indexes code points, C++ indexes bytes",
+    "int() accepts underscores, unicode digits and surrounding space; std::from_chars does not",
+    "str.split() with no argument splits on unicode whitespace",
+    "str.strip() strips unicode whitespace, not just ASCII",
+    "f-strings format floats with Python's shortest repr",
+    "str.lower() is unicode-aware; std::tolower is ASCII-only",
+    "Python ints are unbounded: values beyond 2**63-1 do not fit std::int64_t",
+    "classes stay in Python until the unit is ported to structs by hand"
+  ]
 }

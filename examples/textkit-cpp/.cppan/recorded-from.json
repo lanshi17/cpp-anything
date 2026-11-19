@@ -1,0 +1,20 @@
+{
+  "schema": "cpp-anything/recorded-from@1",
+  "source_hash": "47241f647ada43e3",
+  "from_tests": {
+    "command": [
+      "python3",
+      "-m",
+      "pytest",
+      "-q",
+      "tests"
+    ],
+    "calls": 6,
+    "cases": 5,
+    "at": "2026-11-19T13:06:56Z"
+  },
+  "coverage": {
+    "reached": 36,
+    "lines": 50
+  }
+}

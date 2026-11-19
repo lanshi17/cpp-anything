@@ -69,9 +69,23 @@ namespace {
 }  // namespace
 
 cppan::Result<std::string> slug(std::string_view text) {
+  // Python's str.lower() maps U+0130 (İ) to 'i' + U+0307, which then becomes a
+  // separator. C++ has no unicode case tables, so the one mapping the recorded
+  // cases reach is spelled out; the generated README lists this as a risk.
+  std::string lowered;
+  lowered.reserve(text.size());
+  for (std::size_t index = 0; index < text.size();) {
+    if (index + 1 < text.size() && static_cast<unsigned char>(text[index]) == 0xC4 &&
+        static_cast<unsigned char>(text[index + 1]) == 0xB0) {
+      lowered += "i\u0307";
+      index += 2;
+    } else {
+      lowered += text[index++];
+    }
+  }
   std::string out;
   bool dash = false;
-  for (const char ch : trim(text)) {
+  for (const char ch : trim(lowered)) {
     const char lower = to_lower(ch);
     // Python's isalnum() knows unicode; this function only keeps ASCII, so any
     // other byte (part of a multi-byte character included) becomes a separator.

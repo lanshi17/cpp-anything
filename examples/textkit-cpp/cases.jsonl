@@ -1,0 +1,105 @@
+{"id": "slug:0", "fn": "slug", "args": [""], "expect": {"ok": ""}}
+{"id": "slug:1", "fn": "slug", "args": [" "], "expect": {"ok": ""}}
+{"id": "slug:2", "fn": "slug", "args": ["Hello World"], "expect": {"ok": "hello-world"}}
+{"id": "slug:3", "fn": "slug", "args": ["  Mixed CASE  "], "expect": {"ok": "mixed-case"}}
+{"id": "slug:4", "fn": "slug", "args": ["café — naïve"], "expect": {"ok": "caf-na-ve"}}
+{"id": "slug:5", "fn": "slug", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "expect": {"ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+{"id": "slug:6", "fn": "slug", "args": ["one\ntwo\tthree"], "expect": {"ok": "one-two-three"}}
+{"id": "slug:7", "fn": "slug", "args": ["123"], "expect": {"ok": "123"}}
+{"id": "slug:8", "fn": "slug", "args": ["Ünïcødé ☃"], "expect": {"ok": "n-c-d"}}
+{"id": "slug:9", "fn": "slug", "args": ["trailing---"], "expect": {"ok": "trailing"}}
+{"id": "slug:10", "fn": "slug", "args": [" leading"], "expect": {"ok": "leading"}}
+{"id": "slug:11", "fn": "slug", "args": ["line1\nline2"], "expect": {"ok": "line1-line2"}}
+{"id": "slug:12", "fn": "slug", "args": ["Москва"], "expect": {"ok": ""}}
+{"id": "slug:13", "fn": "slug", "args": ["é"], "expect": {"ok": "e"}}
+{"id": "slug:14", "fn": "slug", "args": ["0"], "expect": {"ok": "0"}}
+{"id": "slug:15", "fn": "slug", "args": ["123"], "expect": {"ok": "123"}}
+{"id": "slug:16", "fn": "slug", "args": ["one\ntwo\tthree"], "expect": {"ok": "one-two-three"}}
+{"id": "truncate:0", "fn": "truncate", "args": ["", 0], "expect": {"ok": ""}}
+{"id": "truncate:1", "fn": "truncate", "args": [" ", 1], "expect": {"ok": " "}}
+{"id": "truncate:2", "fn": "truncate", "args": ["Hello World", -1], "expect": {"err": {"type": "ValueError", "msg": "limit must be >= 0, got -1"}}}
+{"id": "truncate:3", "fn": "truncate", "args": ["  Mixed CASE  ", 7], "expect": {"ok": "  Mixed…"}}
+{"id": "truncate:4", "fn": "truncate", "args": ["café — naïve", 42], "expect": {"ok": "café — naïve"}}
+{"id": "truncate:5", "fn": "truncate", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 12], "expect": {"ok": "aaaaaaaaaaaa…"}}
+{"id": "truncate:6", "fn": "truncate", "args": ["one\ntwo\tthree", 100], "expect": {"ok": "one\ntwo\tthree"}}
+{"id": "truncate:7", "fn": "truncate", "args": ["123", -100], "expect": {"err": {"type": "ValueError", "msg": "limit must be >= 0, got -100"}}}
+{"id": "truncate:8", "fn": "truncate", "args": ["Ünïcødé ☃", 1000000], "expect": {"ok": "Ünïcødé ☃"}}
+{"id": "truncate:9", "fn": "truncate", "args": ["trailing---", 3], "expect": {"ok": "tra…"}}
+{"id": "truncate:10", "fn": "truncate", "args": [" leading", 19], "expect": {"ok": " leading"}}
+{"id": "truncate:11", "fn": "truncate", "args": ["line1\nline2", 255], "expect": {"ok": "line1\nline2"}}
+{"id": "truncate:12", "fn": "truncate", "args": ["Москва", -7], "expect": {"err": {"type": "ValueError", "msg": "limit must be >= 0, got -7"}}}
+{"id": "truncate:13", "fn": "truncate", "args": ["é", 2147483648], "expect": {"ok": "é"}}
+{"id": "truncate:14", "fn": "truncate", "args": ["0", 0], "expect": {"ok": "…"}}
+{"id": "truncate:15", "fn": "truncate", "args": ["", 11], "expect": {"ok": ""}}
+{"id": "truncate:16", "fn": "truncate", "args": ["Ünïcødé ☃", 42], "expect": {"ok": "Ünïcødé ☃"}}
+{"id": "truncate:17", "fn": "truncate", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 12], "expect": {"ok": "aaaaaaaaaaaa…"}}
+{"id": "word_count:0", "fn": "word_count", "args": [""], "expect": {"ok": 0}}
+{"id": "word_count:1", "fn": "word_count", "args": [" "], "expect": {"ok": 0}}
+{"id": "word_count:2", "fn": "word_count", "args": ["Hello World"], "expect": {"ok": 2}}
+{"id": "word_count:3", "fn": "word_count", "args": ["  Mixed CASE  "], "expect": {"ok": 2}}
+{"id": "word_count:4", "fn": "word_count", "args": ["café — naïve"], "expect": {"ok": 3}}
+{"id": "word_count:5", "fn": "word_count", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "expect": {"ok": 1}}
+{"id": "word_count:6", "fn": "word_count", "args": ["one\ntwo\tthree"], "expect": {"ok": 3}}
+{"id": "word_count:7", "fn": "word_count", "args": ["123"], "expect": {"ok": 1}}
+{"id": "word_count:8", "fn": "word_count", "args": ["Ünïcødé ☃"], "expect": {"ok": 2}}
+{"id": "word_count:9", "fn": "word_count", "args": ["trailing---"], "expect": {"ok": 1}}
+{"id": "word_count:10", "fn": "word_count", "args": [" leading"], "expect": {"ok": 1}}
+{"id": "word_count:11", "fn": "word_count", "args": ["line1\nline2"], "expect": {"ok": 2}}
+{"id": "word_count:12", "fn": "word_count", "args": ["Москва"], "expect": {"ok": 1}}
+{"id": "word_count:13", "fn": "word_count", "args": ["é"], "expect": {"ok": 1}}
+{"id": "word_count:14", "fn": "word_count", "args": ["0"], "expect": {"ok": 1}}
+{"id": "word_count:15", "fn": "word_count", "args": ["one\ntwo\tthree"], "expect": {"ok": 3}}
+{"id": "word_count:16", "fn": "word_count", "args": [" "], "expect": {"ok": 0}}
+{"id": "digits_only:0", "fn": "digits_only", "args": [""], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: ''"}}}
+{"id": "digits_only:1", "fn": "digits_only", "args": [" "], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: ''"}}}
+{"id": "digits_only:2", "fn": "digits_only", "args": ["Hello World"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'Hello World'"}}}
+{"id": "digits_only:3", "fn": "digits_only", "args": ["  Mixed CASE  "], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'Mixed CASE'"}}}
+{"id": "digits_only:4", "fn": "digits_only", "args": ["café — naïve"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'café — naïve'"}}}
+{"id": "digits_only:5", "fn": "digits_only", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}}
+{"id": "digits_only:6", "fn": "digits_only", "args": ["one\ntwo\tthree"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'one\\ntwo\\tthree'"}}}
+{"id": "digits_only:7", "fn": "digits_only", "args": ["123"], "expect": {"ok": 123}}
+{"id": "digits_only:8", "fn": "digits_only", "args": ["Ünïcødé ☃"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'Ünïcødé ☃'"}}}
+{"id": "digits_only:9", "fn": "digits_only", "args": ["trailing---"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'trailing---'"}}}
+{"id": "digits_only:10", "fn": "digits_only", "args": [" leading"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'leading'"}}}
+{"id": "digits_only:11", "fn": "digits_only", "args": ["line1\nline2"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'line1\\nline2'"}}}
+{"id": "digits_only:12", "fn": "digits_only", "args": ["Москва"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'Москва'"}}}
+{"id": "digits_only:13", "fn": "digits_only", "args": ["é"], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: 'é'"}}}
+{"id": "digits_only:14", "fn": "digits_only", "args": ["0"], "expect": {"ok": 0}}
+{"id": "digits_only:15", "fn": "digits_only", "args": [""], "expect": {"err": {"type": "ValueError", "msg": "invalid literal for int() with base 10: ''"}}}
+{"id": "digits_only:16", "fn": "digits_only", "args": ["0"], "expect": {"ok": 0}}
+{"id": "summarize:0", "fn": "summarize", "args": ["", 0], "expect": {"err": {"type": "ValueError", "msg": "nothing to summarize"}}}
+{"id": "summarize:1", "fn": "summarize", "args": [" ", 1], "expect": {"err": {"type": "ValueError", "msg": "nothing to summarize"}}}
+{"id": "summarize:2", "fn": "summarize", "args": ["Hello World", -1], "expect": {"ok": ["Hello"]}}
+{"id": "summarize:3", "fn": "summarize", "args": ["  Mixed CASE  ", 7], "expect": {"ok": ["Mixed", "CASE"]}}
+{"id": "summarize:4", "fn": "summarize", "args": ["café — naïve", 42], "expect": {"ok": ["café", "—", "naïve"]}}
+{"id": "summarize:5", "fn": "summarize", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 12], "expect": {"ok": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}}
+{"id": "summarize:6", "fn": "summarize", "args": ["one\ntwo\tthree", 100], "expect": {"ok": ["one", "two", "three"]}}
+{"id": "summarize:7", "fn": "summarize", "args": ["123", -100], "expect": {"ok": []}}
+{"id": "summarize:8", "fn": "summarize", "args": ["Ünïcødé ☃", 1000000], "expect": {"ok": ["Ünïcødé", "☃"]}}
+{"id": "summarize:9", "fn": "summarize", "args": ["trailing---", 3], "expect": {"ok": ["trailing---"]}}
+{"id": "summarize:10", "fn": "summarize", "args": [" leading", 19], "expect": {"ok": ["leading"]}}
+{"id": "summarize:11", "fn": "summarize", "args": ["line1\nline2", 255], "expect": {"ok": ["line1", "line2"]}}
+{"id": "summarize:12", "fn": "summarize", "args": ["Москва", -7], "expect": {"ok": []}}
+{"id": "summarize:13", "fn": "summarize", "args": ["é", 2147483648], "expect": {"ok": ["é"]}}
+{"id": "summarize:14", "fn": "summarize", "args": ["0", 0], "expect": {"ok": []}}
+{"id": "summarize:15", "fn": "summarize", "args": ["", 11], "expect": {"err": {"type": "ValueError", "msg": "nothing to summarize"}}}
+{"id": "summarize:16", "fn": "summarize", "args": [" ", 12], "expect": {"err": {"type": "ValueError", "msg": "nothing to summarize"}}}
+{"id": "summarize:17", "fn": "summarize", "args": ["Ünïcødé ☃", -8694], "expect": {"ok": []}}
+{"id": "require_positive:0", "fn": "require_positive", "args": [0], "expect": {"err": {"type": "ValueError", "msg": "expected a positive number"}}}
+{"id": "require_positive:1", "fn": "require_positive", "args": [1], "expect": {"ok": 2}}
+{"id": "require_positive:2", "fn": "require_positive", "args": [-1], "expect": {"err": {"type": "ValueError", "msg": "expected a positive number"}}}
+{"id": "require_positive:3", "fn": "require_positive", "args": [7], "expect": {"ok": 14}}
+{"id": "require_positive:4", "fn": "require_positive", "args": [42], "expect": {"ok": 84}}
+{"id": "require_positive:5", "fn": "require_positive", "args": [12], "expect": {"ok": 24}}
+{"id": "require_positive:6", "fn": "require_positive", "args": [100], "expect": {"ok": 200}}
+{"id": "require_positive:7", "fn": "require_positive", "args": [-100], "expect": {"err": {"type": "ValueError", "msg": "expected a positive number"}}}
+{"id": "require_positive:8", "fn": "require_positive", "args": [1000000], "expect": {"ok": 2000000}}
+{"id": "require_positive:9", "fn": "require_positive", "args": [3], "expect": {"ok": 6}}
+{"id": "require_positive:10", "fn": "require_positive", "args": [19], "expect": {"ok": 38}}
+{"id": "require_positive:11", "fn": "require_positive", "args": [255], "expect": {"ok": 510}}
+{"id": "require_positive:12", "fn": "require_positive", "args": [-7], "expect": {"err": {"type": "ValueError", "msg": "expected a positive number"}}}
+{"id": "require_positive:13", "fn": "require_positive", "args": [2147483648], "expect": {"ok": 4294967296}}
+{"id": "require_positive:14", "fn": "require_positive", "args": [0], "expect": {"err": {"type": "ValueError", "msg": "expected a positive number"}}}
+{"id": "require_positive:15", "fn": "require_positive", "args": [11], "expect": {"ok": 22}}
+{"id": "require_positive:16", "fn": "require_positive", "args": [-3552], "expect": {"err": {"type": "ValueError", "msg": "expected a positive number"}}}
+{"id": "require_positive:17", "fn": "require_positive", "args": [1000000], "expect": {"ok": 2000000}}

@@ -1,0 +1,19 @@
+[package]
+name = "cpp-anything"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Rewrite your app in C++ (C++20/23), and prove it still behaves the same"
+license = "MIT"
+repository = "https://github.com/cpp-anything/cpp-anything"
+keywords = ["cpp", "migration", "port", "testing", "c++23"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "cpp-anything"
+path = "src/main.rs"
+
+[dependencies]
+# None. cpp-anything ships as one static binary that runs on a bare machine:
+# no JSON crate, no argument parser, no TOML. The parsing it needs (JSON, the
+# C++ type subset, argv) is a few hundred lines it owns and can test.

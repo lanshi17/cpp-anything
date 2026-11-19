@@ -1,0 +1,12 @@
+/target
+build/
+*.o
+*.obj
+*.exe
+__pycache__/
+*.pyc
+.venv/
+scripts/.cache/
+examples/*/build/
+examples/*/results.jsonl
+.DS_Store

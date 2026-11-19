@@ -1,0 +1,287 @@
+//! `gate`: everything a finished port has to satisfy, in one exit code.
+
+use crate::json::Json;
+use crate::project::Project;
+use crate::util;
+
+pub struct Step {
+    pub name: String,
+    pub ok: bool,
+    pub detail: String,
+}
+
+pub struct GateReport {
+    pub steps: Vec<Step>,
+}
+
+impl GateReport {
+    pub fn passed(&self) -> bool {
+        self.steps.iter().all(|step| step.ok)
+    }
+}
+
+pub struct Options {
+    pub clean: bool,
+    pub cxx: Option<String>,
+    pub jobs: usize,
+    pub relevance: Option<(usize, usize)>, // (repeat, minimum records) for --bench
+}
+
+pub fn run(project: &Project, options: &Options) -> Result<GateReport, String> {
+    let mut steps = Vec::new();
+
+    // 1. The target toolchain must exist in the matrix, and the standard must be one
+    //    cpp-anything generates for.
+    let matrix = crate::matrix::Matrix::get();
+    let std_number: u32 = project
+        .target
+        .std
+        .trim_start_matches("c++")
+        .parse()
+        .unwrap_or(0);
+    let known = matrix.resolve_toolchain(&project.target.toolchain);
+    let expected = matrix.macro_available(
+        "__cpp_lib_expected",
+        &project.target.toolchain,
+        &project.target.version,
+        &project.target.std,
+    );
+    let (ok, detail) = match (known, std_number >= 20) {
+        (None, _) => (
+            false,
+            format!(
+                "unknown toolchain {:?}; `cpp-anything matrix` lists the ones it knows",
+                project.target.toolchain
+            ),
+        ),
+        (Some(_toolchain), false) => (
+            false,
+            format!(
+                "{} is below C++20; cpp-anything generates C++20/23",
+                project.target.std
+            ),
+        ),
+        (Some(toolchain), true) => (
+            true,
+            match &expected {
+                crate::matrix::MacroStatus::Available(min, _) => format!(
+                    "{toolchain} {} with {}: std::expected since {min}",
+                    project.target.version, project.target.std
+                ),
+                _ => format!(
+                    "{toolchain} {} with {}: no std::expected, the port uses cppan::Result",
+                    project.target.version, project.target.std
+                ),
+            },
+        ),
+    };
+    steps.push(Step {
+        name: "matrix".into(),
+        ok,
+        detail,
+    });
+
+    // 2. The port must be a port: no stub marker left.
+    let port_path = project.dir.join("src").join("port.cpp");
+    let port =
+        util::read(&port_path).map_err(|error| format!("{}: {error}", port_path.display()))?;
+    let stubs = port.matches("CPPAN_STUB").count();
+    steps.push(Step {
+        name: "no stubs".into(),
+        ok: stubs == 0,
+        detail: if stubs == 0 {
+            "every function has a real body".into()
+        } else {
+            format!("{stubs} function(s) still return CPPAN_STUB")
+        },
+    });
+
+    // 3. It has to build.
+    let build = crate::build::build(project, options.clean, options.cxx.as_deref(), options.jobs);
+    let driver = match build {
+        Ok(outcome) => {
+            steps.push(Step {
+                name: "build".into(),
+                ok: true,
+                detail: format!(
+                    "{} ({} warning{})",
+                    util::short_path(&outcome.driver),
+                    outcome.warnings,
+                    if outcome.warnings == 1 { "" } else { "s" }
+                ),
+            });
+            Some(outcome.driver)
+        }
+        Err(error) => {
+            steps.push(Step {
+                name: "build".into(),
+                ok: false,
+                detail: error,
+            });
+            None
+        }
+    };
+
+    // 4. The driver must expose exactly the ported functions.
+    if let Some(driver) = &driver {
+        let run = util::run(
+            &driver.display().to_string(),
+            &["--list".to_string()],
+            Some(&project.dir),
+        );
+        let listed: Vec<String> = run
+            .stdout
+            .lines()
+            .map(|line| line.trim().to_string())
+            .filter(|line| !line.is_empty())
+            .collect();
+        let mut expected: Vec<String> = project
+            .functions
+            .iter()
+            .map(|function| function.name.clone())
+            .collect();
+        let mut actual = listed.clone();
+        expected.sort();
+        actual.sort();
+        let ok = run.ok && actual == expected;
+        steps.push(Step {
+            name: "dispatch".into(),
+            ok,
+            detail: if ok {
+                format!("{} function(s) reachable from the driver", expected.len())
+            } else {
+                format!("expected {expected:?} from the driver, got {actual:?}")
+            },
+        });
+    }
+
+    // 5. Every recorded case must match.
+    match (
+        &driver,
+        crate::diff::load_cases(&project.dir.join("cases.jsonl")),
+    ) {
+        (Some(driver), Ok(_)) => {
+            let options = crate::diff::Options {
+                max_report: 5,
+                ..Default::default()
+            };
+            match crate::diff::run(project, driver, &options) {
+                Ok(report) => {
+                    let recorded = project
+                        .recorded
+                        .as_ref()
+                        .map(|recorded| {
+                            format!(" (recorded {}, {} cases)", recorded.at, recorded.cases)
+                        })
+                        .unwrap_or_default();
+                    steps.push(Step {
+                        name: "diff".into(),
+                        ok: report.passed(),
+                        detail: format!(
+                            "{}/{} cases match{recorded}",
+                            report.matched, report.total
+                        ),
+                    });
+                }
+                Err(error) => steps.push(Step {
+                    name: "diff".into(),
+                    ok: false,
+                    detail: error,
+                }),
+            }
+        }
+        (_, Err(error)) => steps.push(Step {
+            name: "diff".into(),
+            ok: false,
+            detail: error,
+        }),
+        (None, _) => steps.push(Step {
+            name: "diff".into(),
+            ok: false,
+            detail: "skipped: no build".into(),
+        }),
+    }
+
+    // 6. Optionally, speed.
+    if let (Some((repeat, minimum)), Some(driver)) = (options.relevance, driver.as_deref()) {
+        match crate::bench::run(project, driver, repeat) {
+            Ok(report) => {
+                let ok = report.speedup() >= 1.0;
+                steps.push(Step {
+                    name: "bench".into(),
+                    ok,
+                    detail: format!(
+                        "{:.2}x ({:.0} -> {:.0} ns/call; asked for at least {minimum}x)",
+                        report.speedup(),
+                        report.python_ns,
+                        report.cpp_ns
+                    ),
+                });
+            }
+            Err(error) => steps.push(Step {
+                name: "bench".into(),
+                ok: false,
+                detail: error,
+            }),
+        }
+    }
+
+    Ok(GateReport { steps })
+}
+
+pub fn render(report: &GateReport, project: &Project) -> String {
+    let mut out = String::new();
+    out.push_str(&format!(
+        "cpp-anything gate: {} — {}\n\n",
+        project.module,
+        if report.passed() { "PASS" } else { "FAIL" }
+    ));
+    let width = report
+        .steps
+        .iter()
+        .map(|step| step.name.chars().count())
+        .max()
+        .unwrap_or(6);
+    for step in &report.steps {
+        out.push_str(&format!(
+            "  {}  {:<width$}  {}\n",
+            if step.ok { "✓" } else { "✗" },
+            step.name,
+            step.detail.lines().next().unwrap_or(""),
+            width = width + 2
+        ));
+        for line in step.detail.lines().skip(1) {
+            out.push_str(&format!("     {}  {}\n", " ".repeat(width + 2), line));
+        }
+    }
+    if !report.passed() {
+        out.push_str("\nnot done: fix the ✗ steps above, then run gate again.\n");
+    } else {
+        out.push_str("\ndone: the port matches every recorded case and the toolchain supports what it uses.\n");
+    }
+    out
+}
+
+pub fn to_json(report: &GateReport, project: &Project) -> Json {
+    Json::obj([
+        ("schema", Json::str("cpp-anything/gate@1")),
+        ("unit", Json::str(project.unit.clone())),
+        ("passed", Json::Bool(report.passed())),
+        (
+            "steps",
+            Json::Array(
+                report
+                    .steps
+                    .iter()
+                    .map(|step| {
+                        Json::obj([
+                            ("name", Json::str(step.name.clone())),
+                            ("ok", Json::Bool(step.ok)),
+                            ("detail", Json::str(step.detail.clone())),
+                        ])
+                    })
+                    .collect(),
+            ),
+        ),
+    ])
+}

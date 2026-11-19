@@ -1,0 +1,151 @@
+{
+  "schema": "cpp-anything/project@1",
+  "created_at": "2026-11-19T12:54:25Z",
+  "unit": {
+    "name": "textkit.words",
+    "module": "textkit.words",
+    "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/python/textkit/textkit/words.py",
+    "package_root": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/python/textkit",
+    "lang": "python",
+    "lines": 73
+  },
+  "target": {
+    "toolchain": "gcc",
+    "version": "13",
+    "std": "c++23"
+  },
+  "functions": [
+    {
+      "name": "slug",
+      "line": 8,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "doc": [
+        "Lowercase, keep ascii alphanumerics, collapse everything else to '-'."
+      ],
+      "risks": [
+        "str.strip() strips unicode whitespace, not just ASCII",
+        "str.lower() is unicode-aware; std::tolower is ASCII-only"
+      ]
+    },
+    {
+      "name": "truncate",
+      "line": 24,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "limit",
+          "annotation": "int",
+          "default": 12,
+          "has_default": true,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "doc": [
+        "Cut to `limit` code points, adding an ellipsis."
+      ],
+      "risks": [
+        "len() on str counts code points; std::string::size() counts bytes",
+        "slice offsets: Python indexes code points, C++ indexes bytes",
+        "f-strings format floats with Python's shortest repr"
+      ]
+    },
+    {
+      "name": "word_count",
+      "line": 33,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "doc": [],
+      "risks": [
+        "len() on str counts code points; std::string::size() counts bytes",
+        "str.split() with no argument splits on unicode whitespace"
+      ]
+    },
+    {
+      "name": "digits_only",
+      "line": 37,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "doc": [],
+      "risks": [
+        "int() accepts underscores, unicode digits and surrounding space; std::from_chars does not",
+        "str.strip() strips unicode whitespace, not just ASCII",
+        "Python ints are unbounded: values beyond 2**63-1 do not fit std::int64_t"
+      ]
+    },
+    {
+      "name": "summarize",
+      "line": 41,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "max_words",
+          "annotation": "int",
+          "default": 4,
+          "has_default": true,
+          "keyword_only": false
+        }
+      ],
+      "returns": "list[str]",
+      "doc": [],
+      "risks": [
+        "slice offsets: Python indexes code points, C++ indexes bytes",
+        "str.split() with no argument splits on unicode whitespace"
+      ]
+    },
+    {
+      "name": "require_positive",
+      "line": 48,
+      "params": [
+        {
+          "name": "n",
+          "annotation": "int",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "doc": [],
+      "risks": []
+    }
+  ],
+  "skipped": []
+}

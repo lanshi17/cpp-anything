@@ -52,7 +52,15 @@ pub struct Project {
     pub recorded: Option<Recorded>,
     /// Saved by `record --float-tolerance`: what `diff` and `gate` compare with.
     pub tolerance: f64,
+    /// `--batch function:param`: functions answered over many items in one call.
+    pub batches: Vec<Batch>,
     pub dir: PathBuf,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct Batch {
+    pub function: String,
+    pub param: String,
 }
 
 impl Project {
@@ -72,6 +80,7 @@ impl Project {
             created_at: util::now_iso8601(),
             recorded: None,
             tolerance: 0.0,
+            batches: Vec::new(),
             dir,
         }
     }
@@ -130,6 +139,27 @@ impl Project {
                 .get("float_tolerance")
                 .and_then(Json::as_f64)
                 .unwrap_or(0.0),
+            batches: doc
+                .get("batches")
+                .and_then(Json::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .map(|item| Batch {
+                            function: item
+                                .get("function")
+                                .and_then(Json::as_str)
+                                .unwrap_or("")
+                                .to_string(),
+                            param: item
+                                .get("param")
+                                .and_then(Json::as_str)
+                                .unwrap_or("")
+                                .to_string(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
             dir: dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf()),
         })
     }
@@ -179,11 +209,44 @@ impl Project {
                     ("std", Json::str(self.target.std.clone())),
                 ]),
             ),
+            ("float_tolerance", Json::Real(self.tolerance)),
+            (
+                "batches",
+                Json::Array(
+                    self.batches
+                        .iter()
+                        .map(|batch| {
+                            Json::obj([
+                                ("function", Json::str(batch.function.clone())),
+                                ("param", Json::str(batch.param.clone())),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ),
             (
                 "functions",
                 Json::Array(self.functions.iter().map(Function::to_json).collect()),
             ),
             ("skipped", Json::Array(skipped)),
+            (
+                "imports",
+                Json::Array(
+                    self.imports
+                        .iter()
+                        .map(|name| Json::str(name.clone()))
+                        .collect(),
+                ),
+            ),
+            (
+                "risks",
+                Json::Array(
+                    self.risks
+                        .iter()
+                        .map(|risk| Json::str(risk.clone()))
+                        .collect(),
+                ),
+            ),
         ])
     }
 }

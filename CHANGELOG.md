@@ -14,6 +14,13 @@ Full parity with the reference tool's loop, for a C++ target.
 - `data/libs.json` — the curated Python -> C++ library table; unknown packages are
   reported as unknown, never guessed.
 
+### Batch API
+
+- `bridge --batch function:param` / `refresh --batch` generate a C++ batch class per
+  function: the items cross once and stay in C++, `run(*args)` answers for all of
+  them split across threads, `rank(*args, min=…)` returns the item indexes best
+  first. A Python module binds it over the same C ABI as shadow.
+
 ### Recording and verification
 
 - `record --from-tests` — a `sitecustomize` hook captures every call the original's

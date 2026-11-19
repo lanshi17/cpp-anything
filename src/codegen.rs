@@ -6,6 +6,7 @@
 //! `[[nodiscard]]` on everything, `std::format` in the driver.
 
 use crate::inventory::Function;
+use crate::json::Json;
 use crate::matrix;
 use crate::project::Project;
 use crate::types::Ty;
@@ -16,6 +17,7 @@ const WIRE_HPP: &str = include_str!("cpp_runtime/wire.hpp");
 const MAIN_CPP: &str = include_str!("cpp_runtime/main.cpp");
 const SHADOW_CPP: &str = include_str!("cpp_runtime/shadow.cpp");
 const SHADOW_PY: &str = include_str!("cpp_runtime/shadow_module.py.in");
+const BATCH_PY: &str = include_str!("cpp_runtime/batch.py.in");
 
 pub fn namespace_of(project: &Project) -> String {
     util::sanitize_identifier(&project.unit)
@@ -47,9 +49,14 @@ pub fn project_files(project: &Project) -> Vec<(String, String)> {
         ),
         ("src/main.cpp".to_string(), render_main(project)),
         ("src/shadow.cpp".to_string(), SHADOW_CPP.to_string()),
+        ("src/batch.cpp".to_string(), render_batch_cpp(project)),
         (
             format!("shadow/{ns}_shadow.py"),
             render_shadow_py(project, &ns),
+        ),
+        (
+            format!("batch/{ns}_batch.py"),
+            render_batch_py(project, &ns),
         ),
         ("README.md".to_string(), render_readme(project, &ns)),
         (".clang-format".to_string(), CLANG_FORMAT.to_string()),
@@ -155,7 +162,7 @@ target_link_libraries(cppan_driver PRIVATE cppan_port_{ns})
 
 # The shadow library: the same port, callable from the original's runtime so both
 # can run on real traffic and be compared (`cpp-anything shadow .`).
-add_library(cppan_shadow_{ns} SHARED src/shadow.cpp src/dispatch.cpp)
+add_library(cppan_shadow_{ns} SHARED src/shadow.cpp src/batch.cpp src/dispatch.cpp)
 target_link_libraries(cppan_shadow_{ns} PRIVATE cppan_port_{ns})
 set_target_properties(cppan_shadow_{ns} PROPERTIES OUTPUT_NAME cppan_shadow)
 "#,
@@ -347,6 +354,245 @@ fn required_in_port(param: &crate::inventory::Param) -> bool {
         .is_none()
 }
 
+/// The batch C ABI: each class keeps its items on the C++ side and answers all of
+/// them in one call, split across threads.
+fn render_batch_cpp(project: &Project) -> String {
+    let ns = namespace_of(project);
+    let mut out = String::new();
+    out.push_str("// Generated batch API: many items cross once, the loop stays in C++.\n");
+    out.push_str("// `bridge --batch function:param` decides what is here.\n");
+    out.push_str(
+        "#include <algorithm>\n#include <cstddef>\n#include <cstdlib>\n#include <cstring>\n",
+    );
+    out.push_str("#include <exception>\n#include <string>\n#include <thread>\n#include <utility>\n#include <vector>\n\n");
+    out.push_str("#include \"cppan/wire.hpp\"\n");
+    out.push_str(&format!("#include \"{ns}/port.hpp\"\n\n"));
+    out.push_str(
+        r#"namespace {
+
+char* copy_out(const std::string& text) {
+  auto* out = static_cast<char*>(std::malloc(text.size() + 1));
+  if (out == nullptr) return nullptr;
+  std::memcpy(out, text.data(), text.size());
+  out[text.size()] = '\0';
+  return out;
+}
+
+template <typename Call>
+std::vector<cppan::Json> map_items(const cppan::Json& items, Call call) {
+  const auto& list = items.as_array();
+  std::vector<cppan::Json> results(list.size());
+  const unsigned workers = std::max(1u, std::thread::hardware_concurrency());
+  const std::size_t chunk = (list.size() + workers - 1) / std::max<std::size_t>(1, workers);
+  std::vector<std::thread> pool;
+  for (unsigned worker = 0; worker < workers; ++worker) {
+    const std::size_t start = worker * chunk;
+    const std::size_t stop = std::min(list.size(), start + chunk);
+    if (start >= stop) break;
+    pool.emplace_back([&, start, stop] {
+      for (std::size_t index = start; index < stop; ++index) {
+        try {
+          results[index] = call(list[index]);
+        } catch (const cppan::PortError& error) {
+          results[index] = cppan::error_json(error);
+        } catch (const std::exception& error) {
+          results[index] = cppan::error_json("RuntimeError", error.what());
+        }
+      }
+    });
+  }
+  for (auto& worker : pool) worker.join();
+  return results;
+}
+
+}  // namespace
+
+"#,
+    );
+    for batch in &project.batches {
+        let Some(function) = project
+            .functions
+            .iter()
+            .find(|function| function.name == batch.function)
+        else {
+            continue;
+        };
+        let Some((item_index, item)) = function
+            .params
+            .iter()
+            .enumerate()
+            .find(|(_, param)| param.name == batch.param)
+        else {
+            continue;
+        };
+        let prefix = format!(
+            "{}_{}",
+            crate::util::sanitize_identifier(&function.name),
+            crate::util::sanitize_identifier(&batch.param)
+        );
+        let handle = format!("Handle_{prefix}");
+        let item_type = item.ty.cpp_value();
+        let others: Vec<(usize, &crate::inventory::Param)> = function
+            .params
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| *index != item_index)
+            .collect();
+        out.push_str(&format!(
+            "// {}({}) over `{}`: {} item(s) per call.\n",
+            function.name,
+            function.signature_line(),
+            batch.param,
+            "many"
+        ));
+        out.push_str(&format!(
+            "struct {handle} {{\n  cppan::Json items;\n}};\n\n"
+        ));
+        out.push_str("extern \"C\" {\n");
+        out.push_str(&format!(
+            "CPPAN_EXPORT void* cppan_batch_{prefix}_open(const char* items_json) {{\n  try {{\n    auto doc = cppan::parse(items_json != nullptr ? items_json : \"[]\");\n    if (!doc.is_array()) return nullptr;\n    return new {handle}{{std::move(doc)}};\n  }} catch (...) {{\n    return nullptr;\n  }}\n}}\n\n"
+        ));
+        // run
+        out.push_str(&format!(
+            "CPPAN_EXPORT const char* cppan_batch_{prefix}_run(void* handle, const char* args_json) {{\n  auto* state = static_cast<{handle}*>(handle);\n  if (state == nullptr) return copy_out(cppan::dump(cppan::error_json(\"TypeError\", \"closed batch\")));\n  try {{\n    const auto args = cppan::parse(args_json != nullptr ? args_json : \"[]\");\n"
+        ));
+        for (position, (index, param)) in others.iter().enumerate() {
+            out.push_str(&format!(
+                "    const auto arg{index} = cppan::decode<{storage}>(args.at({position}), \"{fn}\", {position});\n",
+                storage = param.ty.cpp_storage(),
+                fn = function.name,
+                position = position
+            ));
+        }
+        let mut call_args: Vec<String> = Vec::new();
+        for (index, _) in function.params.iter().enumerate() {
+            if index == item_index {
+                call_args.push("value".to_string());
+            } else {
+                call_args.push(format!("arg{index}"));
+            }
+        }
+        out.push_str(&format!(
+            "    auto results = map_items(state->items, [&](const cppan::Json& item) {{\n      const auto value = cppan::decode<{item_type}>(item, \"{fn}\", {item_index});\n      return cppan::encode_result({ns}::{fn}({args}));\n    }});\n    cppan::Json::Object out;\n    out.emplace_back(\"ok\", cppan::Json::array(std::move(results)));\n    return copy_out(cppan::dump(cppan::Json::object(std::move(out))));\n  }} catch (const cppan::PortError& error) {{\n    return copy_out(cppan::dump(cppan::error_json(error)));\n  }} catch (const std::exception& error) {{\n    return copy_out(cppan::dump(cppan::error_json(\"RuntimeError\", error.what())));\n  }}\n}}\n\n",
+            item_type = item_type,
+            fn = function.name,
+            item_index = item_index,
+            args = call_args.join(", "),
+            ns = ns
+        ));
+        // rank: numeric returns only
+        let numeric = matches!(
+            function.returns,
+            crate::types::Ty::Int | crate::types::Ty::Float
+        );
+        out.push_str(&format!(
+            "CPPAN_EXPORT const char* cppan_batch_{prefix}_rank(void* handle, const char* args_json, double minimum) {{\n  auto* state = static_cast<{handle}*>(handle);\n  if (state == nullptr) return copy_out(cppan::dump(cppan::error_json(\"TypeError\", \"closed batch\")));\n  try {{\n    const auto args = cppan::parse(args_json != nullptr ? args_json : \"[]\");\n"
+        ));
+        for (position, (index, param)) in others.iter().enumerate() {
+            out.push_str(&format!(
+                "    const auto arg{index} = cppan::decode<{storage}>(args.at({position}), \"{fn}\", {position});\n",
+                storage = param.ty.cpp_storage(),
+                fn = function.name,
+                position = position
+            ));
+        }
+        if numeric {
+            out.push_str(&format!(
+                "    auto results = map_items(state->items, [&](const cppan::Json& item) {{\n      const auto value = cppan::decode<{item_type}>(item, \"{fn}\", {item_index});\n      return cppan::encode_result({ns}::{fn}({args}));\n    }});\n    std::vector<std::pair<double, std::size_t>> scored;\n    scored.reserve(results.size());\n    for (std::size_t index = 0; index < results.size(); ++index) {{\n      const auto& result = results[index];\n      if (const cppan::Json* error = result.find(\"err\"); error != nullptr) {{\n        return copy_out(cppan::dump(*error));\n      }}\n      const cppan::Json* value = result.find(\"ok\");\n      if (value == nullptr || !value->is_number()) {{\n        return copy_out(cppan::dump(cppan::error_json(\"TypeError\", \"rank needs numeric results\")));\n      }}\n      const double number = value->as_number();\n      if (number >= minimum) scored.emplace_back(number, index);\n    }}\n    std::sort(scored.begin(), scored.end(), [](const auto& left, const auto& right) {{\n      if (left.first != right.first) return left.first > right.first;\n      return left.second < right.second;\n    }});\n    cppan::Json::Array order;\n    order.reserve(scored.size());\n    for (const auto& [value, index] : scored) {{\n      (void)value;\n      order.push_back(cppan::Json::integer(static_cast<std::int64_t>(index)));\n    }}\n    cppan::Json::Object out;\n    out.emplace_back(\"ok\", cppan::Json::array(std::move(order)));\n    return copy_out(cppan::dump(cppan::Json::object(std::move(out))));\n  }} catch (const cppan::PortError& error) {{\n    return copy_out(cppan::dump(cppan::error_json(error)));\n  }} catch (const std::exception& error) {{\n    return copy_out(cppan::dump(cppan::error_json(\"RuntimeError\", error.what())));\n  }}\n}}\n\n",
+                item_type = item_type,
+                fn = function.name,
+                item_index = item_index,
+                args = call_args.join(", "),
+                ns = ns
+            ));
+        } else {
+            out.push_str(
+                "    (void)minimum;\n    return copy_out(cppan::dump(cppan::error_json(\"TypeError\", \"rank needs numeric results\")));\n  } catch (...) {\n    return copy_out(cppan::dump(cppan::error_json(\"RuntimeError\", \"rank failed\")));\n  }\n}\n\n",
+            );
+        }
+        out.push_str(&format!(
+            "CPPAN_EXPORT void cppan_batch_{prefix}_close(void* handle) {{\n  delete static_cast<{handle}*>(handle);\n}}\n\n"
+        ));
+        out.push_str("}  // extern \"C\"\n\n");
+    }
+    out
+}
+
+fn render_batch_py(project: &Project, ns: &str) -> String {
+    let dir = project.dir.join("batch").display().to_string();
+    let library = project.dir.join("build").join(if cfg!(windows) {
+        "cppan_shadow.dll"
+    } else if cfg!(target_os = "macos") {
+        "libcppan_shadow.dylib"
+    } else {
+        "libcppan_shadow.so"
+    });
+    let entries = project
+        .batches
+        .iter()
+        .map(|batch| {
+            let prefix = format!(
+                "{}_{}",
+                crate::util::sanitize_identifier(&batch.function),
+                crate::util::sanitize_identifier(&batch.param)
+            );
+            let class = format!(
+                "{}Batch",
+                camel(&crate::util::sanitize_identifier(&batch.function))
+            );
+            (prefix, class)
+        })
+        .collect::<Vec<_>>();
+    let entries_json = Json::Array(
+        entries
+            .iter()
+            .map(|(prefix, class)| {
+                Json::obj([
+                    ("prefix", Json::str(prefix.clone())),
+                    ("class", Json::str(class.clone())),
+                ])
+            })
+            .collect(),
+    );
+    let bodies = entries
+        .iter()
+        .map(|(prefix, class)| {
+            format!(
+                "# {prefix}: many items, one crossing. `run(*args)` answers for every item on all cores.\nclass {class}(_Batch):\n    prefix = \"{prefix}\"\n    name = \"{prefix}\"\n"
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+    BATCH_PY
+        .replace("{{MODULE}}", &project.module)
+        .replace("{{NS}}", ns)
+        .replace("{{BATCH_DIR}}", &dir)
+        .replace("{{PROJECT_DIR}}", &project.dir.display().to_string())
+        .replace("{{LIBRARY}}", &library.display().to_string())
+        .replace("{{BATCHES}}", &entries_json.to_string_compact())
+        .replace(
+            "{{CLASSES}}",
+            &entries
+                .iter()
+                .map(|(_, class)| class.clone())
+                .collect::<Vec<_>>()
+                .join(", "),
+        )
+        .replace("{{CLASS_BODIES}}", &bodies)
+}
+
+fn camel(text: &str) -> String {
+    text.split('_')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_ascii_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        })
+        .collect()
+}
+
 fn render_shadow_py(project: &Project, ns: &str) -> String {
     let shadow_dir = project.dir.join("shadow").display().to_string();
     let library = project.dir.join("build").join(if cfg!(windows) {
@@ -456,6 +702,25 @@ fn render_readme(project: &Project, ns: &str) -> String {
             out.push_str(&format!("- {risk}\n"));
         }
     }
+    if !project.batches.is_empty() {
+        out.push_str("\n## Batch API\n\n");
+        out.push_str(
+            "Many items cross once and the loop stays in C++, on all cores:\n\n```python\n",
+        );
+        for batch in &project.batches {
+            let class = format!("{}Batch", camel(&batch.function));
+            out.push_str(&format!(
+                "from {ns}_batch import {class}\nwith {class}(items) as batch:\n    results = batch.run(...)\n    best = batch.rank(..., min=0.5)\n",
+                ns = ns
+            ));
+            out.push_str(&format!(
+                "# items are `{}` values; other arguments stay per call\n",
+                batch.param
+            ));
+        }
+        out.push_str("```\n");
+    }
+
     out.push_str("\n## Build, replay, gate\n\n```sh\ncmake -S . -B build\ncmake --build build -j\n./build/cppan_driver --cases cases.jsonl --out results.jsonl\ncpp-anything diff .        # every recorded case must match\ncpp-anything gate .        # done means this passes\n```\n");
     out.push_str("\n## Rules for the port\n\n");
     out.push_str("- Bodies live in `src/port.cpp`; `port.hpp`, `dispatch.cpp` and `main.cpp` are generated.\n");

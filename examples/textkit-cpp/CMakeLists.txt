@@ -25,6 +25,6 @@ target_link_libraries(cppan_driver PRIVATE cppan_port_textkit_words)
 
 # The shadow library: the same port, callable from the original's runtime so both
 # can run on real traffic and be compared (`cpp-anything shadow .`).
-add_library(cppan_shadow_textkit_words SHARED src/shadow.cpp src/dispatch.cpp)
+add_library(cppan_shadow_textkit_words SHARED src/shadow.cpp src/batch.cpp src/dispatch.cpp)
 target_link_libraries(cppan_shadow_textkit_words PRIVATE cppan_port_textkit_words)
 set_target_properties(cppan_shadow_textkit_words PROPERTIES OUTPUT_NAME cppan_shadow)

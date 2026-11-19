@@ -33,6 +33,23 @@ Skipped by the analyzer (not ported as plain functions):
 - Python ints are unbounded: values beyond 2**63-1 do not fit std::int64_t
 - classes stay in Python until the unit is ported to structs by hand
 
+## Batch API
+
+Many items cross once and the loop stays in C++, on all cores:
+
+```python
+from textkit_words_batch import SlugBatch
+with SlugBatch(items) as batch:
+    results = batch.run(...)
+    best = batch.rank(..., min=0.5)
+# items are `text` values; other arguments stay per call
+from textkit_words_batch import WordCountBatch
+with WordCountBatch(items) as batch:
+    results = batch.run(...)
+    best = batch.rank(..., min=0.5)
+# items are `text` values; other arguments stay per call
+```
+
 ## Build, replay, gate
 
 ```sh

@@ -163,7 +163,7 @@ cpp-anything — rewrite your app in C++ (C++20/23) and prove it still behaves t
   bench     the original's per-call cost against the port's
   gate      build + diff + matrix + dispatch checks; done means this passes
   shadow    generate a drop-in module that runs the original and the port side by side
-  refresh   regenerate the generated files after a signature change
+  refresh   regenerate the generated files after a signature change (--batch adds a batch class)
   map       every unit, its port, its cases and last diff, and which originals changed
   setup     register the MCP server (and skill) with Claude Code, Codex, Cursor, Gemini CLI, OpenCode
   rsi       verify cpp-anything itself with its own loop
@@ -185,7 +185,8 @@ Run `cpp-anything <command> --help` for one command's options.
   app lift    <repo>
   analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python]
   bridge  <repo> <unit> [--out DIR] [--toolchain gcc] [--version 13] [--std c++23]
-                        [--module-root DIR] [--force]
+                        [--module-root DIR] [--force] [--batch function:param]…
+  refresh <project> [--batch function:param]…
   record  <project> [--count N] [--seed N] [--inputs FILE] [--float-tolerance F]
                     [--from-tests -- pytest -q]
   diff    <project> [--json] [--strict-errors] [--tolerance F] [--only FN] [--max-report N]
@@ -665,7 +666,8 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
     let dir = dir
         .canonicalize()
         .map_err(|error| format!("{}: {error}", dir.display()))?;
-    let project = Project::from_unit(&unit_doc, target, dir.clone());
+    let mut project = Project::from_unit(&unit_doc, target, dir.clone());
+    project.batches = parse_batches(&project, &args.many("batch"))?;
     let written = crate::codegen::write_project(&project, args.flag("force"))?;
     println!(
         "cpp-anything bridge: {} → {}\n  {} files written ({}){}",
@@ -875,6 +877,55 @@ fn gate_command(args: &Parsed) -> Result<i32, String> {
     Ok(if report.passed() { 0 } else { 1 })
 }
 
+/// `--batch function:param`: many items cross once and the loop stays in C++.
+fn parse_batches(
+    project: &Project,
+    values: &[String],
+) -> Result<Vec<crate::project::Batch>, String> {
+    let mut batches = Vec::new();
+    for value in values {
+        let (function, param) = value.split_once(':').ok_or_else(|| {
+            format!("--batch {value:?} needs `function:param`, e.g. `--batch slug:text`")
+        })?;
+        let Some(spec) = project
+            .functions
+            .iter()
+            .find(|candidate| candidate.name == function)
+        else {
+            return Err(format!(
+                "--batch {value:?}: {} has no function {function:?}; it has {}",
+                project.module,
+                project
+                    .functions
+                    .iter()
+                    .map(|function| function.name.clone())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        };
+        if !spec.params.iter().any(|candidate| candidate.name == param) {
+            return Err(format!(
+                "--batch {value:?}: {function} has no parameter {param:?}; it has {}",
+                spec.params
+                    .iter()
+                    .map(|param| param.name.clone())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if !batches
+            .iter()
+            .any(|batch: &crate::project::Batch| batch.function == function && batch.param == param)
+        {
+            batches.push(crate::project::Batch {
+                function: function.to_string(),
+                param: param.to_string(),
+            });
+        }
+    }
+    Ok(batches)
+}
+
 fn shadow_command(args: &Parsed) -> Result<i32, String> {
     let project = project_arg(args)?;
     if args.flag("report") || args.flag("check") {
@@ -949,6 +1000,15 @@ fn refresh_command(args: &Parsed) -> Result<i32, String> {
     project.risks = unit.risks;
     project.imports = unit.imports;
     project.lines = unit.lines;
+    for batch in parse_batches(&project, &args.many("batch"))? {
+        if !project
+            .batches
+            .iter()
+            .any(|existing| existing.function == batch.function && existing.param == batch.param)
+        {
+            project.batches.push(batch);
+        }
+    }
     let written = crate::codegen::refresh(&project)?;
     project.save()?;
     println!(

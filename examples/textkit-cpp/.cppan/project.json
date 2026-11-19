@@ -14,6 +14,17 @@
     "version": "13",
     "std": "c++23"
   },
+  "float_tolerance": 0.0,
+  "batches": [
+    {
+      "function": "slug",
+      "param": "text"
+    },
+    {
+      "function": "word_count",
+      "param": "text"
+    }
+  ],
   "functions": [
     {
       "name": "slug",
@@ -158,5 +169,17 @@
       "name": "memoized_score",
       "reason": "decorated"
     }
+  ],
+  "imports": [],
+  "risks": [
+    "len() on str counts code points; std::string::size() counts bytes",
+    "slice offsets: Python indexes code points, C++ indexes bytes",
+    "int() accepts underscores, unicode digits and surrounding space; std::from_chars does not",
+    "str.split() with no argument splits on unicode whitespace",
+    "str.strip() strips unicode whitespace, not just ASCII",
+    "f-strings format floats with Python's shortest repr",
+    "str.lower() is unicode-aware; std::tolower is ASCII-only",
+    "Python ints are unbounded: values beyond 2**63-1 do not fit std::int64_t",
+    "classes stay in Python until the unit is ported to structs by hand"
   ]
 }

@@ -207,8 +207,11 @@ gates a port gates the tool.
 
 | Source | Status |
 | --- | --- |
-| Python | `analyze`, `bridge`, `record`, `diff`, `bench`, `gate` |
-| C, Go, TypeScript, Java, C#, Ruby | planned, one plugin each: the loop, wire format and gate are language-independent; the analyzer, recorder and call mapping are not |
+| Python | the whole loop, shadow, whole-app (CLI and HTTP), batch, from-tests |
+| C, Go, TypeScript, Java, C#, Ruby | planned, one plugin each: the loop, wire format, shadow, app, map and gate are language-independent; the analyzer, recorder and call mapping are not |
+
+[`docs/PARITY.md`](docs/PARITY.md) is the command-by-command checklist against the
+reference tool, including what is not there yet.
 
 The target is C++20/23. Porting *C++* to another language is a different tool.
 

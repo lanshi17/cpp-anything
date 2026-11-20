@@ -1,6 +1,6 @@
 ---
 name: cpp-anything
-description: Port Python (and, as plugins land, other languages) to C++20/23 with the cpp-anything CLI or MCP tools: analyze a repository, bridge one unit, record the original's behaviour, write the port, diff, bench and gate it. Use when asked to rewrite, port or migrate code or an app to C++ or C++23, to plan such a migration, to make slow Python faster by moving hot code to C++, or to check which compiler release supports a C++ feature.
+description: Port Python, C, C-style C++, TypeScript/JavaScript, Go, Ruby or Java to C++20/23 with the cpp-anything CLI or MCP tools: analyze a repository, bridge one unit, record the original's behaviour, write the port, diff, bench, gate and shadow it. Use when asked to rewrite, port or migrate code or an app to C++ or C++23, to plan such a migration, to make slow Python faster by moving hot code to C++, or to check which compiler release supports a C++ feature.
 ---
 
 # Migration to C++ with cpp-anything
@@ -13,6 +13,29 @@ Tools: the `cpp-anything` CLI, or the same steps as MCP tools (`cpp-anything mcp
 `build`, `diff`, `bench`, `gate`, `doctor`. If the MCP tools are missing, use the
 CLI. If `cpp-anything` is not installed, ask the user to run
 `cargo install --path .` (or `cargo build --release`) and wire `cpp-anything mcp`.
+
+## Source languages
+
+`--lang python|c|cpp|ts|js|go|ruby|java|php|csharp` selects the plugin; without it
+`analyze` detects from the manifest and `bridge` from the unit's extension. Python,
+C, C-style C++, TS/JS, Go, Ruby and Java have the full loop (analyze, bridge,
+record, build, diff, bench, gate, shadow). PHP and C# are whole-app only: `analyze`
+plans them, `app record`/`app front-door` front the app, and there is no per-unit
+bridge.
+
+The language plugins take some CLI flags the MCP `bridge`/`record` tools do not
+expose (`--lang`, `--keep`, `--as-json`, `--kind napi`, `--node-arg`,
+`--resolve-from`, `--module`); use the CLI for those.
+
+- Go: a unit is a package directory (`bridge <repo> textpkg --lang go`).
+- Ruby and unannotated JavaScript: parameters cross as `Any` (`cppan::Json`); map
+  them deliberately in the port.
+- Shadow bindings: `cpp-anything shadow <project>` writes the runtime-specific
+  wrapper (Node-API, cgo, Fiddle/magnus, JNI, ctypes) and its `build.sh`; the C ABI
+  is `cppan_shadow_call`.
+- Servers: `app wire <repo> <unit> --route "GET /path"`, then fill the generated
+  `src/http_<unit>.cpp`; `app lift` removes the original once nothing is proxied.
+- Libraries: `app front-door --library` re-exports every port under `cppan_api`.
 
 ## 0. Check the toolchain before promising anything
 

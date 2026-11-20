@@ -33,6 +33,92 @@ class JsonError : public std::runtime_error {
   explicit JsonError(const std::string& what) : std::runtime_error(what) {}
 };
 
+// Rust's `{:?}` for a float: shortest round-trip digits, decimal notation for
+// decimal exponents in [-4, 16), scientific otherwise, and exponents without a
+// sign or leading zero (`1e-9`, not `1e-09`). The wire format is compared as
+// text in places (recorded cases), so this has to match the reference exactly.
+inline std::string format_real(double value) {
+  if (std::isnan(value)) return "NaN";
+  if (std::isinf(value)) return value > 0 ? "Infinity" : "-Infinity";
+  if (value == 0.0) return std::signbit(value) ? "-0.0" : "0.0";
+
+  char buffer[64];
+  const auto result = std::to_chars(buffer, buffer + sizeof buffer, value);
+  std::string_view text(buffer, static_cast<std::size_t>(result.ptr - buffer));
+
+  bool negative = false;
+  if (!text.empty() && text.front() == '-') {
+    negative = true;
+    text.remove_prefix(1);
+  }
+  std::string_view mantissa = text;
+  long long exponent = 0;
+  if (const std::size_t e = text.find_first_of("eE"); e != std::string_view::npos) {
+    mantissa = text.substr(0, e);
+    const std::string_view rest = text.substr(e + 1);
+    bool negative_exponent = false;
+    std::size_t at = 0;
+    if (!rest.empty() && (rest.front() == '+' || rest.front() == '-')) {
+      negative_exponent = rest.front() == '-';
+      at = 1;
+    }
+    for (; at < rest.size(); ++at) {
+      if (rest[at] < '0' || rest[at] > '9') break;
+      exponent = exponent * 10 + (rest[at] - '0');
+    }
+    if (negative_exponent) exponent = -exponent;
+  }
+  std::string digits;
+  long long scale = exponent;
+  if (const std::size_t dot = mantissa.find('.'); dot != std::string_view::npos) {
+    const std::string_view whole = mantissa.substr(0, dot);
+    const std::string_view fraction = mantissa.substr(dot + 1);
+    digits = std::string(whole);
+    digits += fraction;
+    scale -= static_cast<long long>(fraction.size());
+  } else {
+    digits = std::string(mantissa);
+  }
+  const std::size_t first = digits.find_first_not_of('0');
+  if (first == std::string::npos) return "0.0";
+  digits.erase(0, first);
+  while (digits.size() > 1 && digits.back() == '0') {
+    digits.pop_back();
+    ++scale;
+  }
+  const long long decimal_exponent = scale + static_cast<long long>(digits.size()) - 1;
+
+  std::string out;
+  if (negative) out += '-';
+  if (decimal_exponent >= -4 && decimal_exponent < 16) {
+    if (decimal_exponent >= 0) {
+      const std::size_t point = static_cast<std::size_t>(decimal_exponent) + 1;
+      if (digits.size() <= point) {
+        out += digits;
+        out.append(point - digits.size(), '0');
+        out += ".0";
+      } else {
+        out += digits.substr(0, point);
+        out += '.';
+        out += digits.substr(point);
+      }
+    } else {
+      out += "0.";
+      out.append(static_cast<std::size_t>(-decimal_exponent) - 1, '0');
+      out += digits;
+    }
+  } else {
+    out += digits[0];
+    if (digits.size() > 1) {
+      out += '.';
+      out += digits.substr(1);
+    }
+    out += 'e';
+    out += std::to_string(decimal_exponent);
+  }
+  return out;
+}
+
 class Json {
  public:
   enum class Kind : std::uint8_t { Null, Bool, Int, Real, String, Array, Object };
@@ -165,11 +251,7 @@ inline void dump_into(std::string& out, const Json& value, int indent, int depth
     } else if (std::isinf(v)) {
       out += v > 0 ? "Infinity" : "-Infinity";
     } else {
-      char buffer[40];
-      const auto result = std::to_chars(buffer, buffer + sizeof buffer, v);
-      const std::string_view text(buffer, static_cast<std::size_t>(result.ptr - buffer));
-      out.append(text);
-      if (text.find_first_of(".eE") == std::string_view::npos) out += ".0";
+      out += format_real(v);
     }
   };
 
@@ -456,7 +538,9 @@ inline Json Parser::parse_value() {
     case '"': return Json::string(parse_string());
     case 't':
     case 'f':
-    case 'n': return parse_literal();
+    case 'n':
+    case 'N':
+    case 'I': return parse_literal();
     default: return parse_number();
   }
 }
@@ -622,6 +706,10 @@ inline Json Parser::parse_number() {
   if (!at_end() && (text_[pos_] == '-' || text_[pos_] == '+')) {
     if (text_[pos_] == '+') fail("leading '+' is not JSON");
     ++pos_;
+    if (text_.substr(pos_, 8) == "Infinity") {
+      pos_ += 8;
+      return Json::real(-std::numeric_limits<double>::infinity());
+    }
   }
   bool is_real = false;
   bool digits = false;

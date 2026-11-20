@@ -12,6 +12,7 @@
 #include <cctype>
 #include <cmath>
 #include <cstdint>
+#include <format>
 #include <map>
 #include <optional>
 #include <string>
@@ -59,6 +60,8 @@ struct ClassDecl {
   std::size_t close = 0;
   bool public_class = false;
 };
+
+std::vector<std::string_view> split_words(std::string_view text);
 
 bool is_ident_byte(char byte) {
   const unsigned char ch = static_cast<unsigned char>(byte);

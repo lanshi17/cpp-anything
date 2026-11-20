@@ -88,6 +88,87 @@ std::optional<std::string> available() {
 
 Result<std::string> probe_command(const std::vector<std::string>& args) { return probe(args); }
 
+Result<Unit> inventory(const std::filesystem::path& path, std::string_view module,
+                       const std::optional<std::filesystem::path>& package_root) {
+  std::vector<std::string> args = {"inventory", "--path", path.string(), "--module",
+                                   std::string(module), "--unit", std::string(module)};
+  if (package_root.has_value()) {
+    args.push_back("--package-root");
+    args.push_back(package_root->string());
+  }
+  auto output = probe(args);
+  if (!output) return std::unexpected(output.error());
+  try {
+    return Unit::parse(parse(trim(*output)));
+  } catch (const JsonError& failure) {
+    return std::unexpected(std::string("probe returned invalid JSON: ") + failure.what());
+  }
+}
+
+Result<double> bench(const Project& project, std::size_t repeat) {
+  const std::filesystem::path cases = project.dir / "cases.jsonl";
+  std::vector<std::string> args = {"bench",
+                                   "--path",
+                                   project.source_file.string(),
+                                   "--module",
+                                   project.module,
+                                   "--cases",
+                                   cases.string(),
+                                   "--repeat",
+                                   std::to_string(repeat)};
+  if (project.package_root.has_value()) {
+    args.push_back("--package-root");
+    args.push_back(project.package_root->string());
+  }
+  auto output = probe(args, project.dir);
+  if (!output) return std::unexpected(output.error());
+  try {
+    const Json doc = parse(trim(*output));
+    if (const Json* nanos = doc.find("ns_per_call");
+        nanos != nullptr && nanos->is_number()) {
+      return nanos->as_number();
+    }
+  } catch (const JsonError& failure) {
+    return std::unexpected(std::string("probe returned invalid JSON: ") + failure.what());
+  }
+  return std::unexpected("probe bench returned no ns_per_call: " + trim(*output));
+}
+
+Result<std::size_t> record(const Project& project, std::size_t cases, std::uint64_t seed,
+                           const std::optional<std::filesystem::path>& inputs) {
+  const std::filesystem::path out = project.dir / "cases.jsonl";
+  std::vector<std::string> args = {"record",
+                                   "--path",
+                                   project.source_file.string(),
+                                   "--module",
+                                   project.module,
+                                   "--out",
+                                   out.string(),
+                                   "--cases",
+                                   std::to_string(cases),
+                                   "--seed",
+                                   std::to_string(seed)};
+  if (project.package_root.has_value()) {
+    args.push_back("--package-root");
+    args.push_back(project.package_root->string());
+  }
+  if (inputs.has_value()) {
+    args.push_back("--inputs");
+    args.push_back(inputs->string());
+  }
+  auto output = probe(args, project.dir);
+  if (!output) return std::unexpected(output.error());
+  try {
+    const Json doc = parse(trim(*output));
+    if (const Json* count = doc.find("cases"); count != nullptr && count->is_integer()) {
+      return static_cast<std::size_t>(count->as_int());
+    }
+    return 0;
+  } catch (const JsonError& failure) {
+    return std::unexpected(std::string("probe returned invalid JSON: ") + failure.what());
+  }
+}
+
 Result<Json> analyze(const std::filesystem::path& root) {
   // Absolute, and no cwd override: a relative root plus a cwd would make the
   // probe walk `<root>/<root>`.

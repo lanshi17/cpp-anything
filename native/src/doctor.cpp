@@ -1,6 +1,9 @@
 #include "cppan/doctor.hpp"
 
+#include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <ranges>
 #include <format>
 #include <print>
 

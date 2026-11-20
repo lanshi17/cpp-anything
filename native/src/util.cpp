@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cerrno>
 #include <chrono>
+#include <cstdlib>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -102,6 +103,28 @@ std::string pad_right(std::string_view text, std::size_t width) {
   return out;
 }
 
+std::string pad_left(std::string_view text, std::size_t width) {
+  const std::size_t length = utf8_length(text);
+  if (length >= width) return std::string(text);
+  return std::string(width - length, ' ') + std::string(text);
+}
+
+std::string quote_debug(std::string_view text) {
+  std::string out = "\"";
+  for (const char ch : text) {
+    switch (ch) {
+      case '"': out += "\\\""; break;
+      case '\\': out += "\\\\"; break;
+      case '\n': out += "\\n"; break;
+      case '\r': out += "\\r"; break;
+      case '\t': out += "\\t"; break;
+      default: out += ch; break;
+    }
+  }
+  out += '"';
+  return out;
+}
+
 std::optional<std::string> read_file(const std::filesystem::path& path) {
   std::ifstream stream(path, std::ios::binary);
   if (!stream) return std::nullopt;
@@ -123,6 +146,42 @@ Result<void> write_file(const std::filesystem::path& path, std::string_view cont
   return {};
 }
 
+Result<bool> prepare_dir(const std::filesystem::path& path, bool force) {
+  std::error_code error;
+  if (std::filesystem::exists(path, error)) {
+    const bool empty = std::filesystem::is_empty(path, error);
+    if (error) return std::unexpected(path.string() + ": " + error.message());
+    if (!empty && !force) {
+      return std::unexpected(path.string() +
+                             " already exists and is not empty (pass --force to write into it)");
+    }
+    std::filesystem::create_directories(path, error);
+    if (error) return std::unexpected(path.string() + ": " + error.message());
+    return !empty;
+  }
+  std::filesystem::create_directories(path, error);
+  if (error) return std::unexpected(path.string() + ": " + error.message());
+  return false;
+}
+
+std::optional<std::filesystem::path> which_on_path(std::string_view program) {
+  const char* path = std::getenv("PATH");
+  if (path == nullptr) return std::nullopt;
+  std::string_view rest(path);
+  while (true) {
+    const std::size_t colon = rest.find(':');
+    const std::string_view entry = rest.substr(0, colon);
+    if (!entry.empty()) {
+      const std::filesystem::path candidate = std::filesystem::path(entry) / program;
+      std::error_code error;
+      if (std::filesystem::is_regular_file(candidate, error)) return candidate;
+    }
+    if (colon == std::string_view::npos) break;
+    rest.remove_prefix(colon + 1);
+  }
+  return std::nullopt;
+}
+
 std::optional<std::filesystem::path> repo_root() {
   std::error_code error;
   auto directory = std::filesystem::current_path(error);
@@ -140,8 +199,17 @@ std::string short_path(const std::filesystem::path& path) {
   std::error_code error;
   const auto cwd = std::filesystem::current_path(error);
   if (!error) {
-    const auto relative = std::filesystem::relative(path, cwd, error);
-    if (!error) return relative.string();
+    auto base = cwd.begin();
+    auto part = path.begin();
+    while (base != cwd.end() && part != path.end() && *base == *part) {
+      ++base;
+      ++part;
+    }
+    if (base == cwd.end()) {
+      std::filesystem::path out;
+      for (; part != path.end(); ++part) out /= *part;
+      return out.empty() ? std::string(".") : out.string();
+    }
   }
   return path.string();
 }
@@ -194,6 +262,31 @@ std::string hash64(std::string_view text) {
   char buffer[17];
   std::snprintf(buffer, sizeof buffer, "%016llx", static_cast<unsigned long long>(hash));
   return buffer;
+}
+
+std::vector<std::string_view> split_lines(std::string_view text) {
+  std::vector<std::string_view> lines;
+  std::size_t start = 0;
+  while (start < text.size()) {
+    const std::size_t newline = text.find('\n', start);
+    if (newline == std::string_view::npos) {
+      lines.push_back(text.substr(start));
+      break;
+    }
+    lines.push_back(text.substr(start, newline - start));
+    start = newline + 1;
+  }
+  return lines;
+}
+
+std::size_t line_count(std::string_view text) {
+  if (text.empty()) return 0;
+  std::size_t count = 0;
+  for (const char ch : text) {
+    if (ch == '\n') ++count;
+  }
+  if (text.back() != '\n') ++count;
+  return count;
 }
 
 }  // namespace cppan
@@ -289,6 +382,79 @@ Run run_command(const std::string& program, const std::vector<std::string>& args
   if (fds[0].fd >= 0) ::close(fds[0].fd);
   if (fds[1].fd >= 0) ::close(fds[1].fd);
 
+  int status = 0;
+  while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
+  }
+  Run run;
+  run.out = std::move(out);
+  run.err = std::move(err);
+  if (WIFEXITED(status)) {
+    run.status = WEXITSTATUS(status);
+    run.ok = *run.status == 0;
+  }
+  return run;
+}
+
+Run run_command_with_input(const std::string& program, const std::vector<std::string>& args,
+                           std::string_view input) {
+  int in_pipe[2] = {-1, -1};
+  int out_pipe[2] = {-1, -1};
+  int err_pipe[2] = {-1, -1};
+  if (::pipe(in_pipe) != 0 || ::pipe(out_pipe) != 0 || ::pipe(err_pipe) != 0) {
+    Run failed;
+    failed.err = std::string("pipe: ") + std::strerror(errno);
+    return failed;
+  }
+  std::vector<std::string> argv_store{program};
+  for (const std::string& arg : args) argv_store.push_back(arg);
+  std::vector<char*> argv;
+  for (std::string& arg : argv_store) argv.push_back(arg.data());
+  argv.push_back(nullptr);
+
+  const pid_t child = ::fork();
+  if (child == 0) {
+    ::dup2(in_pipe[0], STDIN_FILENO);
+    ::dup2(out_pipe[1], STDOUT_FILENO);
+    ::dup2(err_pipe[1], STDERR_FILENO);
+    for (const int fd : {in_pipe[0], in_pipe[1], out_pipe[0], out_pipe[1], err_pipe[0],
+                         err_pipe[1]}) {
+      ::close(fd);
+    }
+    ::execvp(program.c_str(), argv.data());
+    ::_exit(127);
+  }
+  ::close(in_pipe[0]);
+  ::close(out_pipe[1]);
+  ::close(err_pipe[1]);
+  write_all(in_pipe[1], input);
+  ::close(in_pipe[1]);
+
+  std::string out;
+  std::string err;
+  pollfd fds[2] = {{out_pipe[0], POLLIN, 0}, {err_pipe[0], POLLIN, 0}};
+  int open_streams = 2;
+  char buffer[8192];
+  while (open_streams > 0) {
+    const int ready = ::poll(fds, 2, -1);
+    if (ready < 0) {
+      if (errno == EINTR) continue;
+      break;
+    }
+    for (int index = 0; index < 2; ++index) {
+      if (fds[index].fd < 0) continue;
+      if ((fds[index].revents & (POLLIN | POLLHUP | POLLERR)) == 0) continue;
+      const ssize_t got = ::read(fds[index].fd, buffer, sizeof buffer);
+      if (got > 0) {
+        (index == 0 ? out : err).append(buffer, static_cast<std::size_t>(got));
+      } else if (got == 0 || (got < 0 && errno != EINTR && errno != EAGAIN)) {
+        ::close(fds[index].fd);
+        fds[index].fd = -1;
+        --open_streams;
+      }
+    }
+  }
+  if (fds[0].fd >= 0) ::close(fds[0].fd);
+  if (fds[1].fd >= 0) ::close(fds[1].fd);
   int status = 0;
   while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
   }

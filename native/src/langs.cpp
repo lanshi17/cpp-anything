@@ -1,5 +1,7 @@
 #include "cppan/langs.hpp"
 
+#include "cppan/corpora.hpp"
+
 #include <algorithm>
 #include <format>
 #include <map>
@@ -438,6 +440,183 @@ Result<Unit> inventory(const std::filesystem::path& repo, std::string_view unit_
   for (const std::string_view risk : language_risks(lang)) out.risks.emplace_back(risk);
   out.imports = analysis.imports;
   return out;
+}
+
+std::string function_of(std::string_view id) {
+  const std::size_t colon = id.rfind(':');
+  return colon == std::string_view::npos ? std::string(id) : std::string(id.substr(0, colon));
+}
+
+std::string cases_json(const std::vector<Json>& calls) {
+  std::string out;
+  for (std::size_t index = 0; index < calls.size(); ++index) {
+    if (index > 0) out += '\n';
+    out += dump(calls[index]);
+  }
+  return out;
+}
+
+Result<std::size_t> write_cases(const Project& project, const std::vector<Json>& calls,
+                                std::string_view output) {
+  std::map<std::string, Json> by_id;
+  for (const Json& call : calls) {
+    const Json* id = call.find("id");
+    if (id != nullptr && id->is_string()) by_id[id->as_string()] = call;
+  }
+  std::string text;
+  std::size_t count = 0;
+  std::size_t number = 0;
+  for (const std::string_view line : split_lines(output)) {
+    ++number;
+    bool empty = true;
+    for (const char ch : line) {
+      if (!std::isspace(static_cast<unsigned char>(ch))) empty = false;
+    }
+    if (empty) continue;
+    Json doc;
+    try {
+      doc = cppan::parse(line);
+    } catch (const JsonError& error) {
+      return std::unexpected("recording line " + std::to_string(number) + ": " + error.what() +
+                             ": " + std::string(line));
+    }
+    const Json* id_field = doc.find("id");
+    if (id_field == nullptr || !id_field->is_string()) {
+      return std::unexpected("recording line " + std::to_string(number) + ": no id");
+    }
+    const std::string id = id_field->as_string();
+    const auto found = by_id.find(id);
+    const Json* call = found != by_id.end() ? &found->second : nullptr;
+    std::string function;
+    if (call != nullptr) {
+      if (const Json* fn = call->find("fn"); fn != nullptr && fn->is_string()) {
+        function = fn->as_string();
+      }
+    }
+    if (function.empty() && call != nullptr) function = function_of(id);
+    if (function.empty()) function = function_of(id);
+    Json args = Json::array();
+    if (call != nullptr) {
+      if (const Json* value = call->find("args")) args = *value;
+    }
+    Json expect = Json::null();
+    if (const Json* error = doc.find("err"); error != nullptr) {
+      expect = Json::object({{"err", *error}});
+    } else {
+      const Json* ok = doc.find("ok");
+      expect = Json::object({{"ok", ok != nullptr ? *ok : Json::null()}});
+    }
+    const Json entry = Json::object({
+        {"id", Json::string(id)},
+        {"fn", Json::string(function)},
+        {"args", args},
+        {"expect", expect},
+    });
+    text += dump(entry);
+    text += '\n';
+    ++count;
+  }
+  auto written = write_file(project.dir / "cases.jsonl", text);
+  if (!written) return std::unexpected(written.error());
+  return count;
+}
+
+Result<std::string> run_harness(const Project& project, std::string_view program,
+                                const std::vector<std::string>& args,
+                                const std::optional<std::filesystem::path>& cwd) {
+  const Run run = run_command(std::string(program), args, cwd.value_or(project.dir));
+  if (!run.ok) {
+    return std::unexpected("the " + std::string(program) + " recorder failed: " +
+                           run.failure() + "\n" + indent_text(run.err, 2));
+  }
+  return run.out;
+}
+
+Result<std::size_t> record(const Project& project, std::size_t count,
+                           const RecordOptions& options) {
+  const auto lang = parse(project.source_lang);
+  if (!lang.has_value()) {
+    return std::unexpected(project.source_lang + " is not a plugin language");
+  }
+  if (whole_app_only(*lang)) {
+    return std::unexpected(std::string(label(*lang)) +
+                           " is whole-app only: record the app (`app record -- ...`), not a unit");
+  }
+  const std::filesystem::path repo = project.package_root.value_or(project.dir);
+  auto unit = inventory(repo, project.source_file.string(), *lang);
+  if (!unit) return std::unexpected(unit.error());
+  std::vector<Json> calls = corpora::calls(unit->functions, count);
+  if (options.inputs.has_value()) {
+    const auto text = read_file(*options.inputs);
+    if (!text.has_value()) return std::unexpected(options.inputs->string() + ": cannot read");
+    std::size_t number = 0;
+    for (const std::string_view line : split_lines(*text)) {
+      ++number;
+      bool empty = true;
+      for (const char ch : line) {
+        if (!std::isspace(static_cast<unsigned char>(ch))) empty = false;
+      }
+      if (empty) continue;
+      Json doc;
+      try {
+        doc = cppan::parse(line);
+      } catch (const JsonError& error) {
+        return std::unexpected(options.inputs->string() + ":" + std::to_string(number) + ": " +
+                               error.what());
+      }
+      Json args = Json::array();
+      if (const Json* value = doc.find("args")) args = *value;
+      const Json* fn = doc.find("fn");
+      calls.push_back(Json::object({
+          {"id", Json::string("input:" + std::to_string(number))},
+          {"fn", fn != nullptr ? *fn : Json::null()},
+          {"args", args},
+      }));
+    }
+  }
+  switch (*lang) {
+    case Lang::Ruby: return ruby::record(project, *unit, calls);
+    case Lang::Go: return go::record(project, *unit, calls);
+    case Lang::Java: return java::record(project, *unit, calls);
+    case Lang::Ts:
+    case Lang::Js: return ts::record(project, *unit, calls, options, *lang);
+    case Lang::Php:
+    case Lang::Csharp: break;
+  }
+  return std::unexpected(std::string(label(*lang)) + " is whole-app only");
+}
+
+Result<double> bench_original(const Project& project, std::size_t repeat) {
+  const auto lang = parse(project.source_lang);
+  if (!lang.has_value()) return std::unexpected(project.source_lang + " is not a plugin language");
+  switch (*lang) {
+    case Lang::Ruby: return ruby::bench(project, repeat);
+    case Lang::Go: return go::bench(project, repeat);
+    case Lang::Java: return java::bench(project, repeat);
+    case Lang::Ts:
+    case Lang::Js: return ts::bench(project, repeat, *lang);
+    case Lang::Php:
+    case Lang::Csharp: break;
+  }
+  return std::unexpected(std::string(label(*lang)) +
+                         " is whole-app only: bench the app, not a unit");
+}
+
+Result<std::vector<std::pair<std::string, std::string>>> shadow_files(const Project& project,
+                                                                      std::string_view ns) {
+  const auto lang = parse(project.source_lang);
+  if (!lang.has_value()) return std::vector<std::pair<std::string, std::string>>{};
+  if (whole_app_only(*lang)) return std::vector<std::pair<std::string, std::string>>{};
+  switch (*lang) {
+    case Lang::Ruby: return ruby::shadow_files(project, ns);
+    case Lang::Go: return go::shadow_files(project, ns);
+    case Lang::Java: return java::shadow_files(project, ns);
+    case Lang::Ts:
+    case Lang::Js: return ts::shadow_files(project, ns, *lang);
+    case Lang::Php:
+    case Lang::Csharp: break;
+  }
+  return std::vector<std::pair<std::string, std::string>>{};
 }
 
 }  // namespace cppan::langs

@@ -1,5 +1,7 @@
 #include "cppan/modern.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <set>
 #include <tuple>
 

@@ -3,11 +3,17 @@
 #include <algorithm>
 #include <cctype>
 #include <format>
+#include <map>
 
+#include "cppan/harness_c_cpp.hpp"
 #include "cppan/modern.hpp"
 
 namespace cppan::langc {
 namespace {
+
+std::string embedded_text(std::string_view data, std::size_t size) {
+  return std::string(data.substr(0, size));
+}
 
 std::string_view trim(std::string_view text) {
   while (!text.empty() && std::isspace(static_cast<unsigned char>(text.front()))) {
@@ -489,6 +495,374 @@ Result<Json> analyze_repo(const std::filesystem::path& repo, Lang lang) {
       {"modules", Json::array(std::move(modules))},
       {"dependencies", Json::array()},
   });
+}
+
+namespace {
+
+constexpr std::string_view kStrings[] = {
+    "",          " ",          "Hello World", "  Mixed CASE  ", "café — naïve",
+    "a",         "123",        "-",           "trailing---",    " leading",
+    "one\ntwo",  "Москва",     "0",           "a-b_c",          "x",
+};
+constexpr std::int64_t kInts[] = {0, 1, -1, 7, 42, 12, 100, -100, 10'000, 3, 19, 255, -7, 2'000'000, 8, 11};
+constexpr double kFloats[] = {0.0, -0.0, 1.5, -2.25, 0.1, 2.0, -0.5, 1e-9, 123456.789, -1.0, 7.0, 1e6, 3.25, -99.5, 0.25};
+
+std::vector<Json> values_for(const Ty& ty) {
+  switch (ty.kind) {
+    case Ty::Kind::Str: {
+      std::vector<Json> out;
+      for (const std::string_view text : kStrings) out.push_back(Json::string(std::string(text)));
+      return out;
+    }
+    case Ty::Kind::Int: {
+      std::vector<Json> out;
+      for (const std::int64_t value : kInts) out.push_back(Json::integer(value));
+      return out;
+    }
+    case Ty::Kind::Float: {
+      std::vector<Json> out;
+      for (const double value : kFloats) out.push_back(Json::real(value));
+      return out;
+    }
+    case Ty::Kind::Bool: return {Json::boolean(true), Json::boolean(false)};
+    case Ty::Kind::None: return {Json::null()};
+    default: return {Json::null()};
+  }
+}
+
+std::filesystem::path harness_dir(const Project& project) { return project.dir / "harness"; }
+
+std::filesystem::path harness_exe(const Project& project) {
+#if defined(_WIN32)
+  return harness_dir(project) / "build" / "cppan_harness.exe";
+#else
+  return harness_dir(project) / "build" / "cppan_harness";
+#endif
+}
+
+}  // namespace
+
+std::vector<Json> calls(const Unit& unit, std::size_t count) {
+  std::vector<Json> out;
+  for (const Function& function : unit.functions) {
+    std::vector<std::vector<Json>> corpora;
+    for (const Param& param : function.params) corpora.push_back(values_for(param.ty));
+    if (corpora.empty()) {
+      out.push_back(Json::object({
+          {"id", Json::string(function.name + ":0")},
+          {"fn", Json::string(function.name)},
+          {"args", Json::array()},
+      }));
+      continue;
+    }
+    std::size_t total = 0;
+    for (const auto& values : corpora) total = std::max(total, values.size());
+    total = std::min(total, std::max<std::size_t>(count, 1));
+    for (std::size_t index = 0; index < total; ++index) {
+      Json::Array args;
+      for (const auto& values : corpora) args.push_back(values[index % values.size()]);
+      out.push_back(Json::object({
+          {"id", Json::string(function.name + ":" + std::to_string(index))},
+          {"fn", Json::string(function.name)},
+          {"args", Json::array(std::move(args))},
+      }));
+    }
+  }
+  return out;
+}
+
+std::string harness_source(const std::vector<CFunction>& functions, Lang lang) {
+  std::string decls;
+  for (const CFunction& function : functions) {
+    std::string params;
+    for (const auto& [type, name] : function.params_c) {
+      if (!params.empty()) params += ", ";
+      params += type + " " + name;
+    }
+    if (params.empty()) params = "void";
+    decls += std::format("  {} cppan_original_{}({});\n", function.ret_c, function.name, params);
+  }
+  std::string dispatch;
+  for (const CFunction& function : functions) {
+    dispatch += std::format("    if (name == \"{}\") {{\n", function.name);
+    for (std::size_t index = 0; index < function.params.size(); ++index) {
+      const Ty& ty = function.params[index].first;
+      const std::string& original =
+          index < function.params_c.size() ? function.params_c[index].first : std::string();
+      if (ty.kind == Ty::Kind::Str && original.find('*') != std::string::npos) {
+        dispatch += std::format(
+            "      const std::string arg{}_text = args.at({}).as_string();\n      const char* "
+            "arg{} = arg{}_text.c_str();\n",
+            index, index, index, index);
+      } else if (ty.kind == Ty::Kind::Str) {
+        dispatch += std::format(
+            "      const std::string arg{}_text = args.at({}).as_string();\n      const "
+            "std::string& arg{} = arg{}_text;\n",
+            index, index, index, index);
+      } else if (ty.kind == Ty::Kind::Int) {
+        dispatch += std::format(
+            "      const auto arg{} = static_cast<long long>(args.at({}).as_int());\n", index,
+            index);
+      } else if (ty.kind == Ty::Kind::Float) {
+        dispatch += std::format("      const double arg{} = args.at({}).as_number();\n", index,
+                                index);
+      } else if (ty.kind == Ty::Kind::Bool) {
+        dispatch += std::format("      const bool arg{} = args.at({}).as_bool();\n", index, index);
+      } else {
+        dispatch += std::format("      const Json& arg{} = args.at({});\n", index, index);
+      }
+    }
+    std::string arguments;
+    for (std::size_t index = 0; index < function.params.size(); ++index) {
+      if (index > 0) arguments += ", ";
+      arguments += "arg" + std::to_string(index);
+    }
+    const std::string call = "cppan_original_" + function.name + "(" + arguments + ")";
+    if (function.ret.kind == Ty::Kind::Str && function.ret_c.find('*') != std::string::npos) {
+      dispatch += std::format(
+          "      char* result = {};\n      return ok_json(result != nullptr ? "
+          "Json::string(std::string(result)) : Json::null());\n",
+          call);
+    } else if (function.ret.kind == Ty::Kind::Str) {
+      dispatch += std::format(
+          "      const std::string result = {};\n      return ok_json(Json::string(result));\n",
+          call);
+    } else if (function.ret.kind == Ty::Kind::Int) {
+      dispatch += std::format(
+          "      return ok_json(Json::integer(static_cast<std::int64_t>({})));\n", call);
+    } else if (function.ret.kind == Ty::Kind::Float) {
+      dispatch += std::format("      return ok_json(Json::real(static_cast<double>({})));\n",
+                              call);
+    } else if (function.ret.kind == Ty::Kind::Bool) {
+      dispatch += std::format("      return ok_json(Json::boolean({} != 0));\n", call);
+    } else {
+      dispatch += std::format("      {};\n      return ok_json(Json::null());\n", call);
+    }
+    dispatch += "    }\n";
+  }
+  const auto [linkage_open, linkage_close] = linkage(lang);
+  std::string text = embedded_text(data::harness_c_cpp, data::harness_c_cpp_size);
+  text = replace_all(std::move(text), "{{LINKAGE_OPEN}}", linkage_open);
+  text = replace_all(std::move(text), "{{LINKAGE_CLOSE}}", linkage_close);
+  text = replace_all(std::move(text), "{{DECLS}}", decls);
+  text = replace_all(std::move(text), "{{DISPATCH}}", dispatch);
+  return text;
+}
+
+Result<std::filesystem::path> build_harness(const Project& project, const Unit& unit, Lang lang) {
+  auto analysis = analyze_file(project.source_file, lang);
+  if (!analysis) return std::unexpected(analysis.error());
+  const std::filesystem::path dir = harness_dir(project);
+  std::error_code error;
+  std::filesystem::create_directories(dir, error);
+  if (error) return std::unexpected(dir.string() + ": " + error.message());
+  {
+    auto written = write_file(dir / "main.cpp", harness_source(analysis->functions, lang));
+    if (!written) return std::unexpected(written.error());
+  }
+  std::string definitions;
+  for (const CFunction& function : analysis->functions) {
+    if (!definitions.empty()) definitions += ";";
+    definitions += function.name + "=cppan_original_" + function.name;
+  }
+  std::string cmake = std::format(
+      R"(cmake_minimum_required(VERSION 3.28)
+project(cppan_harness LANGUAGES {})
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
+add_executable(cppan_harness main.cpp "{}")
+target_include_directories(cppan_harness PRIVATE "{}")
+target_compile_definitions(cppan_harness PRIVATE {})
+if(MSVC)
+  target_compile_options(cppan_harness PRIVATE /W3 /utf-8)
+else()
+  target_compile_options(cppan_harness PRIVATE -Wall)
+endif()
+)",
+      cmake_languages(lang), project.source_file.string(),
+      (project.dir / "include").string(), definitions);
+  {
+    auto written = write_file(dir / "CMakeLists.txt", cmake);
+    if (!written) return std::unexpected(written.error());
+  }
+  (void)unit;
+  const Run configured = run_command("cmake",
+                                     {"-S", dir.string(), "-B", (dir / "build").string(),
+                                      "-DCMAKE_BUILD_TYPE=Release"},
+                                     dir);
+  if (!configured.ok) {
+    return std::unexpected("harness configure failed: " + configured.failure() + "\n" +
+                           indent_text(configured.err, 2));
+  }
+  const Run built = run_command("cmake",
+                                {"--build", (dir / "build").string(), "-j", "4"}, dir);
+  if (!built.ok) {
+    return std::unexpected("harness build failed: " + built.failure() + "\n" +
+                           indent_text(built.err, 2));
+  }
+  const auto exe = harness_exe(project);
+  if (!std::filesystem::exists(exe)) {
+    return std::unexpected("harness build succeeded but " + exe.string() + " is missing");
+  }
+  return exe;
+}
+
+Result<Recorded> record(const Project& project, const Unit& unit, std::size_t count, Lang lang) {
+  auto exe = build_harness(project, unit, lang);
+  if (!exe) return std::unexpected(exe.error());
+  const std::vector<Json> generated = calls(unit, count);
+  std::string text;
+  for (const Json& call : generated) {
+    text += dump(call);
+    text += '\n';
+  }
+  const std::filesystem::path calls_path = project.dir / kMetaDir / "calls.jsonl";
+  const std::filesystem::path results_path = project.dir / kMetaDir / "original-results.jsonl";
+  {
+    auto written = write_file(calls_path, text);
+    if (!written) return std::unexpected(written.error());
+  }
+  const Run run = run_command(exe->string(),
+                              {"--cases", calls_path.string(), "--out", results_path.string()},
+                              project.dir);
+  if (!run.ok) {
+    return std::unexpected("the harness failed: " + run.failure() + "\n" +
+                           indent_text(run.err, 2));
+  }
+  const auto results = read_file(results_path);
+  if (!results.has_value()) return std::unexpected(results_path.string() + ": cannot read");
+  std::map<std::string, std::pair<std::string, Json>> by_id;
+  for (const Json& call : generated) {
+    const Json* id = call.find("id");
+    const Json* function = call.find("fn");
+    const Json* args = call.find("args");
+    if (id != nullptr && id->is_string() && function != nullptr && function->is_string()) {
+      by_id[id->as_string()] = {function->as_string(),
+                                args != nullptr ? *args : Json::array()};
+    }
+  }
+  std::string cases;
+  std::size_t crashes = 0;
+  std::size_t count_cases = 0;
+  for (const std::string_view line : split_lines(*results)) {
+    bool empty = true;
+    for (const char ch : line) {
+      if (!std::isspace(static_cast<unsigned char>(ch))) empty = false;
+    }
+    if (empty) continue;
+    Json doc;
+    try {
+      doc = parse(line);
+    } catch (const JsonError& error) {
+      return std::unexpected(std::string("harness output: ") + error.what());
+    }
+    const Json* id_field = doc.find("id");
+    const std::string id = id_field != nullptr && id_field->is_string() ? id_field->as_string() : "";
+    const auto found = by_id.find(id);
+    if (found == by_id.end()) continue;
+    const Json* result_field = doc.find("result");
+    const Json result = result_field != nullptr ? *result_field : Json::null();
+    Json expect = Json::null();
+    if (const Json* error = result.find("err"); error != nullptr) {
+      const Json* kind_field = error->find("type");
+      const Json* message_field = error->find("msg");
+      const std::string kind =
+          kind_field != nullptr && kind_field->is_string() ? kind_field->as_string() : "";
+      const std::string message =
+          message_field != nullptr && message_field->is_string() ? message_field->as_string() : "";
+      if (kind == "Crash") {
+        ++crashes;
+        expect = Json::object({{"crash", Json::string(message)}});
+      } else {
+        expect = Json::object({
+            {"err", Json::object({{"type", Json::string(kind.empty() ? "CError" : kind)},
+                                  {"msg", Json::string(message)}})},
+        });
+      }
+    } else {
+      const Json* ok = result.find("ok");
+      expect = Json::object({{"ok", ok != nullptr ? *ok : Json::null()}});
+    }
+    const Json entry = Json::object({
+        {"id", Json::string(id)},
+        {"fn", Json::string(found->second.first)},
+        {"args", found->second.second},
+        {"expect", expect},
+    });
+    cases += dump(entry);
+    cases += '\n';
+    ++count_cases;
+  }
+  {
+    auto written = write_file(project.dir / "cases.jsonl", cases);
+    if (!written) return std::unexpected(written.error());
+  }
+  const Json recorded_from = Json::object({
+      {"schema", Json::string("cpp-anything/recorded-from@1")},
+      {"source_hash", Json::string(hash64(read_file(project.source_file).value_or(std::string())))},
+      {"from_tests", Json::object({{"calls", Json::integer(static_cast<std::int64_t>(count_cases))},
+                                   {"at", Json::string(now_iso8601())}})},
+  });
+  {
+    auto written = write_file(project.dir / kMetaDir / "recorded-from.json",
+                              dump(recorded_from, true));
+    if (!written) return std::unexpected(written.error());
+  }
+  return Recorded{count_cases, crashes};
+}
+
+Result<double> bench_original(const Project& project, const Unit& unit, std::size_t repeat,
+                              Lang lang) {
+  auto exe = build_harness(project, unit, lang);
+  if (!exe) return std::unexpected(exe.error());
+  const std::vector<Json> generated = calls(unit, 64);
+  std::string text;
+  for (const Json& call : generated) {
+    text += dump(call);
+    text += '\n';
+  }
+  const std::filesystem::path calls_path = project.dir / kMetaDir / "bench-calls.jsonl";
+  {
+    auto written = write_file(calls_path, text);
+    if (!written) return std::unexpected(written.error());
+  }
+  const Run run = run_command(exe->string(),
+                              {"--cases", calls_path.string(), "--bench",
+                               std::to_string(std::max<std::size_t>(repeat, 1))},
+                              project.dir);
+  if (!run.ok) return std::unexpected("the harness bench failed: " + run.failure());
+  std::string payload = run.out;
+  {
+    std::string_view leading = payload;
+    while (!leading.empty() && std::isspace(static_cast<unsigned char>(leading.front()))) {
+      leading.remove_prefix(1);
+    }
+    if (!leading.starts_with('{')) payload = run.err;
+  }
+  std::string last;
+  for (const std::string_view line : split_lines(payload)) {
+    std::string_view trimmed = line;
+    while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front()))) {
+      trimmed.remove_prefix(1);
+    }
+    if (trimmed.starts_with('{')) last = line;
+  }
+  Json doc;
+  try {
+    doc = parse(last);
+  } catch (const JsonError& error) {
+    return std::unexpected(std::string("harness bench output: ") + error.what());
+  }
+  const Json* nanos = doc.find("ns_per_call");
+  if (nanos == nullptr || !nanos->is_number()) {
+    return std::unexpected("the harness printed no ns_per_call");
+  }
+  return nanos->as_number();
 }
 
 }  // namespace cppan::langc

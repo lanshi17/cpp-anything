@@ -1,7 +1,10 @@
 #include "cppan/gate.hpp"
 
 #include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <format>
+#include <optional>
 
 #include "cppan/bench.hpp"
 #include "cppan/build.hpp"

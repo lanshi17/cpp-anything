@@ -27,6 +27,9 @@ using Result = std::expected<T, Error>;
 
 /// Left-aligns `text` to `width` characters (UTF-8 code points, as Rust's `{:<N}`).
 [[nodiscard]] std::string pad_right(std::string_view text, std::size_t width);
+[[nodiscard]] std::string pad_left(std::string_view text, std::size_t width);
+/// Rust's `{:?}` for a string: quoted, with the escapes a report needs.
+[[nodiscard]] std::string quote_debug(std::string_view text);
 
 /// A finished child process: exit status (none when it could not be started),
 /// captured stdout and stderr.
@@ -45,19 +48,36 @@ struct Run {
                               const std::optional<std::filesystem::path>& cwd = std::nullopt,
                               const std::vector<std::pair<std::string, std::string>>& envs = {});
 
+/// Same, feeding `input` to stdin and closing it: how the doctor asks the MCP
+/// server its two questions.
+[[nodiscard]] Run run_command_with_input(const std::string& program,
+                                         const std::vector<std::string>& args,
+                                         std::string_view input);
+
 /// FNV-1a 64: enough to notice that generated docs drifted, without a hash crate.
 [[nodiscard]] std::string hash64(std::string_view text);
 
 [[nodiscard]] std::optional<std::string> read_file(const std::filesystem::path& path);
 Result<void> write_file(const std::filesystem::path& path, std::string_view contents);
 
+/// Creates a directory, refusing when it is neither absent nor empty unless
+/// `force` is set. Returns true when an existing non-empty directory was reused.
+[[nodiscard]] Result<bool> prepare_dir(const std::filesystem::path& path, bool force);
+
 /// Walks up from the current directory looking for the cpp-anything checkout.
+/// The first executable named `program` on PATH.
+[[nodiscard]] std::optional<std::filesystem::path> which_on_path(std::string_view program);
+
 [[nodiscard]] std::optional<std::filesystem::path> repo_root();
 
 /// `path` relative to the current directory when it is below it.
 [[nodiscard]] std::string short_path(const std::filesystem::path& path);
 
 [[nodiscard]] std::string indent_text(std::string_view text, std::size_t spaces);
+
+/// `text.lines()`: one view per line, no trailing empty line after a final newline.
+[[nodiscard]] std::vector<std::string_view> split_lines(std::string_view text);
+[[nodiscard]] std::size_t line_count(std::string_view text);
 
 }  // namespace cppan
 

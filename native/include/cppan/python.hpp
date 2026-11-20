@@ -6,7 +6,9 @@
 #include <string>
 #include <vector>
 
+#include "cppan/inventory.hpp"
 #include "cppan/json.hpp"
+#include "cppan/project.hpp"
 #include "cppan/util.hpp"
 
 namespace cppan::python {
@@ -22,5 +24,21 @@ namespace cppan::python {
 
 /// The probe's `analyze` mode over a repository.
 [[nodiscard]] Result<Json> analyze(const std::filesystem::path& root);
+
+}  // namespace cppan::python
+
+namespace cppan::python {
+
+/// The probe's `inventory` mode: functions, types, defaults, risks for one unit.
+[[nodiscard]] Result<Unit> inventory(const std::filesystem::path& path, std::string_view module,
+                                     const std::optional<std::filesystem::path>& package_root);
+
+/// Times the original over the recorded cases; nanoseconds per call.
+[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+
+/// Records generated edge cases for every ported function; returns how many.
+[[nodiscard]] Result<std::size_t> record(const Project& project, std::size_t cases,
+                                         std::uint64_t seed,
+                                         const std::optional<std::filesystem::path>& inputs);
 
 }  // namespace cppan::python

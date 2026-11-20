@@ -28,10 +28,15 @@ implementation and the source of the CLI goldens in `tests/golden/cli.jsonl`.
 | `python` | probe driver only | `analyze` |
 | `analyze` | done | `analyze --json` golden and plan diff against the reference |
 | `types`, `inventory`, `corpora`, `project` | done | used by the plugin ports |
-
-Not ported yet: language plugins, `bridge`/codegen, `record`/`diff`/`bench`/
-`gate`/`shadow`, `profile`, the whole-app commands, `doctor`, `setup`, `mcp`,
-`rsi`, `map`.
+| `langs` (ts/js, go, ruby, java, php, csharp) | analyze, record, bench, shadow for every plugin language | bridge+record+shadow byte-identical on all four fixtures |
+| `langc` (C, C-style C++), `modern` | analyze, record, bench, harness | `examples/c-text`, `examples/legacy-cpp` |
+| `codegen`, `modules`, `build`, `diff`, `bench`, `gate`, `shadow` | done | byte-identical generated projects, example gate output |
+| `record` (Python/C/Ruby/Go/Java/TS) | done | cases.jsonl byte-identical |
+| `setup`, `doctor`, `mcp`, `map` | done | dry-run/real config diffs, golden tool list |
+| Python `record --from-tests` | not ported | needs the sitecustomize hook |
+| `profile` (Node/Ruby/Go/Java collectors) | not ported | |
+| whole-app (`app record/replay/front-door/wire/lift`) | not ported | |
+| `rsi` | not ported | |
 
 ## Rules
 
@@ -44,6 +49,13 @@ Not ported yet: language plugins, `bridge`/codegen, `record`/`diff`/`bench`/
 - Output is compared byte for byte against the reference binary:
   `./target/release/cpp-anything <cmd>` vs `./build/dev/cpp-anything <cmd>`.
 - `ctest --test-dir build/dev` replays the golden corpus.
+
+## Float formatting
+
+`cppan::format_real` in `native/include/cppan/json.hpp` reproduces Rust's `{:?}`
+for floats (shortest digits, decimal for exponents in [-4, 16), exponents without
+`+` or leading zeros). Recorded cases and `--json` reports compare as text, so
+this is part of the wire contract.
 
 ## Verifying
 

@@ -16,6 +16,14 @@ cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/data/matrix.json" matrix_json)
 cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/data/libs.json" libs_json)
 cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/probe.py" probe_py)
 cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/sitecustomize.py.in" sitecustomize_py)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/wire.hpp" wire_hpp)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/main.cpp" driver_main_cpp)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/shadow.cpp" shadow_cpp)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/shadow_module.py.in" shadow_module_py)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/batch.py.in" batch_py)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/src/cpp_runtime/harness_c.cpp.in" harness_c_cpp)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/native/include/cppan/json.hpp" json_hpp)
+cppan_embed_file("${CMAKE_CURRENT_SOURCE_DIR}/skills/cpp-anything/SKILL.md" skill_md)
 
 add_library(cppan_core STATIC
   native/src/util.cpp
@@ -27,6 +35,27 @@ add_library(cppan_core STATIC
   native/src/corpora.cpp
   native/src/project.cpp
   native/src/python.cpp
+  native/src/langc.cpp
+  native/src/modules.cpp
+  native/src/codegen.cpp
+  native/src/build.cpp
+  native/src/diff.cpp
+  native/src/bench.cpp
+  native/src/gate.cpp
+  native/src/shadow.cpp
+  native/src/setup.cpp
+  native/src/doctor.cpp
+  native/src/mcp.cpp
+  native/src/portmap.cpp
+  native/src/recording.cpp
+  native/src/modern.cpp
+  native/src/langs.cpp
+  native/src/langs/go.cpp
+  native/src/langs/java.cpp
+  native/src/langs/php.cpp
+  native/src/langs/csharp.cpp
+  native/src/langs/ruby.cpp
+  native/src/langs/ts.cpp
   native/src/analyze.cpp
   native/src/cli.cpp
 )
@@ -36,6 +65,7 @@ target_include_directories(cppan_core
     "${CMAKE_BINARY_DIR}/generated"
 )
 target_compile_features(cppan_core PUBLIC cxx_std_23)
+target_compile_definitions(cppan_core PUBLIC CPPAN_VERSION="${PROJECT_VERSION}")
 
 if(MSVC)
   target_compile_options(cppan_core PRIVATE /W4 /permissive- /Zc:__cplusplus /utf-8)

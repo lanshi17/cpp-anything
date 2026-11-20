@@ -42,17 +42,6 @@ std::string join_strings(const std::vector<std::string>& items, std::string_view
   return out;
 }
 
-std::string format_real(double value) {
-  if (std::isnan(value)) return "NaN";
-  if (std::isinf(value)) return value > 0 ? "Infinity" : "-Infinity";
-  if (value == 0.0 && std::signbit(value)) return "-0.0";
-  char buffer[64];
-  const auto result = std::to_chars(buffer, buffer + sizeof buffer, value);
-  const std::string_view text(buffer, static_cast<std::size_t>(result.ptr - buffer));
-  if (text.find_first_of(".eE") != std::string_view::npos) return std::string(text);
-  return std::string(text) + ".0";
-}
-
 }  // namespace
 
 std::vector<std::string_view> split_top_level(std::string_view text, char separator) {
@@ -234,7 +223,7 @@ void Ty::headers(std::vector<std::string>& out) const {
 std::optional<std::string> Ty::cpp_default(const Json& value) const {
   if (value.is_null()) return "std::nullopt";
   if (kind == Kind::Int && value.is_integer()) return std::to_string(value.as_int());
-  if (kind == Kind::Float && value.is_real()) return format_real(value.as_real());
+  if (kind == Kind::Float && value.is_real()) return cppan::format_real(value.as_real());
   if (kind == Kind::Float && value.is_integer()) return std::to_string(value.as_int()) + ".0";
   if (kind == Kind::Bool && value.is_bool()) return value.as_bool() ? "true" : "false";
   if (kind == Kind::Str && value.is_string()) return cpp_string_literal(value.as_string());

@@ -17,6 +17,7 @@
 
 #include "cppan/inventory.hpp"
 #include "cppan/json.hpp"
+#include "cppan/project.hpp"
 #include "cppan/util.hpp"
 
 namespace cppan::langs {
@@ -83,18 +84,39 @@ namespace csharp {
 }
 namespace go {
 [[nodiscard]] Result<Analysis> analyze_package(const std::filesystem::path& directory);
+[[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
+                                         const std::vector<Json>& calls);
+[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
+    const Project& project, std::string_view ns);
 }
 namespace java {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
+[[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
+                                         const std::vector<Json>& calls);
+[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
+    const Project& project, std::string_view ns);
 }
 namespace php {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
 }
 namespace ruby {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
+[[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
+                                         const std::vector<Json>& calls);
+[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
+    const Project& project, std::string_view ns);
 }
 namespace ts {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path, Lang lang);
+[[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
+                                         const std::vector<Json>& calls,
+                                         const RecordOptions& options, Lang lang);
+[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat, Lang lang);
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
+    const Project& project, std::string_view ns, Lang lang);
 }
 
 // --- shared plan building ----------------------------------------------------
@@ -108,5 +130,25 @@ namespace ts {
 /// inventory the rest of the tool consumes.
 [[nodiscard]] Result<Unit> inventory(const std::filesystem::path& repo, std::string_view unit,
                                      Lang lang);
+
+/// `case id` is `<function>:<n>`; the recorded `fn` is the part before the last colon.
+[[nodiscard]] std::string function_of(std::string_view id);
+[[nodiscard]] std::string cases_json(const std::vector<Json>& calls);
+/// Writes `cases.jsonl` from harness output lines: `{"id", "ok"}` or
+/// `{"id", "err": {"type", "msg"}}`.
+[[nodiscard]] Result<std::size_t> write_cases(const Project& project,
+                                              const std::vector<Json>& calls,
+                                              std::string_view output);
+[[nodiscard]] Result<std::string> run_harness(const Project& project, std::string_view program,
+                                              const std::vector<std::string>& args,
+                                              const std::optional<std::filesystem::path>& cwd);
+
+/// The per-language recorder: generated calls in, the harness's results out.
+[[nodiscard]] Result<std::size_t> record(const Project& project, std::size_t count,
+                                         const RecordOptions& options);
+[[nodiscard]] Result<double> bench_original(const Project& project, std::size_t repeat);
+/// The language-specific shadow files.
+[[nodiscard]] Result<std::vector<std::pair<std::string, std::string>>> shadow_files(
+    const Project& project, std::string_view ns);
 
 }  // namespace cppan::langs

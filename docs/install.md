@@ -5,9 +5,10 @@
 | Tool | Version | Why |
 | --- | --- | --- |
 | CMake | 3.28+ | generated projects; the `project()`/`target_compile_features` surface used |
-| C++ compiler | GCC 13+, Clang 17+ (with libc++ 16+), MSVC 19.33+ | C++23: `std::expected`, `std::span`, ranges |
+| C++ compiler | GCC 14+, Clang 18+, MSVC 19.33+ | building cpp-anything itself (`std::print`, `std::expected`, `std::span`) |
+| C++ compiler for generated projects | GCC 13+, Clang 17+ (libc++ 16+), MSVC 19.33+ | what `matrix` says each release supports |
 | Python | the interpreter that runs the code being ported (`CPPAN_PYTHON` overrides `python3`) | `analyze`, `record`, `bench` |
-| Rust | 1.82+ | building cpp-anything itself |
+| C++23 compiler | the one above | building cpp-anything itself |
 
 `cpp-anything doctor` checks all of it, with the fix for each missing piece.
 
@@ -16,18 +17,20 @@
 ```sh
 git clone https://github.com/lanshi17/cpp-anything
 cd cpp-anything
-cargo install --path .
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+cmake --install build        # or run ./build/cpp-anything directly
 cpp-anything doctor
 ```
 
 Or run it without installing:
 
 ```sh
-cargo run --release -- matrix features --toolchain gcc --version 13 --std c++23
+./build/cpp-anything matrix features --toolchain gcc --version 13 --std c++23
 ```
 
-There are no crate dependencies: the build needs a Rust toolchain and nothing from
-the network.
+There are no third-party dependencies: the build needs CMake, a C++23 compiler and
+nothing from the network.
 
 ## Platforms
 
@@ -53,15 +56,16 @@ analyze → plan → bridge → record → port → diff → gate, one unit at a
 
 ## CI
 
-`cpp-anything` is one static binary with no dependencies, so CI is: install Rust,
-build, run `rsi check` (which needs CMake and a C++ compiler for the self-port step),
-and run the loop on your own project's units.
+`cpp-anything` is one dependency-free binary, so CI is: configure and build with
+CMake, run the CTest suite, then `rsi check` (which needs CMake and a C++ compiler
+for the self-port step).
 
 ```yaml
-- run: cargo build --release
-- run: cargo test && cargo clippy --all-targets -- -D warnings
-- run: ./target/release/cpp-anything matrix docs --check
-- run: ./target/release/cpp-anything rsi check
+- run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+- run: cmake --build build -j
+- run: ctest --test-dir build --output-on-failure
+- run: ./build/cpp-anything matrix docs --check
+- run: ./build/cpp-anything rsi check
 ```
 
 For a user repository, the same shape per unit:
@@ -78,7 +82,7 @@ The data is refreshed explicitly, never in the background:
 
 ```sh
 cpp-anything matrix sync        # fetch cppreference's tables + re-render docs/guides
-cargo build                     # the binary embeds the matrix
+cmake --build build             # the binary embeds the matrix
 cpp-anything rsi check          # guides, goldens and the self-port
 ```
 

@@ -32,7 +32,9 @@ Requirements: CMake 3.28+, a C++23 compiler (GCC 13+, Clang 17+, MSVC 19.33+), a
 the Python 3 that runs the code you are porting.
 
 ```sh
-cargo install --path .        # or: cargo build --release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+cmake --install build         # or run ./build/cpp-anything directly
 cpp-anything doctor           # cmake, a C++ compiler, python3, the matrix, the guides
 cpp-anything analyze .        # plan; ports one module at a time
 ```
@@ -295,8 +297,8 @@ The target is C++20/23. Porting *C++* to another language is a different tool.
 
 ## Contributing
 
-Issues and pull requests are welcome. Before sending one: `cargo test`,
-`cargo clippy --all-targets`, and `cpp-anything rsi check` must pass — that last one
+Issues and pull requests are welcome. Before sending one: `cmake --build build`,
+`ctest --test-dir build`, and `cpp-anything rsi check` must pass — that last one
 is the tool checking itself.
 
 ## License

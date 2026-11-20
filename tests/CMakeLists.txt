@@ -6,8 +6,8 @@ add_test(
   NAME golden-cli
   COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/golden.py
           $<TARGET_FILE:cpp-anything>
-          ${CMAKE_CURRENT_SOURCE_DIR}/../../tests/golden/cli.jsonl
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..
+          ${CMAKE_CURRENT_SOURCE_DIR}/golden/cli.jsonl
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
 add_executable(cppan_unit_tests unit.cpp)

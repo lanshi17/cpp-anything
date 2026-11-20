@@ -209,3 +209,15 @@ First release: the loop, the matrix and the self-check.
   `analyze`, `bridge`, `record`, `build`, `diff`, `bench`, `gate`, `doctor`.
 - `examples/textkit-cpp` — a complete port with its recording, and the fixture
   `tests/fixtures/python/textkit` it was generated from.
+
+## Unreleased — cpp-anything is C++
+
+cpp-anything has been rewritten in C++23. The Rust implementation is gone; the
+tool, its JSON codec and the generated projects are now one C++ codebase.
+
+- **Build**: `cmake -S . -B build && cmake --build build`; tests run under CTest
+  (`ctest --test-dir build`). Requires GCC 14+ / Clang 18+ / MSVC 19.33+.
+- **No behaviour change by design**: recorded CLI output, generated projects,
+  `cases.jsonl`, shadow bindings and `rsi check` are byte-compatible with 0.4.0.
+- **Portability**: process execution has a POSIX and a Windows implementation;
+  the shared JSON codec reproduces Rust's `{:?}` float text exactly.

@@ -4,8 +4,8 @@
   "unit": {
     "name": "legacy",
     "module": "legacy.cpp",
-    "file": "/mnt/data/Projects/OpenSource/cpp-anything/examples/legacy-cpp/legacy.cpp",
-    "package_root": "/mnt/data/Projects/OpenSource/cpp-anything/examples/legacy-cpp",
+    "file": "../../legacy.cpp",
+    "package_root": "../..",
     "lang": "cpp",
     "lines": 92
   },

@@ -12,7 +12,8 @@ Tools: the `cpp-anything` CLI, or the same steps as MCP tools (`cpp-anything mcp
 `matrix_features`, `matrix_explain`, `matrix_profile`, `analyze`, `bridge`, `record`,
 `build`, `diff`, `bench`, `gate`, `doctor`. If the MCP tools are missing, use the
 CLI. If `cpp-anything` is not installed, ask the user to run
-`cargo install --path .` (or `cargo build --release`) and wire `cpp-anything mcp`.
+`cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j` (then
+`cmake --install build`, or run `./build/cpp-anything`) and wire `cpp-anything mcp`.
 
 ## Source languages
 
@@ -127,5 +128,5 @@ the port.
 - The port is a static library plus a driver; wire it into the app where the Python
   call was, or keep the driver as the test harness and call the library directly.
 - Keep `cpp-anything gate` in CI for every ported unit.
-- When cpp-anything itself needs to change: `cargo test`, `cargo clippy --all-targets`,
+- When cpp-anything itself needs to change: `cmake --build build`, `ctest --test-dir build`,
   `cpp-anything rsi check` (data, guides, CLI goldens, and a rebuilt example).

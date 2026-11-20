@@ -4,8 +4,8 @@
   "unit": {
     "name": "textkit",
     "module": "textkit.c",
-    "file": "/mnt/data/Projects/OpenSource/cpp-anything/examples/c-text/textkit.c",
-    "package_root": "/mnt/data/Projects/OpenSource/cpp-anything/examples/c-text",
+    "file": "../../textkit.c",
+    "package_root": "../..",
     "lang": "c",
     "lines": 74
   },

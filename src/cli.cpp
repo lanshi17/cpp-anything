@@ -1093,8 +1093,32 @@ Result<int> matrix_command(const Parsed& args) {
   if (sub == "docs") return matrix_docs(args);
   if (sub == "check") return matrix_check();
   if (sub == "sync") {
-    return std::unexpected(
-        "matrix sync needs scripts/sync_matrix.py and a checkout; not ported yet");
+    // The data lives in the checkout and the binary embeds it, so syncing is a
+    // two-step operation: refresh data/matrix.json, re-render the guides, then
+    // rebuild to embed the new matrix.
+    const auto root = repo_root();
+    if (!root.has_value()) {
+      return std::unexpected(
+          "matrix sync needs the cpp-anything checkout: no data/matrix.json found above the "
+          "current directory");
+    }
+    const std::filesystem::path script = *root / "scripts" / "sync_matrix.py";
+    if (!std::filesystem::exists(script)) {
+      return std::unexpected(script.string() + " is missing");
+    }
+    std::vector<std::string> argv = {script.string()};
+    if (args.flag("offline")) argv.push_back("--offline");
+    const Run run = run_command(python::interpreter(), argv, *root);
+    std::print("{}", run.out);
+    if (!run.ok) {
+      return std::unexpected("sync failed: " + run.failure() + "\n" + indent_text(run.err, 2));
+    }
+    auto guides = docs::write(*root / "docs" / "guides");
+    if (!guides) return std::unexpected(guides.error());
+    std::print("re-rendered {} guides under docs/guides\n", *guides);
+    std::print("rebuild to embed the new matrix: `cmake --build build` (or `cmake --install "
+               "build`)\n");
+    return 0;
   }
   return std::unexpected("unknown matrix command " + debug_quote(sub) +
                          "; try features, explain, profile, docs, check");

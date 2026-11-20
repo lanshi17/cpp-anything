@@ -10,25 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-      - name: toolchain the generated code needs
+      - name: toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake g++ python3
-          g++ --version | head -1
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
-      - run: cargo build --release
-      # The guides are generated from data/matrix.json; a stale guide fails here.
-      - run: ./target/release/cpp-anything matrix docs --check
-      # RSI: data + guides + recorded CLI output + a generated project that is
-      # built and replayed. This is the tool checking itself with its own loop.
-      - run: ./target/release/cpp-anything rsi check
+          # std::print (C++23) needs GCC 14+; generated projects still target GCC 13+.
+          sudo apt-get install -y cmake ninja-build g++-14 python3
+          g++-14 --version | head -1
+          cmake --version | head -1
+      - name: configure and build
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-14
+          cmake --build build -j
+      - name: tests
+        run: ctest --test-dir build --output-on-failure
+      - name: guides are generated from data/matrix.json
+        run: ./build/cpp-anything matrix docs --check
+      - name: self-check (data, guides, goldens, examples, plugins)
+        run: ./build/cpp-anything rsi check
       - name: full loop on the shipped example
         run: |
-          ./target/release/cpp-anything build examples/textkit-cpp
-          ./target/release/cpp-anything diff examples/textkit-cpp
-          ./target/release/cpp-anything gate examples/textkit-cpp
+          ./build/cpp-anything build examples/textkit-cpp
+          ./build/cpp-anything diff examples/textkit-cpp
+          ./build/cpp-anything gate examples/textkit-cpp

@@ -27,7 +27,7 @@ because the target is C++, and what is not there yet. It is updated with the cod
 | `setup [--agent] [--remove] [--dry-run] [--json]` | same | implemented for Claude Code, Codex, Cursor, Gemini CLI, OpenCode |
 | `doctor [--json]` | same | implemented: cmake, compiler, python3, matrix, guides, MCP self-answer, agent entries |
 | `mcp` | same | 21 tools, 2 prompts, progress notifications, structured errors |
-| `--help`, `--version` | `help`; version in `Cargo.toml` | implemented |
+| `--help`, `--version` | `help`; version in `CMakeLists.txt` | implemented |
 
 ## Semantics that carry over
 

@@ -4,8 +4,8 @@
   "unit": {
     "name": "textkit.words",
     "module": "textkit.words",
-    "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/python/textkit/textkit/words.py",
-    "package_root": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/python/textkit",
+    "file": "../../tests/fixtures/python/textkit/textkit/words.py",
+    "package_root": "../../tests/fixtures/python/textkit",
     "lang": "python",
     "lines": 73
   },

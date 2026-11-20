@@ -22,7 +22,9 @@ $ cpp-anything bench cpp/textkit-words            # 333 ns → 141 ns（2.37x）
 代码的那个 Python 3。
 
 ```sh
-cargo install --path .
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+cmake --install build
 cpp-anything doctor          # 检查 cmake、C++ 编译器、python3、矩阵、文档
 cpp-anything analyze .
 ```

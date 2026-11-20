@@ -115,6 +115,45 @@ Result<void> copy_dir(const std::filesystem::path& from, const std::filesystem::
   return {};
 }
 
+/// Example scaffolds were generated in another checkout and store its absolute
+/// paths. Point them at this checkout before building, or a copied example links
+/// a directory that does not exist here.
+void relocate_example(const std::filesystem::path& scratch, const std::filesystem::path& root);
+
+void relocate_paths(const std::filesystem::path& file, const std::filesystem::path& root) {
+  const auto text = read_file(file);
+  if (!text.has_value()) return;
+  std::string out = *text;
+  for (const std::string_view marker : {"/examples/", "/tests/"}) {
+    std::size_t at = 0;
+    while ((at = out.find(marker, at)) != std::string::npos) {
+      std::size_t start = at;
+      while (start > 0) {
+        const char ch = out[start - 1];
+        if (ch == '"' || ch == '\'' || ch == '(' || ch == ' ' || ch == '=' || ch == ',' ||
+            ch == ':' || ch == '[') {
+          break;
+        }
+        --start;
+      }
+      if (start == 0 || out[start] != '/') {
+        at += marker.size();
+        continue;
+      }
+      out.replace(start, at - start, root.string());
+      at = start + root.string().size() + marker.size();
+    }
+  }
+  (void)write_file(file, out);
+}
+
+void relocate_example(const std::filesystem::path& scratch, const std::filesystem::path& root) {
+  relocate_paths(scratch / "cpp" / "app" / "routes.json", root);
+  relocate_paths(scratch / "cpp" / "app" / "units.cmake", root);
+  relocate_paths(scratch / "cpp" / "lib" / "units.cmake", root);
+  relocate_paths(scratch / "cpp" / "app" / "src" / "fallback.cpp", root);
+}
+
 std::filesystem::path golden_path(const std::filesystem::path& root) {
   return root / "tests" / "golden" / "cli.jsonl";
 }
@@ -231,6 +270,7 @@ Step app_step(const std::filesystem::path& root) {
   if (auto copied = copy_dir(example, scratch); !copied) {
     return Step{"self app", false, copied.error()};
   }
+  relocate_example(scratch, root);
   auto front = run_cli(scratch, {"app", "front-door", "."});
   if (!front) return Step{"self app", false, front.error()};
   if (front->find("✗") != std::string::npos || front->find("passed") == std::string::npos) {
@@ -310,6 +350,7 @@ Step library_step(const std::filesystem::path& root) {
   if (auto copied = copy_dir(example, scratch); !copied) {
     return Step{"self library", false, copied.error()};
   }
+  relocate_example(scratch, root);
   auto output = run_cli(scratch, {"app", "front-door", "--library", "."});
   if (!output) return Step{"self library", false, output.error()};
   const std::string text =
@@ -342,6 +383,7 @@ Step http_native_step(const std::filesystem::path& root) {
     return Step{"self http routes", false, copied.error()};
   }
   std::filesystem::remove_all(scratch / "cpp" / "app" / "build", error);
+  relocate_example(scratch, root);
   auto front = run_cli(scratch, {"app", "front-door", "."});
   if (!front) return Step{"self http routes", false, front.error()};
   if (front->find("✗") != std::string::npos ||

@@ -1,0 +1,105 @@
+{
+  "unit": "TextTool",
+  "module": "src.demo.TextTool",
+  "lang": "java",
+  "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/java/src/demo/TextTool.java",
+  "lines": 74,
+  "functions": [
+    {
+      "name": "wordCount",
+      "line": 18,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "Counts whitespace-separated words (ASCII whitespace, as Java's \\s). @throws IllegalArgumentException when the text is empty"
+      ],
+      "risks": []
+    },
+    {
+      "name": "slug",
+      "line": 38,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "Lowercases ASCII letters and turns every other run into a single dash."
+      ],
+      "risks": []
+    },
+    {
+      "name": "compareLengths",
+      "line": 61,
+      "params": [
+        {
+          "name": "left",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "right",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "Compares two strings by UTF-16 length: -1, 0 or 1."
+      ],
+      "risks": []
+    },
+    {
+      "name": "compareInts",
+      "line": 66,
+      "params": [
+        {
+          "name": "left",
+          "annotation": "int",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "right",
+          "annotation": "int",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "Compares two ints: -1, 0 or 1."
+      ],
+      "risks": []
+    }
+  ],
+  "risks": [
+    "Java ints are 32-bit, longs 64-bit, and the wire carries int64: the signature decides the width",
+    "char is UTF-16 code units, String is UTF-16: offsets and lengths are not bytes",
+    "null and an empty string are different values, and both cross the wire",
+    "Checked exceptions are part of the original's contract; the port mirrors the type names"
+  ]
+}

@@ -8,22 +8,22 @@ because the target is C++, and what is not there yet. It is updated with the cod
 
 | Reference | cpp-anything | Status |
 | --- | --- | --- |
-| `analyze <root> [--json] [-o] [--lang python|c|cpp] [--whole-app]` | same flags | implemented: waves from resolved imports, readiness/priority, keep/blocked, dependency table with C++ libraries, `--whole-app` shape/entry points/decisions |
-| `bridge <root> <unit> [--out] [--force] [--batch] [--keep] [--as-json] [--kind]` | `bridge` with `--out/--force/--batch/--name`-style flags; `--toolchain/--version/--std` choose the C++ target | implemented except `--keep`/`--as-json` (they are TS-export controls; Python units port whole) |
+| `analyze <root> [--json] [-o] [--lang python|c|cpp] [--whole-app]` | same flags, plus `ts/js/go/ruby/java/php/csharp` | implemented: waves from resolved imports, readiness/priority, keep/blocked, dependency table with C++ libraries, `--whole-app` shape/entry points/decisions |
+| `bridge <root> <unit> [--out] [--force] [--batch] [--keep] [--as-json] [--kind]` | same, plus `--toolchain/--version/--std/--modules` for the C++ target | implemented: `--keep name:reason` leaves an export in the original, `--as-json T` crosses a type parameter as JSON, `--kind napi` is the Node binding (WASM has no C++ target) |
 | `refresh [--batch]` | same | implemented; it also re-reads the source signatures |
-| `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed`; C records through a fork-per-case harness | implemented; `--module`/`--resolve-from`/`--node-arg` are JS-specific and absent until the JS plugin |
+| `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed`, `--module/--resolve-from/--node-arg` for TS/JS | implemented per language: probe for Python, fork-per-case harness for C, out-of-process harnesses for TS/JS, Go, Ruby, Java; `--from-tests` remains Python-only |
 | `build` | same | implemented (CMake) |
 | `diff [--json] [--ignore-key-order] [--float-tolerance]` | `--json/--strict-errors/--tolerance/--only/--max-report` | implemented; objects already compare unordered, so `--ignore-key-order` is the default and the flag is unnecessary |
 | `bench [--min-ms] [--json]` | `--repeat` (calls per case) `--json` | implemented with the same method: decode once, time only the calls, in the original's own process |
-| `profile <root> -- <cmd>` | same | implemented for Python (cProfile); the other runtimes arrive with their plugins |
+| `profile <root> -- <cmd>` | same | implemented per runtime: Python (cProfile), Node (`--cpu-prof`), Ruby (TracePoint tracer), Go (`go test -cpuprofile` + `go tool pprof -raw`), Java (JFR `jdk.ExecutionSample`) |
 | `shadow [--out]` | `shadow [--report] [--check] [--json]` | implemented as a drop-in module over a C ABI; `--report`/`--check` summarise the log |
 | `gate [--json]` | `--json/--clean/--cxx/--jobs/--bench` | implemented: matrix, stubs (ported), error paths, panics, size, recording staleness, coverage, build, dispatch, diff, optional bench |
 | `map [--write] [--check] [--json] [--crates]` | same | implemented (`cpp/PORT_MAP.md`) |
 | `app record [--http] [--inputs] [--normalize] [--no-traps] [--timeout] [--arg] [--fresh] [--pace] [--float-tolerance] [--effects] [--effect-env] [--db-reset] [--db-dump] [--json] -- cmd` | same | implemented for CLIs and servers |
 | `app replay [--build] [--case] [--timeout] [--json]` | same | implemented, including servers |
-| `app front-door [--no-check] [--library]` | `--no-check`; servers get a proxy front door | implemented for CLIs (routes + exec fallback) and servers (proxy); `--library` is not there yet |
-| `app wire <unit> --command` | `--command NAME [--project DIR]` | implemented: routes, glue stub, per-unit library link, kill switch; HTTP routes are not wired yet |
-| `app lift` | same | implemented for CLIs (refuses while any case falls back); servers refuse with the exact reason |
+| `app front-door [--no-check] [--library]` | same | implemented for CLIs (routes + exec fallback), servers (native routes + proxy) and libraries (`cpp/lib`, `cppan_api`, no entry point) |
+| `app wire <unit> --command` / `--route` | `--command NAME` for CLIs, `--route "METHOD /path"` (repeatable, `{param}`, `*`) for servers | implemented: routes, glue stubs, per-unit library link, kill switch, fallback counting |
+| `app lift` | same | implemented for CLIs and servers: refuses while any case/request falls back, then rebuilds without the original (`CPPAN_LIFTED`); libraries have nothing to lift |
 | `setup [--agent] [--remove] [--dry-run] [--json]` | same | implemented for Claude Code, Codex, Cursor, Gemini CLI, OpenCode |
 | `doctor [--json]` | same | implemented: cmake, compiler, python3, matrix, guides, MCP self-answer, agent entries |
 | `mcp` | same | 21 tools, 2 prompts, progress notifications, structured errors |
@@ -47,18 +47,18 @@ because the target is C++, and what is not there yet. It is updated with the cod
 
 | Area | What is missing | Why it matters |
 | --- | --- | --- |
-| Source languages | TypeScript/JavaScript, Go, Ruby, Java; PHP and C# whole-app only | Each is a plugin: analyzer, recorder, call mapping, wrapper. C and C-style C++ have one (analyze/bridge/record/diff/bench/gate, fork-per-case harness); C-style C++ adds the modernization scan and the `modern` gate check |
-| Side effects | `--effects http,smtp` and `--effect-env` run local sinks; `--db-reset`/`--db-dump` bracket each case | implemented for CLIs and servers' requests; the SMTP sink is a minimal accepting server, not a full MTA |
-| Library front door | `app front-door --library` | A C++ library front door that re-exports each ported unit |
-| HTTP routing | `app wire` for servers | The server front door proxies everything; a native route cannot answer yet |
-| TS-specific flags | `--kind napi/wasm`, `--keep`, `--as-json`, `--node-arg`, `--resolve-from` | They describe bindings to Node/WASM, which do not exist for a C++ target |
-| `profile` for other runtimes | Node/Go/Java/Ruby profilers | Arrives with each plugin |
+| PHP and C# per-unit ports | both are analyzed as whole apps; there is no per-unit analyzer/recorder harness for them | PHP and C# have no fixture-verified recorder yet; `app` still records and fronts a whole CLI/server in either language because it execs the original |
+| `record --from-tests` outside Python | the flag runs a Python suite and imports the probe | Go `-run`, JUnit and Ruby test discovery need their own hooks; `--inputs` covers real samples today |
+| SMTP sink completeness | a minimal accepting server, not a full MTA | a port that relies on MTA behaviour (relay, DSN, TLS) needs a real sink |
+| Plugin fixture depth | each plugin's supported signature subset is documented and tested on its fixture | bugs in exotica (generics, structs, unions, variadics) are reported as skipped, not ported |
 
 ## Where the target changes the design
 
-- **Bindings.** The reference generates napi/PyO3/cgo/JNI wrappers. cpp-anything
-  generates one C ABI (`cppan_shadow_call`) plus ctypes/FFI modules for Python; other
-  source languages get their own FFI modules when they land.
+- **Bindings.** The reference generates napi/PyO3/cgo/JNI wrappers over its Rust
+  port. cpp-anything generates one C ABI (`cppan_shadow_call`/`cppan_shadow_free`)
+  and a thin binding per runtime: ctypes (Python), Node-API addon (TS/JS), cgo
+  (Go), Fiddle with an optional magnus extension (Ruby), JNI (Java). The ABI is
+  the same for every language, so a port is written and gated once.
 - **`unsafe`.** There is no `unsafe` in the target language to audit; the equivalent
   audit is "no abort/assert/throw where the original returns an error" (the `panics`
   gate check).
@@ -67,3 +67,8 @@ because the target is C++, and what is not there yet. It is updated with the cod
   check and the diff; a `.clang-format` ships with each project.
 - **Crates.** `data/libs.json` maps Python packages to C++ libraries with an honest
   fit; unknown packages are reported as unknown.
+- **Modules.** There is no Rust equivalent of `bridge --modules`: the target's build
+  system decides. cpp-anything generates a C++20 module unit when the toolchain can
+  build one (gcc 15+, clang 17+, apple-clang 16+, msvc 19.36+) and a header
+  otherwise; the interface compiles once into `gcm.cache/` so a second translation
+  unit can import it.

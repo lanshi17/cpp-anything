@@ -131,6 +131,7 @@ impl Ty {
     pub fn cpp_storage(&self) -> String {
         match self {
             Ty::List(inner) => format!("std::vector<{}>", inner.cpp_value()),
+            Ty::Any => "cppan::Json".to_string(),
             other => other.cpp_param(false),
         }
     }

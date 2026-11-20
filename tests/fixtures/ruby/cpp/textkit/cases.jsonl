@@ -1,0 +1,28 @@
+{"id":"word_count:0","fn":"word_count","args":[null],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for nil"}}}
+{"id":"word_count:1","fn":"word_count","args":["x"],"expect":{"ok":1}}
+{"id":"word_count:2","fn":"word_count","args":[0],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Integer"}}}
+{"id":"word_count:3","fn":"word_count","args":[1.5],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Float"}}}
+{"id":"word_count:4","fn":"word_count","args":[[1]],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Array"}}}
+{"id":"word_count:5","fn":"word_count","args":[{"a":1}],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Hash"}}}
+{"id":"word_count:6","fn":"word_count","args":[true],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for true"}}}
+{"id":"digits_only:0","fn":"digits_only","args":[null],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `count' for nil"}}}
+{"id":"digits_only:1","fn":"digits_only","args":["x"],"expect":{"ok":0}}
+{"id":"digits_only:2","fn":"digits_only","args":[0],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `count' for an instance of Integer"}}}
+{"id":"digits_only:3","fn":"digits_only","args":[1.5],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `count' for an instance of Float"}}}
+{"id":"digits_only:4","fn":"digits_only","args":[[1]],"expect":{"ok":0}}
+{"id":"digits_only:5","fn":"digits_only","args":[{"a":1}],"expect":{"ok":0}}
+{"id":"digits_only:6","fn":"digits_only","args":[true],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `count' for true"}}}
+{"id":"repeat_count:0","fn":"repeat_count","args":[null,null],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `scan' for nil"}}}
+{"id":"repeat_count:1","fn":"repeat_count","args":["x","x"],"expect":{"ok":1}}
+{"id":"repeat_count:2","fn":"repeat_count","args":[0,0],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `scan' for an instance of Integer"}}}
+{"id":"repeat_count:3","fn":"repeat_count","args":[1.5,1.5],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `scan' for an instance of Float"}}}
+{"id":"repeat_count:4","fn":"repeat_count","args":[[1],[1]],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `scan' for an instance of Array"}}}
+{"id":"repeat_count:5","fn":"repeat_count","args":[{"a":1},{"a":1}],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `scan' for an instance of Hash"}}}
+{"id":"repeat_count:6","fn":"repeat_count","args":[true,true],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `scan' for true"}}}
+{"id":"average_word_length:0","fn":"average_word_length","args":[null],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for nil"}}}
+{"id":"average_word_length:1","fn":"average_word_length","args":["x"],"expect":{"ok":1.0}}
+{"id":"average_word_length:2","fn":"average_word_length","args":[0],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Integer"}}}
+{"id":"average_word_length:3","fn":"average_word_length","args":[1.5],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Float"}}}
+{"id":"average_word_length:4","fn":"average_word_length","args":[[1]],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Array"}}}
+{"id":"average_word_length:5","fn":"average_word_length","args":[{"a":1}],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for an instance of Hash"}}}
+{"id":"average_word_length:6","fn":"average_word_length","args":[true],"expect":{"err":{"type":"NoMethodError","msg":"undefined method `split' for true"}}}

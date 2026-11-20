@@ -1,0 +1,60 @@
+{"id":"squish:0","fn":"squish","args":[""],"expect":{"ok":""}}
+{"id":"squish:1","fn":"squish","args":[" "],"expect":{"ok":""}}
+{"id":"squish:2","fn":"squish","args":["Hello World"],"expect":{"ok":"Hello World"}}
+{"id":"squish:3","fn":"squish","args":["  Mixed CASE  "],"expect":{"ok":"Mixed CASE"}}
+{"id":"squish:4","fn":"squish","args":["café — naïve"],"expect":{"ok":"café — naïve"}}
+{"id":"squish:5","fn":"squish","args":["a"],"expect":{"ok":"a"}}
+{"id":"squish:6","fn":"squish","args":["123"],"expect":{"ok":"123"}}
+{"id":"squish:7","fn":"squish","args":["-"],"expect":{"ok":"-"}}
+{"id":"squish:8","fn":"squish","args":["trailing---"],"expect":{"ok":"trailing---"}}
+{"id":"squish:9","fn":"squish","args":[" leading"],"expect":{"ok":"leading"}}
+{"id":"squish:10","fn":"squish","args":["one\ntwo"],"expect":{"ok":"one two"}}
+{"id":"squish:11","fn":"squish","args":["Москва"],"expect":{"ok":"Москва"}}
+{"id":"squish:12","fn":"squish","args":["0"],"expect":{"ok":"0"}}
+{"id":"squish:13","fn":"squish","args":["a-b_c"],"expect":{"ok":"a-b_c"}}
+{"id":"squish:14","fn":"squish","args":["x"],"expect":{"ok":"x"}}
+{"id":"parseCount:0","fn":"parseCount","args":[""],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:1","fn":"parseCount","args":[" "],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:2","fn":"parseCount","args":["Hello World"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:3","fn":"parseCount","args":["  Mixed CASE  "],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:4","fn":"parseCount","args":["café — naïve"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:5","fn":"parseCount","args":["a"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:6","fn":"parseCount","args":["123"],"expect":{"ok":123.0}}
+{"id":"parseCount:7","fn":"parseCount","args":["-"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:8","fn":"parseCount","args":["trailing---"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:9","fn":"parseCount","args":[" leading"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:10","fn":"parseCount","args":["one\ntwo"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:11","fn":"parseCount","args":["Москва"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:12","fn":"parseCount","args":["0"],"expect":{"ok":0.0}}
+{"id":"parseCount:13","fn":"parseCount","args":["a-b_c"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"parseCount:14","fn":"parseCount","args":["x"],"expect":{"err":{"type":"TypeError","msg":"parseCount expects a decimal count"}}}
+{"id":"commonPrefix:0","fn":"commonPrefix","args":["",""],"expect":{"ok":0.0}}
+{"id":"commonPrefix:1","fn":"commonPrefix","args":[" "," "],"expect":{"ok":1.0}}
+{"id":"commonPrefix:2","fn":"commonPrefix","args":["Hello World","Hello World"],"expect":{"ok":11.0}}
+{"id":"commonPrefix:3","fn":"commonPrefix","args":["  Mixed CASE  ","  Mixed CASE  "],"expect":{"ok":14.0}}
+{"id":"commonPrefix:4","fn":"commonPrefix","args":["café — naïve","café — naïve"],"expect":{"ok":12.0}}
+{"id":"commonPrefix:5","fn":"commonPrefix","args":["a","a"],"expect":{"ok":1.0}}
+{"id":"commonPrefix:6","fn":"commonPrefix","args":["123","123"],"expect":{"ok":3.0}}
+{"id":"commonPrefix:7","fn":"commonPrefix","args":["-","-"],"expect":{"ok":1.0}}
+{"id":"commonPrefix:8","fn":"commonPrefix","args":["trailing---","trailing---"],"expect":{"ok":11.0}}
+{"id":"commonPrefix:9","fn":"commonPrefix","args":[" leading"," leading"],"expect":{"ok":8.0}}
+{"id":"commonPrefix:10","fn":"commonPrefix","args":["one\ntwo","one\ntwo"],"expect":{"ok":7.0}}
+{"id":"commonPrefix:11","fn":"commonPrefix","args":["Москва","Москва"],"expect":{"ok":6.0}}
+{"id":"commonPrefix:12","fn":"commonPrefix","args":["0","0"],"expect":{"ok":1.0}}
+{"id":"commonPrefix:13","fn":"commonPrefix","args":["a-b_c","a-b_c"],"expect":{"ok":5.0}}
+{"id":"commonPrefix:14","fn":"commonPrefix","args":["x","x"],"expect":{"ok":1.0}}
+{"id":"compare:0","fn":"compare","args":[0.0,0.0],"expect":{"ok":0.0}}
+{"id":"compare:1","fn":"compare","args":[-0.0,-0.0],"expect":{"ok":0.0}}
+{"id":"compare:2","fn":"compare","args":[1.5,1.5],"expect":{"ok":0.0}}
+{"id":"compare:3","fn":"compare","args":[-2.25,-2.25],"expect":{"ok":0.0}}
+{"id":"compare:4","fn":"compare","args":[0.1,0.1],"expect":{"ok":0.0}}
+{"id":"compare:5","fn":"compare","args":[2.0,2.0],"expect":{"ok":0.0}}
+{"id":"compare:6","fn":"compare","args":[-0.5,-0.5],"expect":{"ok":0.0}}
+{"id":"compare:7","fn":"compare","args":[1e-9,1e-9],"expect":{"ok":0.0}}
+{"id":"compare:8","fn":"compare","args":[123456.789,123456.789],"expect":{"ok":0.0}}
+{"id":"compare:9","fn":"compare","args":[-1.0,-1.0],"expect":{"ok":0.0}}
+{"id":"compare:10","fn":"compare","args":[7.0,7.0],"expect":{"ok":0.0}}
+{"id":"compare:11","fn":"compare","args":[1000000.0,1000000.0],"expect":{"ok":0.0}}
+{"id":"compare:12","fn":"compare","args":[3.25,3.25],"expect":{"ok":0.0}}
+{"id":"compare:13","fn":"compare","args":[-99.5,-99.5],"expect":{"ok":0.0}}
+{"id":"compare:14","fn":"compare","args":[0.25,0.25],"expect":{"ok":0.0}}

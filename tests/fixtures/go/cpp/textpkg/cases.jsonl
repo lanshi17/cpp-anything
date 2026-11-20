@@ -1,0 +1,76 @@
+{"id":"WordCount:0","fn":"WordCount","args":[""],"expect":{"ok":0}}
+{"id":"WordCount:1","fn":"WordCount","args":[" "],"expect":{"ok":0}}
+{"id":"WordCount:2","fn":"WordCount","args":["Hello World"],"expect":{"ok":2}}
+{"id":"WordCount:3","fn":"WordCount","args":["  Mixed CASE  "],"expect":{"ok":2}}
+{"id":"WordCount:4","fn":"WordCount","args":["café — naïve"],"expect":{"ok":3}}
+{"id":"WordCount:5","fn":"WordCount","args":["a"],"expect":{"ok":1}}
+{"id":"WordCount:6","fn":"WordCount","args":["123"],"expect":{"ok":1}}
+{"id":"WordCount:7","fn":"WordCount","args":["-"],"expect":{"ok":1}}
+{"id":"WordCount:8","fn":"WordCount","args":["trailing---"],"expect":{"ok":1}}
+{"id":"WordCount:9","fn":"WordCount","args":[" leading"],"expect":{"ok":1}}
+{"id":"WordCount:10","fn":"WordCount","args":["one\ntwo"],"expect":{"ok":2}}
+{"id":"WordCount:11","fn":"WordCount","args":["Москва"],"expect":{"ok":1}}
+{"id":"WordCount:12","fn":"WordCount","args":["0"],"expect":{"ok":1}}
+{"id":"WordCount:13","fn":"WordCount","args":["a-b_c"],"expect":{"ok":1}}
+{"id":"WordCount:14","fn":"WordCount","args":["x"],"expect":{"ok":1}}
+{"id":"Slash:0","fn":"Slash","args":[""],"expect":{"ok":""}}
+{"id":"Slash:1","fn":"Slash","args":[" "],"expect":{"ok":""}}
+{"id":"Slash:2","fn":"Slash","args":["Hello World"],"expect":{"ok":"Hello-World"}}
+{"id":"Slash:3","fn":"Slash","args":["  Mixed CASE  "],"expect":{"ok":"Mixed-CASE"}}
+{"id":"Slash:4","fn":"Slash","args":["café — naïve"],"expect":{"ok":"café-—-naïve"}}
+{"id":"Slash:5","fn":"Slash","args":["a"],"expect":{"ok":"a"}}
+{"id":"Slash:6","fn":"Slash","args":["123"],"expect":{"ok":"123"}}
+{"id":"Slash:7","fn":"Slash","args":["-"],"expect":{"ok":"-"}}
+{"id":"Slash:8","fn":"Slash","args":["trailing---"],"expect":{"ok":"trailing---"}}
+{"id":"Slash:9","fn":"Slash","args":[" leading"],"expect":{"ok":"leading"}}
+{"id":"Slash:10","fn":"Slash","args":["one\ntwo"],"expect":{"ok":"one\ntwo"}}
+{"id":"Slash:11","fn":"Slash","args":["Москва"],"expect":{"ok":"Москва"}}
+{"id":"Slash:12","fn":"Slash","args":["0"],"expect":{"ok":"0"}}
+{"id":"Slash:13","fn":"Slash","args":["a-b_c"],"expect":{"ok":"a-b_c"}}
+{"id":"Slash:14","fn":"Slash","args":["x"],"expect":{"ok":"x"}}
+{"id":"CountBetween:0","fn":"CountBetween","args":["",""],"expect":{"ok":1}}
+{"id":"CountBetween:1","fn":"CountBetween","args":[" "," "],"expect":{"ok":1}}
+{"id":"CountBetween:2","fn":"CountBetween","args":["Hello World","Hello World"],"expect":{"ok":1}}
+{"id":"CountBetween:3","fn":"CountBetween","args":["  Mixed CASE  ","  Mixed CASE  "],"expect":{"ok":1}}
+{"id":"CountBetween:4","fn":"CountBetween","args":["café — naïve","café — naïve"],"expect":{"ok":1}}
+{"id":"CountBetween:5","fn":"CountBetween","args":["a","a"],"expect":{"ok":1}}
+{"id":"CountBetween:6","fn":"CountBetween","args":["123","123"],"expect":{"ok":1}}
+{"id":"CountBetween:7","fn":"CountBetween","args":["-","-"],"expect":{"ok":1}}
+{"id":"CountBetween:8","fn":"CountBetween","args":["trailing---","trailing---"],"expect":{"ok":1}}
+{"id":"CountBetween:9","fn":"CountBetween","args":[" leading"," leading"],"expect":{"ok":1}}
+{"id":"CountBetween:10","fn":"CountBetween","args":["one\ntwo","one\ntwo"],"expect":{"ok":1}}
+{"id":"CountBetween:11","fn":"CountBetween","args":["Москва","Москва"],"expect":{"ok":1}}
+{"id":"CountBetween:12","fn":"CountBetween","args":["0","0"],"expect":{"ok":1}}
+{"id":"CountBetween:13","fn":"CountBetween","args":["a-b_c","a-b_c"],"expect":{"ok":1}}
+{"id":"CountBetween:14","fn":"CountBetween","args":["x","x"],"expect":{"ok":1}}
+{"id":"Greater:0","fn":"Greater","args":[0,0],"expect":{"ok":false}}
+{"id":"Greater:1","fn":"Greater","args":[1,1],"expect":{"ok":false}}
+{"id":"Greater:2","fn":"Greater","args":[-1,-1],"expect":{"ok":false}}
+{"id":"Greater:3","fn":"Greater","args":[7,7],"expect":{"ok":false}}
+{"id":"Greater:4","fn":"Greater","args":[42,42],"expect":{"ok":false}}
+{"id":"Greater:5","fn":"Greater","args":[12,12],"expect":{"ok":false}}
+{"id":"Greater:6","fn":"Greater","args":[100,100],"expect":{"ok":false}}
+{"id":"Greater:7","fn":"Greater","args":[-100,-100],"expect":{"ok":false}}
+{"id":"Greater:8","fn":"Greater","args":[10000,10000],"expect":{"ok":false}}
+{"id":"Greater:9","fn":"Greater","args":[3,3],"expect":{"ok":false}}
+{"id":"Greater:10","fn":"Greater","args":[19,19],"expect":{"ok":false}}
+{"id":"Greater:11","fn":"Greater","args":[255,255],"expect":{"ok":false}}
+{"id":"Greater:12","fn":"Greater","args":[-7,-7],"expect":{"ok":false}}
+{"id":"Greater:13","fn":"Greater","args":[2000000,2000000],"expect":{"ok":false}}
+{"id":"Greater:14","fn":"Greater","args":[8,8],"expect":{"ok":false}}
+{"id":"Greater:15","fn":"Greater","args":[11,11],"expect":{"ok":false}}
+{"id":"MustParse:0","fn":"MustParse","args":[""],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"\""}}}
+{"id":"MustParse:1","fn":"MustParse","args":[" "],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \" \""}}}
+{"id":"MustParse:2","fn":"MustParse","args":["Hello World"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"Hello World\""}}}
+{"id":"MustParse:3","fn":"MustParse","args":["  Mixed CASE  "],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"  Mixed CASE  \""}}}
+{"id":"MustParse:4","fn":"MustParse","args":["café — naïve"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"café — naïve\""}}}
+{"id":"MustParse:5","fn":"MustParse","args":["a"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"a\""}}}
+{"id":"MustParse:6","fn":"MustParse","args":["123"],"expect":{"ok":123}}
+{"id":"MustParse:7","fn":"MustParse","args":["-"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"-\""}}}
+{"id":"MustParse:8","fn":"MustParse","args":["trailing---"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"trailing---\""}}}
+{"id":"MustParse:9","fn":"MustParse","args":[" leading"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \" leading\""}}}
+{"id":"MustParse:10","fn":"MustParse","args":["one\ntwo"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"one\\ntwo\""}}}
+{"id":"MustParse:11","fn":"MustParse","args":["Москва"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"Москва\""}}}
+{"id":"MustParse:12","fn":"MustParse","args":["0"],"expect":{"ok":0}}
+{"id":"MustParse:13","fn":"MustParse","args":["a-b_c"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"a-b_c\""}}}
+{"id":"MustParse:14","fn":"MustParse","args":["x"],"expect":{"err":{"type":"panic","msg":"*errors.errorString: not a base-10 number: \"x\""}}}

@@ -107,29 +107,65 @@ pub fn load_cases(path: &Path) -> Result<Vec<Case>, String> {
     Ok(cases)
 }
 
+/// How a project's cases get replayed: the generated C++ driver.
+pub struct Runner {
+    pub driver: std::path::PathBuf,
+}
+
+impl Runner {
+    fn invoke(
+        &self,
+        project: &Project,
+        cases: &Path,
+        results: &Path,
+        only: Option<&str>,
+    ) -> Result<(), String> {
+        let mut args = vec![
+            "--cases".to_string(),
+            cases.display().to_string(),
+            "--out".to_string(),
+            results.display().to_string(),
+            "--quiet".to_string(),
+        ];
+        if let Some(only) = only {
+            args.push("--only".to_string());
+            args.push(only.to_string());
+        }
+        let run = util::run(
+            &self.driver.display().to_string(),
+            &args,
+            Some(&project.dir),
+        );
+        if !run.ok {
+            return Err(format!(
+                "the driver failed: {}\n{}",
+                run.failure(),
+                util::indent(&run.stderr, 2)
+            ));
+        }
+        Ok(())
+    }
+}
+
 pub fn run(project: &Project, driver: &Path, options: &Options) -> Result<DiffReport, String> {
+    run_with(
+        project,
+        &Runner {
+            driver: driver.to_path_buf(),
+        },
+        options,
+    )
+}
+
+pub fn run_with(
+    project: &Project,
+    runner: &Runner,
+    options: &Options,
+) -> Result<DiffReport, String> {
     let cases_path = project.dir.join("cases.jsonl");
     let cases = load_cases(&cases_path)?;
     let results_path = project.dir.join("build").join("results.jsonl");
-    let mut args = vec![
-        "--cases".to_string(),
-        cases_path.display().to_string(),
-        "--out".to_string(),
-        results_path.display().to_string(),
-        "--quiet".to_string(),
-    ];
-    if let Some(only) = &options.only {
-        args.push("--only".to_string());
-        args.push(only.clone());
-    }
-    let run = util::run(&driver.display().to_string(), &args, Some(&project.dir));
-    if !run.ok {
-        return Err(format!(
-            "the driver failed: {}\n{}",
-            run.failure(),
-            util::indent(&run.stderr, 2)
-        ));
-    }
+    runner.invoke(project, &cases_path, &results_path, options.only.as_deref())?;
 
     let text = util::read(&results_path)
         .map_err(|error| format!("{}: {error}", results_path.display()))?;

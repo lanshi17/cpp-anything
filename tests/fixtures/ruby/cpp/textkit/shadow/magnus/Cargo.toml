@@ -1,0 +1,12 @@
+[package]
+name = "textkit_shadow_ext"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+name = "textkit_shadow_ext"
+
+[dependencies]
+magnus = "0.9"

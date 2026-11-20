@@ -24,6 +24,30 @@ need to keep.
 Every function returns `cppan::Result<T>`: `std::expected<T, PortError>` on C++23
 targets, and the same interface defined in `include/cppan/wire.hpp` on C++20 ones.
 
+## Other source languages
+
+The analyzer maps each language's types into the same dialect, so the table above
+applies unchanged:
+
+| Source | Maps to `str` / `int` / `float` / `bool` | Lists | No wire form (skipped) |
+| --- | --- | --- | --- |
+| TypeScript | `string` / `number` → `float` / `boolean` | `T[]`, `Array<T>` | interfaces, classes, generics (unless `--as-json T`) |
+| JavaScript | `string` / `number` / `boolean` | arrays of those | untyped values become `Any`, which is `cppan::Json` |
+| Go | `string` / `int…uint64`, `byte`, `rune` / `float32/64` / `bool` | `[]T` | structs, pointers, `any`, variadics, multiple results |
+| Java | `String` / `int`, `long`, `short`, `byte` / `double`, `float` / `boolean` | `List<String>`, `Collection<String>` | arrays, custom types, generics other than the listed ones |
+| Ruby | `String`, `Integer`, `Float`, `true`/`false` | `Array` | symbols, ranges, objects (recorded as `$opaque`/errors) |
+
+Ruby and JavaScript without annotations give every parameter the type `Any`,
+which crosses as `cppan::Json`: the body you write reads `is_string()`,
+`as_string()`, `as_int()` and so on. Prefer annotations where the language has
+them; `--as-json T` exists so a TypeScript generic that only holds data can do the
+same deliberately.
+
+Error types are part of the contract. `diff` compares the original's exception
+class name with the port's `PortError` type, so raise the same name the runtime
+would: `PortError{"NoMethodError", …}` for Ruby, `{"TypeError", …}` for
+JavaScript, `{"IllegalArgumentException", …}` for Java.
+
 ## Failures are values
 
 ```cpp
@@ -128,6 +152,46 @@ Style the generated code already uses, and a port should keep:
 - No `unsafe`, no C casts, no `malloc`: the driver owns memory, the port owns logic.
 - Warnings on (`-Wall -Wextra -Wpedantic -Wconversion -Wshadow`, `/W4 /permissive-`).
   `-Wconversion` is what catches the `size_t`/`int64_t` mistakes a Python port makes.
+
+## C++20 modules
+
+`bridge --modules on` generates `src/port.cppm` instead of a header:
+
+```cpp
+module;
+#include <string>
+#include <string_view>
+#include "cppan/wire.hpp"
+
+export module textkit;
+
+export namespace textkit {
+  [[nodiscard]] cppan::Result<std::int64_t> word_count(std::string_view text);
+}
+```
+
+The runtime headers stay headers, included in the global module fragment, and every
+translation unit that imports the module includes `cppan/wire.hpp` first — the
+declarations and the importers then agree on `cppan::Result` and the other types.
+`src/port.cpp` becomes a module implementation unit (`module textkit;`) and must not
+include the old port header, which no longer exists.
+
+What decides the default:
+
+| Input | Result |
+| --- | --- |
+| `--modules off`, or a standard below C++20 | header (`include/<ns>/port.hpp`) |
+| `--modules auto` and the toolchain is gcc 15+, clang 17+, apple-clang 16+ or msvc 19.36+, and Ninja is installed | module unit |
+| `--modules on` and the toolchain or Ninja is missing | an error that names the missing piece |
+| `--modules auto` and the toolchain is older | header, with a one-line note at bridge time |
+
+The minimums are curated and ahead of the compiler-support matrix: the matrix
+records GCC 11 as the start of module support, and GCC 13 still fails on a two-file
+example, so the tool only generates a module unit where it has built one.
+
+Building modules needs Ninja (`python3 -m pip install --user ninja`); `doctor`
+reports whether it is on PATH. `import std;` is not emitted: GCC 15 does not ship
+a prebuilt std module, so the standard headers stay `#include`s.
 
 ## Tests
 

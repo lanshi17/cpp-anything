@@ -1,0 +1,51 @@
+{
+  "schema": "cpp-anything/project@1",
+  "created_at": "2026-11-19T14:49:17Z",
+  "unit": {
+    "name": "slug",
+    "module": "slug",
+    "file": "../../slug.py",
+    "package_root": "../..",
+    "lang": "python",
+    "lines": 12
+  },
+  "target": {
+    "toolchain": "gcc",
+    "version": "13",
+    "std": "c++23"
+  },
+  "float_tolerance": 0.0,
+  "modules": false,
+  "node_args": [],
+  "resolve_from": null,
+  "source_module": null,
+  "batches": [],
+  "functions": [
+    {
+      "name": "slug",
+      "line": 1,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "str.strip() strips unicode whitespace, not just ASCII",
+        "str.lower() is unicode-aware; std::tolower is ASCII-only"
+      ]
+    }
+  ],
+  "skipped": [],
+  "imports": [],
+  "risks": [
+    "str.strip() strips unicode whitespace, not just ASCII",
+    "str.lower() is unicode-aware; std::tolower is ASCII-only"
+  ]
+}

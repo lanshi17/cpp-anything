@@ -86,7 +86,9 @@ dict 顺序、浮点格式化、正则引擎和异常类型。
 1. 矩阵数据仍可解析，每个来源页都有 cppreference revision；
 2. 指南与数据渲染结果逐字节一致；
 3. 九条 CLI 录制输出仍与 `rsi record` 记录的一致；
-4. 生成器仍能为随附示例生成工程，**编译通过并 105/105 重放一致**。
+4. 生成器仍能为随附示例生成工程，**编译通过并全部重放一致**；
+5. 每个语言插件的 fixture 仍通过 gate；库前门（`--library`）仍能构建；
+   服务端原生路由仍能回答全部录制请求并完成 lift。
 
 改坏生成器、wire 格式或数据，`rsi check` 会在到达用户之前失败。这就是"递归"的部分：
 用来卡住移植的机制，同样卡住工具本身。
@@ -95,8 +97,13 @@ dict 顺序、浮点格式化、正则引擎和异常类型。
 
 | 源语言 | 状态 |
 | --- | --- |
-| Python | `analyze`、`bridge`、`record`、`diff`、`bench`、`gate` |
-| C、Go、TypeScript、Java、C#、Ruby | 计划中，每个语言一个插件：循环、wire 格式与 gate 与语言无关，分析器、录制器和调用映射不是 |
+| Python | 完整循环、shadow、整应用（CLI 与服务端）、batch、from-tests |
+| C、C 风格 C++ | 完整循环（C++ 另有现代化检查） |
+| TypeScript / JavaScript | 分析器、录制器、Node-API 调用映射、shadow |
+| Go | 分析器、录制器、cgo 调用映射、shadow |
+| Ruby | 分析器、录制器、Fiddle / magnus 调用映射、shadow |
+| Java | 分析器、录制器、JNI 调用映射、shadow |
+| PHP、C# | 仅整应用分析；单函数移植尚无录制器 |
 
 目标语言是 C++20/23。把 C++ 移植到别的语言是另一个工具。
 

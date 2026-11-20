@@ -1,5 +1,72 @@
 # Changelog
 
+## 0.4.0
+
+### Source language plugins
+
+- TypeScript/JavaScript, Go, Ruby and Java each get an analyzer, a recorder and a
+  shadow call mapping; the loop, wire format, app, map and gate were already
+  language-independent.
+- Analyzers map each language's types into the same dialect and report every
+  unsupported construct (generics, variadics, structs, arrays, multiple results,
+  keywords, symbols) as skipped with a reason.
+- Recorders run the original out of process: a Node harness, a `reflect`-based Go
+  harness inside the module, a Ruby `load` harness, and a generated `javac` program.
+  Errors are recorded by the runtime's own exception class name.
+- Bindings over the one C ABI: Node-API addon for TS/JS, cgo for Go, Fiddle (plus an
+  optional magnus extension) for Ruby, JNI for Java. Each returns the original's
+  value first and logs disagreements.
+- `--keep name:reason`, `--as-json T`, `--kind napi`, `--node-arg`,
+  `--resolve-from` and `--module` are implemented for TS/JS and rejected with a
+  reason elsewhere; `project.json` persists the Node options across `record`.
+- PHP and C# are whole-app only: the analyzer lists units, but there is no per-unit
+  recorder.
+
+### Whole-app
+
+- `app front-door --library`: `cpp/lib` re-exports every port under `cppan_api`
+  (`include/cppan/api.hpp`, `units.cmake`, static `cppan_api`), with no entry point.
+- Native HTTP routes: `app wire <unit> --route "GET /path"` (`{param}`, `*`,
+  any-method paths) generates a router and a decoded request/response handler stub;
+  a handler returning false proxies that request and is counted in the fallback log.
+- `app lift` for servers: replays with a fallback log, refuses while any request is
+  proxied, then rebuilds with `CPPAN_LIFTED` (no original process; unwired paths 404).
+
+### Profiling
+
+- `profile` dispatches per runtime: Node `--cpu-prof`, Ruby TracePoint tracer, Go
+  `go test -cpuprofile` + `go tool pprof -raw`, Java JFR `jdk.ExecutionSample`;
+  Python stays on cProfile.
+
+### Fixes
+
+- `project.json` accepts relative source/package paths (and resolves them against the
+  project directory), so fixtures and moved checkouts keep working.
+- `--lang` help and error messages list the plugin languages; the analyze plan names
+  the file to bridge for non-Python units.
+- `rsi check` now gates every plugin fixture, rebuilds the library front door, and
+  proves the server fixture lifts with native routes.
+
+## 0.3.0
+
+### C++20 modules
+
+- `bridge --modules auto|on|off` (default `auto`) generates a real module unit:
+  `src/port.cppm` (`export module <ns>;`, `export namespace <ns>`) instead of
+  `include/<ns>/port.hpp`, `src/port.cpp` as the implementation unit, and
+  `import <ns>;` in the dispatch, batch and shadow translation units.
+- Generated CMake compiles the interface once with `-fmodules-ts` into `gcm.cache/`
+  for GCC (its CMake scanner writes the BMI where a second translation unit cannot
+  find it) and makes every importer depend on the compiled module; MSVC and Clang
+  use CMake's scanner. Building needs Ninja; `doctor` reports it.
+- Curated support minimums ahead of the matrix's "partial" rows: gcc 15+, clang 17+,
+  apple-clang 16+, msvc 19.36+, C++20 or later. `on` fails with the missing piece;
+  `auto` falls back to a header and says so.
+- `import std;` is not emitted: GCC 15 has no prebuilt std module.
+- Verified end to end: `examples/c-text` bridged to gcc 15 with modules builds,
+  replays 75/75 cases and passes `gate`.
+- `gate`'s stub check ignores the generated comment that mentions `CPPAN_STUB`.
+
 ## 0.2.0
 
 Full parity with the reference tool's loop, for a C++ target.

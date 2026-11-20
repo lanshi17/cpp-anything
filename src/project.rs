@@ -54,6 +54,13 @@ pub struct Project {
     pub tolerance: f64,
     /// `--batch function:param`: functions answered over many items in one call.
     pub batches: Vec<Batch>,
+    /// Generate a C++20 module (`export module <ns>;`) instead of a header.
+    pub modules: bool,
+    /// TS/JS recording: extra `node` arguments, where npm packages resolve from,
+    /// and the built module to import instead of the source file.
+    pub node_args: Vec<String>,
+    pub resolve_from: Option<String>,
+    pub source_module: Option<String>,
     pub dir: PathBuf,
 }
 
@@ -81,6 +88,10 @@ impl Project {
             recorded: None,
             tolerance: 0.0,
             batches: Vec::new(),
+            modules: false,
+            node_args: Vec::new(),
+            resolve_from: None,
+            source_module: None,
             dir,
         }
     }
@@ -94,6 +105,7 @@ impl Project {
             )
         })?;
         let doc = Json::parse(&text)?;
+        let dir_absolute = dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
         let unit_doc = doc.get("unit").cloned().unwrap_or(Json::Null);
         let mut functions = Vec::new();
         for item in doc
@@ -114,10 +126,28 @@ impl Project {
         Ok(Project {
             unit: text_of(&unit_doc, "name"),
             module: text_of(&unit_doc, "module"),
-            source_file: PathBuf::from(text_of(&unit_doc, "file")),
+            source_file: {
+                // Relative paths are stored relative to the project directory, so a
+                // fixture or a moved checkout still describes its source.
+                let file = PathBuf::from(text_of(&unit_doc, "file"));
+                let file = if file.is_absolute() {
+                    file
+                } else {
+                    dir_absolute.join(file)
+                };
+                file.canonicalize().unwrap_or(file)
+            },
             package_root: {
                 let root = text_of(&unit_doc, "package_root");
-                (!root.is_empty()).then(|| PathBuf::from(root))
+                (!root.is_empty()).then(|| {
+                    let path = PathBuf::from(root);
+                    let path = if path.is_absolute() {
+                        path
+                    } else {
+                        dir_absolute.join(path)
+                    };
+                    path.canonicalize().unwrap_or(path)
+                })
             },
             source_lang: text_of(&unit_doc, "lang"),
             target: Target {
@@ -139,6 +169,25 @@ impl Project {
                 .get("float_tolerance")
                 .and_then(Json::as_f64)
                 .unwrap_or(0.0),
+            modules: doc.get("modules").and_then(Json::as_bool).unwrap_or(false),
+            node_args: doc
+                .get("node_args")
+                .and_then(Json::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| item.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            resolve_from: doc
+                .get("resolve_from")
+                .and_then(Json::as_str)
+                .map(str::to_string),
+            source_module: doc
+                .get("source_module")
+                .and_then(Json::as_str)
+                .map(str::to_string),
             batches: doc
                 .get("batches")
                 .and_then(Json::as_array)
@@ -171,6 +220,14 @@ impl Project {
     }
 
     pub fn to_json(&self) -> Json {
+        // Paths are stored relative to the project directory: a fixture or a moved
+        // checkout still describes its source, and `load` resolves them back.
+        let stored = |path: &Path| -> String {
+            util::relative_path(&self.dir, path)
+                .unwrap_or_else(|| path.to_path_buf())
+                .display()
+                .to_string()
+        };
         let skipped = self
             .skipped
             .iter()
@@ -189,12 +246,12 @@ impl Project {
                 Json::obj([
                     ("name", Json::str(self.unit.clone())),
                     ("module", Json::str(self.module.clone())),
-                    ("file", Json::str(self.source_file.display().to_string())),
+                    ("file", Json::str(stored(&self.source_file))),
                     (
                         "package_root",
                         self.package_root
                             .as_ref()
-                            .map(|path| Json::str(path.display().to_string()))
+                            .map(|path| Json::str(stored(path)))
                             .unwrap_or(Json::Null),
                     ),
                     ("lang", Json::str(self.source_lang.clone())),
@@ -210,6 +267,28 @@ impl Project {
                 ]),
             ),
             ("float_tolerance", Json::Real(self.tolerance)),
+            ("modules", Json::Bool(self.modules)),
+            (
+                "node_args",
+                Json::Array(
+                    self.node_args
+                        .iter()
+                        .map(|arg| Json::str(arg.clone()))
+                        .collect(),
+                ),
+            ),
+            (
+                "resolve_from",
+                self.resolve_from
+                    .as_ref()
+                    .map_or(Json::Null, |path| Json::str(path.clone())),
+            ),
+            (
+                "source_module",
+                self.source_module
+                    .as_ref()
+                    .map_or(Json::Null, |path| Json::str(path.clone())),
+            ),
             (
                 "batches",
                 Json::Array(

@@ -167,6 +167,144 @@ fn app_step(root: &Path) -> Result<Step, String> {
     })
 }
 
+/// The language plugins ship fixtures with a recorded project and a hand-written
+/// port; gate proves each one still compiles and matches its original.
+fn plugins_step(root: &Path) -> Result<Step, String> {
+    let fixtures = ["ruby", "go", "java", "ts"];
+    let mut checked = Vec::new();
+    let mut failures = Vec::new();
+    for language in fixtures {
+        let cpp = root
+            .join("tests")
+            .join("fixtures")
+            .join(language)
+            .join("cpp");
+        let Ok(entries) = std::fs::read_dir(&cpp) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let project = entry.path();
+            if !project.join("cases.jsonl").exists() || !project.join(".cppan").exists() {
+                continue;
+            }
+            let gate = run_cli(root, &["gate", &project.display().to_string()])?;
+            let name = project
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if gate.contains("PASS") {
+                checked.push(format!("{language}/{name}"));
+            } else {
+                failures.push(format!(
+                    "{language}/{name}: {}",
+                    util::truncate_text(&gate, 160)
+                ));
+            }
+        }
+    }
+    Ok(Step {
+        name: "self plugins",
+        ok: failures.is_empty() && !checked.is_empty(),
+        detail: if failures.is_empty() && !checked.is_empty() {
+            format!(
+                "{} plugin fixture(s) pass gate ({})",
+                checked.len(),
+                checked.join(", ")
+            )
+        } else if checked.is_empty() {
+            "no plugin fixture has a recorded project under tests/fixtures".to_string()
+        } else {
+            failures.join("; ")
+        },
+    })
+}
+
+/// `app front-door --library` over the C fixture: the header names the unit and the
+/// library builds.
+fn library_step(root: &Path) -> Result<Step, String> {
+    let example = root.join("examples").join("c-text");
+    if !example.join("cpp").join("textkit-c").exists() {
+        return Ok(Step {
+            name: "self library",
+            ok: false,
+            detail: "examples/c-text has no bridged unit".into(),
+        });
+    }
+    let scratch = std::env::temp_dir().join(format!("cpp-anything-rsi-lib-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).map_err(|error| format!("{}: {error}", scratch.display()))?;
+    copy_dir(&example, &scratch)?;
+    let output = run_cli(&scratch, &["app", "front-door", "--library", "."])?;
+    let header = scratch
+        .join("cpp")
+        .join("lib")
+        .join("include/cppan/api.hpp");
+    let text = util::read(&header).unwrap_or_default();
+    let ok = text.contains("namespace textkit") && output.contains("built");
+    Ok(Step {
+        name: "self library",
+        ok,
+        detail: if ok {
+            "app front-door --library re-exported the C unit and built the library".to_string()
+        } else {
+            format!(
+                "{} (header: {})",
+                util::truncate_text(&output, 200),
+                if text.is_empty() {
+                    "missing"
+                } else {
+                    "no textkit namespace"
+                }
+            )
+        },
+    })
+}
+
+/// The server fixture's native routes answer every recorded request: `app lift`
+/// refuses on fallback and succeeds only when nothing reaches the original.
+fn http_native_step(root: &Path) -> Result<Step, String> {
+    let fixture = root.join("tests").join("fixtures").join("http");
+    if !fixture.join("cpp").join("app-cases").exists() {
+        return Ok(Step {
+            name: "self http routes",
+            ok: false,
+            detail: "tests/fixtures/http has no recorded server cases".into(),
+        });
+    }
+    let scratch =
+        std::env::temp_dir().join(format!("cpp-anything-rsi-http-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).map_err(|error| format!("{}: {error}", scratch.display()))?;
+    copy_dir(&fixture, &scratch)?;
+    let _ = std::fs::remove_dir_all(scratch.join("cpp").join("app").join("build"));
+    let front = run_cli(&scratch, &["app", "front-door", "."])?;
+    if front.contains("✗") || !front.contains("cases passed") {
+        return Ok(Step {
+            name: "self http routes",
+            ok: false,
+            detail: format!(
+                "the routed front door did not replay: {}",
+                util::truncate_text(&front, 200)
+            ),
+        });
+    }
+    let lift = run_cli(&scratch, &["app", "lift", "."])?;
+    let ok = lift.contains("answered natively") && !lift.contains("still go to the original");
+    Ok(Step {
+        name: "self http routes",
+        ok,
+        detail: if ok {
+            "native routes answered every recorded request and lift dropped the original"
+                .to_string()
+        } else {
+            format!(
+                "lift did not reach native-only: {}",
+                util::truncate_text(&lift, 200)
+            )
+        },
+    })
+}
+
 fn cpp_step(root: &Path) -> Result<Step, String> {
     let project = root
         .join("examples")
@@ -337,6 +475,15 @@ fn check(root: &Path, args: &Parsed) -> Result<i32, String> {
 
     // 8. The C-style C++ language still modernizes without changing behaviour.
     steps.push(cpp_step(root)?);
+
+    // 9. Every language plugin still builds its port and matches its recording.
+    steps.push(plugins_step(root)?);
+
+    // 10. The library front door still re-exports the ports and builds.
+    steps.push(library_step(root)?);
+
+    // 11. Native HTTP routes still answer every recorded request, so lift works.
+    steps.push(http_native_step(root)?);
 
     if args.flag("json") {
         let doc = Json::obj([

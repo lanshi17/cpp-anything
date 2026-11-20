@@ -1,0 +1,25 @@
+{
+  "routes": [
+    {
+      "command": "",
+      "method": "GET",
+      "path": "/slug",
+      "unit": "slug",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/http/cpp/slug"
+    },
+    {
+      "command": "",
+      "method": "POST",
+      "path": "/slug",
+      "unit": "slug",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/http/cpp/slug"
+    },
+    {
+      "command": "",
+      "method": null,
+      "path": "*",
+      "unit": "slug",
+      "project": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/http/cpp/slug"
+    }
+  ]
+}

@@ -45,6 +45,20 @@ pub fn command(args: &Parsed) -> Result<i32, String> {
         fix: Some("apt install g++ · xcode-select --install · install Visual Studio Build Tools"),
     });
 
+    let ninja = crate::modules::ninja();
+    checks.push(Check {
+        name: "ninja",
+        status: if ninja.is_some() { "ok" } else { "missing" },
+        required: false,
+        detail: match &ninja {
+            Some(path) => path.display().to_string(),
+            None => "only needed to build projects generated with --modules (gcc/clang)".into(),
+        },
+        fix: Some(
+            "python3 -m pip install --user ninja · apt install ninja-build · brew install ninja",
+        ),
+    });
+
     let python = crate::python::available();
     checks.push(Check {
         name: "python3",

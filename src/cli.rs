@@ -73,6 +73,7 @@ pub fn parse_args(argv: &[String]) -> Result<Parsed, String> {
                     | "bench"
                     | "refresh"
                     | "offline"
+                    | "library"
             ) {
                 parsed.flags.insert(body.to_string());
             } else {
@@ -177,18 +178,22 @@ Run `cpp-anything <command> --help` for one command's options.
   matrix profile  [--toolchain gcc] [--version 13] [--std c++23] [-o FILE]
   matrix docs     [--out DIR] [--check]
   matrix sync     [--offline]
-  profile <repo> [--json] [--top N] -- python3 bench.py
+  profile <repo> [--json] [--top N] -- node app.mjs | ruby bench.rb | go test -bench . | java Main | python3 bench.py
   app record  <repo> [--inputs FILE] [--normalize RULE] [--no-traps] [--timeout S] [-- python3 cli.py]
   app replay  <repo> [--build CMD] [--case NAME] [--json]
-  app front-door <repo> [--no-check] [--json]
-  app wire    <repo> <unit> --command NAME
+  app front-door <repo> [--no-check] [--library]
+  app wire    <repo> <unit> --command NAME          (CLI: one command per unit)
+  app wire    <repo> <unit> --route \"GET /path\"     (server: repeatable; {param}, *)
   app lift    <repo>
-  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python|c|cpp]
-  bridge  <repo> <unit> [--lang c|cpp] [--out DIR] [--toolchain gcc] [--version 13]
-                        [--std c++23] [--module-root DIR] [--force] [--batch function:param]…
+  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python|c|cpp|ts|js|go|ruby|java|php|csharp]
+  bridge  <repo> <unit> [--lang ts|js|go|ruby|java|c|cpp] [--out DIR] [--toolchain gcc]
+                        [--version 13] [--std c++23] [--modules auto|on|off] [--module-root DIR]
+                        [--keep name:reason]… [--as-json T]… [--kind napi]
+                        [--node-arg ARG]… [--resolve-from DIR] [--module FILE]
+                        [--force] [--batch function:param]…
   refresh <project> [--batch function:param]…
   record  <project> [--count N] [--seed N] [--inputs FILE] [--float-tolerance F]
-                    [--from-tests -- pytest -q]
+                    [--module FILE] [--resolve-from DIR] [--node-arg ARG]… [--from-tests -- pytest -q]
   diff    <project> [--json] [--strict-errors] [--tolerance F] [--only FN] [--max-report N]
   shadow  <project> [--report] [--check] [--json]
   gate    <project> [--json] [--clean] [--cxx PATH] [--jobs N] [--bench]
@@ -509,10 +514,12 @@ fn check_lang(args: &Parsed) -> Result<(), String> {
     };
     if lang == "python" || lang == "py" || crate::langc::parse_lang(lang).is_some() {
         Ok(())
+    } else if crate::langs::parse(lang).is_some() {
+        Ok(())
     } else {
         Err(format!(
-            "cpp-anything reads Python, C and C-style C++ today; {lang:?} is a language plugin that \
-             does not exist yet (TypeScript, Go, Ruby and Java are the next plugins)"
+            "unknown language {lang:?}: cpp-anything reads python, c, cpp, ts, js, go, ruby, java, \
+             php and csharp (PHP and C# are whole-app only)"
         ))
     }
 }
@@ -584,10 +591,24 @@ fn analyze_command(args: &Parsed) -> Result<i32, String> {
         .ok_or("analyze needs a repository path")?;
     let repo = Path::new(repo);
     let whole_app = args.flag("whole-app");
-    let lang = args.value("lang").unwrap_or("python");
-    let doc = match crate::langc::parse_lang(lang) {
-        Some(native) => crate::langc::analyze_repo(repo, native)?,
-        None => analyze::analyze(repo)?,
+    let doc = match args.value("lang") {
+        Some(lang) => {
+            if let Some(native) = crate::langc::parse_lang(lang) {
+                crate::langc::analyze_repo(repo, native)?
+            } else if let Some(plugin) = crate::langs::parse(lang) {
+                crate::langs::analyze_repo(repo, plugin)?
+            } else if lang == "python" || lang == "py" {
+                analyze::analyze(repo)?
+            } else {
+                return Err(format!(
+                    "unknown language {lang:?}: try python, c, cpp, ts, js, go, ruby, java"
+                ));
+            }
+        }
+        None => match crate::langs::detect(repo) {
+            Some(plugin) => crate::langs::analyze_repo(repo, plugin)?,
+            None => analyze::analyze(repo)?,
+        },
     };
     let json = analyze::to_json(&doc, repo, whole_app);
     if args.flag("json") {
@@ -618,9 +639,28 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
     let matrix = Matrix::get();
     let target = target_from(args, matrix)?;
     let native = args.value("lang").and_then(crate::langc::parse_lang);
-    let resolved = if native.is_some() {
+    let plugin = match args.value("lang") {
+        Some(name) => crate::langs::parse(name),
+        None => crate::langs::infer(repo, unit),
+    };
+    if let Some(lang) = plugin {
+        if lang.whole_app_only() {
+            return Err(format!(
+                "{} is whole-app only: `analyze --lang {}` plans the app, and `app record` / \
+                 `app front-door` take over its CLI or server; there is no per-unit bridge \
+                 because no fixture-verified recorder exists for it",
+                lang.label(),
+                lang.id()
+            ));
+        }
+    }
+    let resolved = if native.is_some() || plugin.is_some() {
         analyze::Resolved {
-            file: PathBuf::from(unit),
+            file: if Path::new(unit).is_absolute() {
+                PathBuf::from(unit)
+            } else {
+                repo.join(unit)
+            },
             module: unit.to_string(),
             package_root: Some(repo.to_path_buf()),
         }
@@ -658,8 +698,10 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
         );
     }
 
-    let unit_doc = if let Some(lang) = native {
+    let mut unit_doc = if let Some(lang) = native {
         crate::langc::unit(repo, unit, lang)?
+    } else if let Some(lang) = plugin {
+        crate::langs::inventory(repo, unit, lang)?
     } else {
         crate::python::inventory(
             &resolved.file,
@@ -684,8 +726,79 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
         .canonicalize()
         .map_err(|error| format!("{}: {error}", dir.display()))?;
     let mut project = Project::from_unit(&unit_doc, target, dir.clone());
+    let module_mode = args.value("modules").unwrap_or("auto").to_string();
+    if !matches!(module_mode.as_str(), "auto" | "on" | "off") {
+        return Err(format!("--modules {module_mode:?}: use auto, on or off"));
+    }
+    project.modules = crate::modules::resolve(&module_mode, &project.target, matrix)?;
     if let Some(lang) = native {
         project.source_lang = lang.id().into();
+    }
+    if plugin.is_none() {
+        for (name, value) in [
+            ("keep", args.many("keep").join(" ")),
+            ("as-json", args.many("as-json").join(" ")),
+            ("kind", args.value("kind").unwrap_or("").to_string()),
+            ("node-arg", args.many("node-arg").join(" ")),
+            (
+                "resolve-from",
+                args.value("resolve-from").unwrap_or("").to_string(),
+            ),
+            ("module", args.value("module").unwrap_or("").to_string()),
+        ] {
+            if !value.is_empty() {
+                return Err(format!(
+                    "--{name} controls a TypeScript/JavaScript (or plugin-language) binding; this \
+                     unit is read as Python"
+                ));
+            }
+        }
+    }
+    if let Some(lang) = plugin {
+        if !lang.is_ts_family() {
+            for (name, value) in [
+                ("node-arg", args.many("node-arg").join(" ")),
+                (
+                    "resolve-from",
+                    args.value("resolve-from").unwrap_or("").to_string(),
+                ),
+                ("module", args.value("module").unwrap_or("").to_string()),
+            ] {
+                if !value.is_empty() {
+                    return Err(format!(
+                        "--{name} drives Node when the original is TypeScript/JavaScript; \
+                         {} is recorded with its own runtime",
+                        lang.label()
+                    ));
+                }
+            }
+        }
+        project.source_lang = lang.id().into();
+        apply_kept(&mut unit_doc, &args.many("keep"), lang);
+        apply_as_json(&mut unit_doc, &args.many("as-json"));
+        project.functions = unit_doc.functions.clone();
+        project.skipped = unit_doc.skipped.clone();
+        project.node_args = args.many("node-arg");
+        project.resolve_from = args.value("resolve-from").map(str::to_string);
+        project.source_module = args.value("module").map(str::to_string);
+        if let Some(kind) = args.value("kind") {
+            match kind {
+                "napi" if lang.is_ts_family() => {}
+                "wasm" => {
+                    return Err(
+                        "--kind wasm builds a WebAssembly module for a Rust port; the C++ target \
+                         is a native library, so only `--kind napi` exists"
+                            .into(),
+                    )
+                }
+                other => {
+                    return Err(format!(
+                        "--kind {other:?}: the bindings are Node-API (`--kind napi`); WASM has no \
+                         C++ target here"
+                    ))
+                }
+            }
+        }
     }
     project.batches = parse_batches(&project, &args.many("batch"))?;
     let written = crate::codegen::write_project(&project, args.flag("force"))?;
@@ -703,6 +816,17 @@ fn bridge_command(args: &Parsed) -> Result<i32, String> {
     );
     for function in &project.functions {
         println!("  · {}", function.signature_line());
+    }
+    if project.modules {
+        println!(
+            "  · C++20 modules: src/port.cppm (`import {};`); building it needs Ninja",
+            crate::codegen::namespace_of(&project)
+        );
+    } else if module_mode == "auto" {
+        println!(
+            "  · headers: `--modules on` would generate a C++20 module unit when the \
+             toolchain supports it"
+        );
     }
     if !project.skipped.is_empty() {
         println!("\n  skipped:");
@@ -750,6 +874,52 @@ fn record_command(args: &Parsed) -> Result<i32, String> {
             );
         }
         recorded.cases
+    } else if let Some(lang) = crate::langs::parse(&project.source_lang) {
+        if lang.whole_app_only() {
+            return Err(format!(
+                "{} is whole-app only: record the app (`app record -- ...`) instead of a unit",
+                lang.label()
+            ));
+        }
+        if args.flag("from-tests") {
+            return Err(format!(
+                "--from-tests runs a Python test suite; {} tests arrive with the language plugin",
+                lang.label()
+            ));
+        }
+        let module = args
+            .value("module")
+            .map(PathBuf::from)
+            .or_else(|| project.source_module.as_ref().map(PathBuf::from));
+        let resolve_from = args
+            .value("resolve-from")
+            .map(PathBuf::from)
+            .or_else(|| project.resolve_from.as_ref().map(PathBuf::from));
+        let node_args = if args.many("node-arg").is_empty() {
+            project.node_args.clone()
+        } else {
+            args.many("node-arg")
+        };
+        if !lang.is_ts_family()
+            && (args.value("module").is_some()
+                || args.value("resolve-from").is_some()
+                || !args.many("node-arg").is_empty())
+        {
+            return Err(format!(
+                "--module/--resolve-from/--node-arg drive Node; {} records with its own runtime",
+                lang.label()
+            ));
+        }
+        let options = crate::langs::RecordOptions {
+            inputs: inputs.clone(),
+            module: module.clone(),
+            resolve_from: resolve_from.clone(),
+            node_args: node_args.clone(),
+        };
+        project.node_args = node_args;
+        project.resolve_from = resolve_from.as_ref().map(|path| path.display().to_string());
+        project.source_module = module.as_ref().map(|path| path.display().to_string());
+        crate::langs::record(&project, cases, &options)?
     } else {
         crate::python::record(&project, cases, seed, inputs.as_deref())?
     };
@@ -897,6 +1067,16 @@ fn bench_command(args: &Parsed) -> Result<i32, String> {
             repeat,
             original_label: lang.label(),
         }
+    } else if let Some(lang) = crate::langs::parse(&project.source_lang) {
+        let original_ns = crate::langs::bench_original(&project, repeat)?;
+        let (cpp_ns, calls) = crate::bench::run_port(&project, &driver, repeat)?;
+        crate::bench::BenchReport {
+            original_ns,
+            cpp_ns,
+            calls,
+            repeat,
+            original_label: lang.label(),
+        }
     } else {
         crate::bench::run(&project, &driver, repeat)?
     };
@@ -982,6 +1162,55 @@ fn parse_batches(
     Ok(batches)
 }
 
+/// `--keep name[: reason]`: the function stays in the original and is not ported.
+fn apply_kept(unit: &mut crate::inventory::Unit, specs: &[String], lang: crate::langs::Lang) {
+    for spec in specs {
+        let (name, reason) = match spec.split_once(':') {
+            Some((name, reason)) => (name.trim(), reason.trim()),
+            None => (spec.trim(), ""),
+        };
+        let before = unit.functions.len();
+        unit.functions.retain(|function| function.name != name);
+        if unit.functions.len() == before {
+            continue;
+        }
+        let reason = if reason.is_empty() {
+            format!("kept in {}", lang.label())
+        } else {
+            format!("kept in {}: {reason}", lang.label())
+        };
+        unit.skipped.push((name.to_string(), reason));
+    }
+}
+
+/// `--as-json T`: a type parameter the app only fills with data crosses as JSON.
+fn apply_as_json(unit: &mut crate::inventory::Unit, specs: &[String]) {
+    for spec in specs {
+        let name = spec.trim();
+        if name.is_empty() {
+            continue;
+        }
+        for function in &mut unit.functions {
+            for param in &mut function.params {
+                if mentions_type(&param.annotation, name) {
+                    param.annotation = "Any".into();
+                    param.ty = crate::types::Ty::Any;
+                }
+            }
+            if mentions_type(&function.returns_annotation, name) {
+                function.returns_annotation = "Any".into();
+                function.returns = crate::types::Ty::Any;
+            }
+        }
+    }
+}
+
+fn mentions_type(annotation: &str, name: &str) -> bool {
+    annotation
+        .split(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+        .any(|token| token == name)
+}
+
 fn shadow_command(args: &Parsed) -> Result<i32, String> {
     let project = project_arg(args)?;
     if args.flag("report") || args.flag("check") {
@@ -1015,19 +1244,40 @@ fn shadow_command(args: &Parsed) -> Result<i32, String> {
         "  library: {}",
         util::short_path(&outcome.driver.with_file_name(library_name()))
     );
+    let ns = crate::codegen::namespace_of(&project);
+    let binding = match crate::langs::parse(&project.source_lang) {
+        Some(crate::langs::Lang::Ruby) => format!("shadow/{ns}_shadow.rb"),
+        Some(crate::langs::Lang::Go) => format!("shadow/{ns}_shadow.go"),
+        Some(crate::langs::Lang::Java) => format!("shadow/CppanShadow.java"),
+        Some(lang) if lang.is_ts_family() => format!("shadow/{ns}_shadow.mjs"),
+        _ => format!("shadow/{ns}_shadow.py"),
+    };
     println!(
         "  module:  {}",
-        util::short_path(&project.dir.join("shadow").join(format!(
-            "{}_shadow.py",
-            crate::codegen::namespace_of(&project)
-        )))
+        util::short_path(&project.dir.join(&binding))
     );
-    println!(
-        "\nimport it where the original was imported:\n  sys.path.insert(0, \"{}\")\n  import {}_shadow as {}",
-        project.dir.join("shadow").display(),
-        crate::codegen::namespace_of(&project),
-        crate::codegen::namespace_of(&project)
-    );
+    match crate::langs::parse(&project.source_lang) {
+        Some(crate::langs::Lang::Ruby) => println!(
+            "\nrequire it where the original was required:\n  require_relative \"{}\"",
+            project.dir.join("shadow").join(format!("{ns}_shadow")).display()
+        ),
+        Some(crate::langs::Lang::Go) => println!(
+            "\nimport it where the original package was imported:\n  // module: {} (cgo, links build/libcppan_shadow.so)",
+            project.dir.join("shadow").display()
+        ),
+        Some(crate::langs::Lang::Java) => println!(
+            "\nload it where the original class was used:\n  System.loadLibrary(\"cppan_shadow_jni\") via {}",
+            project.dir.join("shadow").join("CppanShadow.java").display()
+        ),
+        Some(lang) if lang.is_ts_family() => println!(
+            "\nimport it where the original module was imported:\n  import * as shadow from \"{}\"",
+            project.dir.join("shadow").join(format!("{ns}_shadow.mjs")).display()
+        ),
+        _ => println!(
+            "\nimport it where the original was imported:\n  sys.path.insert(0, \"{}\")\n  import {ns}_shadow as {ns}",
+            project.dir.join("shadow").display()
+        ),
+    }
     println!("\ncallers keep the original's results; disagreements go to shadow/{}.shadow.jsonl\n  cpp-anything shadow {} --report", crate::codegen::namespace_of(&project), project.dir.display());
     Ok(0)
 }
@@ -1055,6 +1305,12 @@ fn refresh_command(args: &Parsed) -> Result<i32, String> {
                 .unwrap_or_default()
         });
         crate::langc::unit(&repo, &project.source_file.display().to_string(), lang)?
+    } else if let Some(lang) = crate::langs::parse(&project.source_lang) {
+        let repo = project
+            .package_root
+            .clone()
+            .unwrap_or_else(|| project.dir.clone());
+        crate::langs::inventory(&repo, &project.source_file.display().to_string(), lang)?
     } else {
         crate::python::inventory(
             &project.source_file,

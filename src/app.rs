@@ -1066,6 +1066,18 @@ fn replay_http(
     build: &[String],
     view: &ParsedView<'_>,
 ) -> Result<i32, String> {
+    replay_http_with(repo, config, build, view, &[]).map(|(code, _)| code)
+}
+
+/// Replays the recorded requests and reports how many still went to the original:
+/// the front door appends one line per proxied request to `CPPAN_FALLBACK_LOG`.
+fn replay_http_with(
+    repo: &Path,
+    config: &Config,
+    build: &[String],
+    view: &ParsedView<'_>,
+    extra: &[(String, String)],
+) -> Result<(i32, usize), String> {
     let cases = appcase::load_cases(repo)?;
     let port = config.port.unwrap_or(apphttp::free_port()?);
     let sandbox = std::env::temp_dir()
@@ -1074,7 +1086,7 @@ fn replay_http(
         .join(std::process::id().to_string());
     let _ = std::fs::remove_dir_all(&sandbox);
     std::fs::create_dir_all(&sandbox).map_err(|error| format!("{}: {error}", sandbox.display()))?;
-    let mut server = apphttp::start(build, repo, &sandbox, port, config.timeout_secs, &[])?;
+    let mut server = apphttp::start(build, repo, &sandbox, port, config.timeout_secs, extra)?;
     let mut passed = 0usize;
     let mut failures = Vec::new();
     for case in &cases {
@@ -1165,7 +1177,16 @@ fn replay_http(
             println!("  ✗ {name}\n    {reason}");
         }
     }
-    Ok(if failures.is_empty() { 0 } else { 1 })
+    let fallbacks = extra
+        .iter()
+        .find(|(key, _)| key == "CPPAN_FALLBACK_LOG")
+        .map(|(_, path)| {
+            util::read(Path::new(path))
+                .map(|text| text.lines().filter(|line| !line.trim().is_empty()).count())
+                .unwrap_or(0)
+        })
+        .unwrap_or(0);
+    Ok((if failures.is_empty() { 0 } else { 1 }, fallbacks))
 }
 
 fn read_http_inputs() -> Result<Vec<(String, apphttp::HttpRequest)>, String> {
@@ -1274,6 +1295,24 @@ fn copy_tree(from: &Path, to: &Path) -> Result<(), String> {
 
 fn front_door(view: &ParsedView<'_>) -> Result<i32, String> {
     let repo = repo_of(view);
+    if view.flag("library") {
+        let app_dir = repo.join("cpp").join("lib");
+        let written = crate::appfront::write_library(&repo, &app_dir)?;
+        println!(
+            "cpp-anything app front-door --library: {} — {} file(s) in {}",
+            repo.file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "app".to_string()),
+            written,
+            util::short_path(&app_dir)
+        );
+        if view.flag("no-check") {
+            return Ok(0);
+        }
+        let library = crate::appfront::build_library(&app_dir)?;
+        println!("  built {}", util::short_path(&library));
+        return Ok(0);
+    }
     let dir = repo.join(appcase::CASES_DIR);
     let config = Config::load(&dir)?;
     // Servers get a proxy front door: it owns PORT and forwards to the original.
@@ -1348,18 +1387,75 @@ fn wire(view: &ParsedView<'_>) -> Result<i32, String> {
     let unit = view
         .positional(1)
         .ok_or("app wire needs a unit: the folder or unit id it was bridged from")?;
-    let command = view
-        .value("command")
-        .ok_or("app wire needs `--command NAME`: the CLI command this unit answers")?;
     let app_dir = repo.join("cpp").join("app");
     if !app_dir.exists() {
         return Err("no front door yet: run `cpp-anything app front-door .` first".into());
     }
+    let config = Config::load(&repo.join(appcase::CASES_DIR))?;
     let project = view.value("project").map(Path::new);
+    if config.http {
+        let texts = view.values("route");
+        if texts.is_empty() {
+            return Err(
+                "a server unit answers HTTP routes: pass `--route \"GET /path\"` (repeatable; \
+                 `{param}` captures a segment, `*` catches everything)"
+                    .into(),
+            );
+        }
+        let file = crate::appfront::wire_http(&app_dir, &repo, unit, &texts, project)?;
+        println!(
+            "cpp-anything app wire: {} → {unit}\n  wrote {} — fill the handler, then `app front-door .`",
+            texts.join(", "),
+            util::short_path(&file)
+        );
+        return Ok(0);
+    }
+    let command = view
+        .value("command")
+        .ok_or("app wire needs `--command NAME`: the CLI command this unit answers")?;
     let file = crate::appfront::wire(&app_dir, &repo, unit, command, project)?;
     println!(
         "cpp-anything app wire: {command} → {unit}\n  wrote {} — fill the handler, then `app front-door .`",
         util::short_path(&file)
+    );
+    Ok(0)
+}
+
+/// Lifting a server: every recorded request must be answered by a native route and
+/// nothing may reach the original. Then the front door is rebuilt without the
+/// original process and replayed once more to prove it stands alone.
+fn lift_http(repo: &Path, config: &mut Config, view: &ParsedView<'_>) -> Result<i32, String> {
+    let app_dir = repo.join("cpp").join("app");
+    let build = crate::appfront::build(&app_dir)?;
+    let log = std::env::temp_dir().join(format!("cppan-lift-http-{}.log", std::process::id()));
+    let _ = std::fs::remove_file(&log);
+    let extra = vec![("CPPAN_FALLBACK_LOG".to_string(), log.display().to_string())];
+    let build_arg = [build.display().to_string()];
+    let (code, fallbacks) = replay_http_with(repo, config, &build_arg, view, &extra)?;
+    if code != 0 {
+        return Ok(code);
+    }
+    if fallbacks > 0 {
+        println!(
+            "cpp-anything app lift: {} recorded request(s) still go to the original; wire the \
+             routes they need (`app wire <repo> <unit> --route \"METHOD /path\"`) and lift again",
+            fallbacks
+        );
+        return Ok(1);
+    }
+    config.lifted = true;
+    config.save(&repo.join(appcase::CASES_DIR))?;
+    crate::appfront::write(&app_dir, config)?;
+    let build = crate::appfront::build(&app_dir)?;
+    let build_arg = [build.display().to_string()];
+    let (code, _) = replay_http_with(repo, config, &build_arg, view, &[])?;
+    if code != 0 {
+        return Ok(code);
+    }
+    println!(
+        "cpp-anything app lift: {} — every recorded request is answered natively; the original is \
+         no longer started",
+        config.name
     );
     Ok(0)
 }
@@ -1371,16 +1467,17 @@ fn wire(view: &ParsedView<'_>) -> Result<i32, String> {
 fn lift(view: &ParsedView<'_>) -> Result<i32, String> {
     let repo = repo_of(view);
     let dir = repo.join(appcase::CASES_DIR);
+    if !dir.join("config.json").exists() && repo.join("cpp").join("lib").exists() {
+        println!(
+            "cpp-anything app lift: {} is a library front door: every unit is a plain C++ \
+             library, so there is no fallback to remove",
+            util::short_path(&repo.join("cpp").join("lib"))
+        );
+        return Ok(0);
+    }
     let mut config = Config::load(&dir)?;
     if config.http {
-        return Err(
-            "servers ship behind the proxy front door, but no HTTP route is wired yet: `app lift` \
-             needs the proxy to stop forwarding, and this build has no native route. Port the \
-             server's units, then teach the front door the routes they answer (`app wire` on a server \
-             is not implemented yet) — until then keep the proxy: every case passes and every \
-             request is accounted for in the fallback log."
-                .into(),
-        );
+        return lift_http(&repo, &mut config, view);
     }
     let mut build = repo
         .join("cpp")

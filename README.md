@@ -61,7 +61,7 @@ that can run a terminal or call a tool gets the same loop.
 | --- | --- | --- |
 | measure | `profile . -- python3 bench.py` | hot functions with callers and advice (batch vs port with callers vs third-party) |
 | plan | `analyze . [--whole-app]` | units, waves, readiness/priority, risks, every dependency's C++ library, blocked/keep units |
-| bridge | `bridge . unit` | a C++20/23 project with real signatures, a JSON driver and `profile.hpp` |
+| bridge | `bridge . unit [--modules auto\|on\|off]` | a C++20/23 project with real signatures, a JSON driver and `profile.hpp`; a C++20 module unit when the toolchain can build one |
 | record | `record cpp/unit [--from-tests -- pytest -q]` | generated edges **and** every call the original's own suite makes, plus coverage |
 | port | `$EDITOR cpp/unit/src/port.cpp` | the only file you write |
 | build / diff | `build`, `diff` | every recorded case, replayed through the C++ driver |
@@ -111,6 +111,7 @@ cpp-anything app record . -- python3 cli.py      # docs examples, --inputs, sema
 cpp-anything app replay . --build <build>        # per-case report, exit code
 cpp-anything app front-door .                    # cpp/app: routes first, exec the original otherwise
 cpp-anything app wire . textkit.words --command slug --project cpp/textkit-words
+cpp-anything app front-door --library .          # cpp/lib: every port re-exported, no entry point
 cpp-anything app lift .                          # refuses while any case falls back
 ```
 
@@ -123,19 +124,53 @@ reached them, `--effect-env VAR=http-url` points the app's own settings at them,
 `--db-reset`/`--db-dump` bracket each case so what it wrote to the database is part
 of the comparison.
 
+## Library, not a binary
+
+A repository used as a library has no command to take over. `app front-door
+--library` writes `cpp/lib`: every bridged unit's port re-exported under
+`cppan_api`, a `cppan_api` CMake target, and no entry point or fallback. Consumers
+include the header and call the ports directly:
+
+```cpp
+#include <cppan/api.hpp>
+
+int main() {
+  auto words = cppan_api::textkit::word_count(std::string_view{"a b c"});
+  if (!words) return 1;
+  std::printf("%lld\n", static_cast<long long>(*words));  // 3
+}
+```
+
+```sh
+cpp-anything app front-door --library .
+cmake -S cpp/lib -B cpp/lib/build && cmake --build cpp/lib/build -j
+```
+
+`units.cmake` lists what the library links; the header is the whole API. A module
+unit (`--modules on`) cannot join it, because the front door includes unit headers.
+
 ## Servers
 
 `app record --http` starts the server, sends the `curl` lines from its docs (plus
 `--inputs` and semantic traps), and stores what it answered. `app replay` starts any
 build the same way and compares status, content type and body. `app front-door`
-generates a proxy that owns `PORT` and runs the original behind it, so a server
-ships immediately and every request is accounted for in the fallback log; `app lift`
-stays refused until the proxy has native HTTP routes.
+generates a server that owns `PORT`, answers the routes a unit was wired to, and
+proxies the rest to the original behind it:
 
 ```sh
 cpp-anything app record . --http -- python3 server.py
+cpp-anything app front-door .
+cpp-anything app wire . slug --route "GET /slug" --route "POST /slug" --route "*"
+$EDITOR cpp/app/src/http_slug.cpp      # params/query/body -> the port, fill the response
 cpp-anything app replay . --build ./cpp/app/build/cppan_app
+cpp-anything app lift .                # allowed once no recorded request is proxied
 ```
+
+Routes are `METHOD /path`, `/path` for any method, or `*`; `{name}` segments arrive
+decoded in `request.params`. A handler that returns `false` proxies that request, so
+the front door stays shippable while you wire more. `app lift` replays with a
+fallback log, refuses while any request still reaches the original, then rebuilds
+with `CPPAN_LIFTED`: no original process, and unwired paths answer 404.
 
 ## Map, setup, and the agent loop
 
@@ -204,6 +239,10 @@ data from cppreference and re-renders the guides, recording the page revision it
 - **C++23 by default, C++20 supported**: `cppan::Result<T>` for failures
   (`std::expected` on C++23 targets), `std::string_view` in, `std::string` out,
   `std::span` for read-only sequences, `[[nodiscard]]` everywhere, ranges in the driver.
+- **Modules when the compiler can build them**: `--modules auto` (the default)
+  emits `src/port.cppm` and `import <ns>;` for gcc 15+, clang 17+, apple-clang 16+
+  and msvc 19.36+, and a header otherwise; the runtime stays a header so importers
+  and the module agree on its types.
 - **Feature-gated, never guessed**: `CPPAN_HAS_EXPECTED`, `CPPAN_HAS_PRINT`,
   `CPPAN_HAS_MDSPAN`, `CPPAN_HAS_MODULES`, … come from the matrix for your
   toolchain, and `bridge` refuses a standard it does not generate for.
@@ -235,7 +274,11 @@ gates a port gates the tool.
 | Python | the whole loop, shadow, whole-app (CLI and HTTP), batch, from-tests |
 | C | analyze, bridge, record (fork-per-case harness), diff, bench, gate; supported signatures are scalars, `char*` and `void`, others are reported as skipped |
 | C-style C++ (`--lang cpp`) | the same loop, with modernization as the job: the analyzer names every C idiom (`malloc`/`free`, `char*`, `printf`, C casts, index loops, `typedef struct`) and the C++20/23 facility that replaces it, the generated README and profile gate each replacement on the target toolchain, and `gate` refuses C idioms left in `src/port.cpp` |
-| Go, TypeScript, Java, C#, Ruby | planned, one plugin each: the loop, wire format, shadow, app, map and gate are language-independent; the analyzer, recorder and call mapping are not |
+| TypeScript/JavaScript | analyze, bridge, record, diff, bench, gate, shadow (Node-API addon); `--keep`/`--as-json`/`--kind napi`/`--node-arg`/`--resolve-from`/`--module` |
+| Go | analyze, bridge, record, diff, bench, gate, shadow (cgo); a unit is a package directory |
+| Ruby | analyze, bridge, record, diff, bench, gate, shadow (Fiddle, or the optional magnus extension) |
+| Java | analyze, bridge, record, diff, bench, gate, shadow (JNI); public static methods only |
+| PHP, C# | whole-app only: `app record`/`front-door`/`lift` exec the original; no per-unit recorder |
 
 [`docs/PARITY.md`](docs/PARITY.md) is the command-by-command checklist against the
 reference tool, including what is not there yet.

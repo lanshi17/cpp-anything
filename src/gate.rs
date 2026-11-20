@@ -85,7 +85,13 @@ pub fn run(project: &Project, options: &Options) -> Result<GateReport, String> {
     let port_path = project.dir.join("src").join("port.cpp");
     let port =
         util::read(&port_path).map_err(|error| format!("{}: {error}", port_path.display()))?;
-    let stubs = port.matches("CPPAN_STUB").count();
+    // Comments mention the marker; only code that still returns it counts.
+    let code: String = port
+        .lines()
+        .map(|line| line.split("//").next().unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let stubs = code.matches("CPPAN_STUB").count();
     steps.push(Step {
         name: "no stubs".into(),
         ok: stubs == 0,

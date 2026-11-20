@@ -1,0 +1,105 @@
+{
+  "unit": "textkit",
+  "module": "src.textkit",
+  "lang": "ts",
+  "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/ts/src/textkit.ts",
+  "lines": 28,
+  "functions": [
+    {
+      "name": "squish",
+      "line": 6,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "Collapse whitespace runs and trim the ends."
+      ],
+      "risks": []
+    },
+    {
+      "name": "parseCount",
+      "line": 11,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "Parse a signed decimal count; anything else is a TypeError."
+      ],
+      "risks": []
+    },
+    {
+      "name": "commonPrefix",
+      "line": 18,
+      "params": [
+        {
+          "name": "left",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "right",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "Length of the shared prefix of two strings."
+      ],
+      "risks": []
+    },
+    {
+      "name": "compare",
+      "line": 26,
+      "params": [
+        {
+          "name": "left",
+          "annotation": "float",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "right",
+          "annotation": "float",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "-1, 0 or 1: the usual ordering of two numbers."
+      ],
+      "risks": []
+    }
+  ],
+  "risks": [
+    "JavaScript numbers are doubles: integers beyond 2^53 are not int64, and the wire marks them",
+    "Strings are UTF-16: an offset is not a byte offset, and emoji are two units",
+    "undefined, null and a missing key are three different things in JavaScript, two in the wire",
+    "Modules with side effects on import make recording observe more than the functions"
+  ]
+}

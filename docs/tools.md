@@ -40,13 +40,13 @@ args = ["mcp"]
 | `matrix_explain` | `query` | one feature by name or feature-test macro: first release per compiler, notes |
 | `matrix_profile` | `toolchain`, `version`, `std` | the `profile.hpp` the project would use |
 | `analyze` | `repo` | modules, functions, risks |
-| `bridge` | `repo`, `unit`, `out?`, `toolchain?`, `version?`, `std?`, `force?`, `module_root?` | generate the C++ project |
-| `record` | `project`, `cases?`, `seed?`, `inputs?` | record the original's behaviour |
+| `bridge` | `repo`, `unit`, `lang?` (`c`/`cpp`/`ts`/`js`/`go`/`ruby`/`java`), `out?`, `toolchain?`, `version?`, `std?`, `modules?` (`auto`/`on`/`off`), `keep?`, `as_json?`, `kind?` (`napi`), `force?`, `module_root?` | generate the C++ project, as a C++20 module unit when the toolchain can build one |
+| `record` | `project`, `cases?`, `seed?`, `inputs?`, `module?`, `resolve_from?`, `node_args?` | record the original's behaviour (Node options apply to TS/JS) |
 | `build` | `project`, `clean?`, `cxx?`, `jobs?` | CMake configure + build |
 | `diff` | `project`, `json?`, `strict_errors?`, `tolerance?`, `only?`, `max_report?` | replay and compare |
 | `bench` | `project`, `repeat?`, `json?` | per-call timing, both sides |
 | `gate` | `project`, `json?`, `clean?`, `bench?` | matrix, stubs, build, dispatch, diff |
-| `doctor` | — | cmake, compiler, python3, matrix, guides |
+| `doctor` | — | cmake, compiler, ninja, python3, matrix, guides |
 
 Failures come back with `isError: true` and the CLI's stderr, so an agent sees the
 same message a human would.

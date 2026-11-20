@@ -158,6 +158,27 @@ pub fn version_at_least(version: &str, minimum: &str) -> bool {
     true
 }
 
+/// `path` relative to `base` (`../` segments when needed), for metadata that must
+/// survive moving the checkout. `None` when the two cannot be compared.
+pub fn relative_path(base: &Path, path: &Path) -> Option<std::path::PathBuf> {
+    let base = base.canonicalize().ok()?;
+    let path = path.canonicalize().ok()?;
+    let mut base_parts = base.components().peekable();
+    let mut path_parts = path.components().peekable();
+    while base_parts.peek().is_some() && base_parts.peek() == path_parts.peek() {
+        base_parts.next();
+        path_parts.next();
+    }
+    let mut out = std::path::PathBuf::new();
+    for _ in base_parts {
+        out.push("..");
+    }
+    for part in path_parts {
+        out.push(part.as_os_str());
+    }
+    Some(out)
+}
+
 pub fn sanitize_identifier(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for ch in text.chars() {

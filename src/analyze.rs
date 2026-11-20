@@ -99,6 +99,8 @@ pub fn analyze(repo: &Path) -> Result<Json, String> {
 
 struct Unit {
     module: String,
+    /// What to pass to `bridge`: the file path for plugins, the dotted module for Python.
+    bridge_arg: String,
     lines: u32,
     functions: Vec<Json>,
     risks: Vec<String>,
@@ -202,6 +204,11 @@ fn units(doc: &Json) -> Vec<Unit> {
         let priority = (readiness + value) / 2;
 
         out.push(Unit {
+            bridge_arg: module
+                .get("unit")
+                .and_then(Json::as_str)
+                .unwrap_or_else(|| module.get("module").and_then(Json::as_str).unwrap_or("?"))
+                .to_string(),
             module: module
                 .get("module")
                 .and_then(Json::as_str)
@@ -334,13 +341,25 @@ pub fn render_plan(doc: &Json, repo: &Path, whole_app: bool) -> String {
         .get("language")
         .and_then(Json::as_str)
         .unwrap_or("source");
-    out.push_str(&format!(
-        "{} {language} unit(s), {} function(s), {} dependency(ies). Port one unit at a time; \
-         `bridge`, `record`, `diff` and `gate` are per unit.\n\n",
-        units.len(),
-        total_functions,
-        dependencies.len()
-    ));
+    let whole_app_only = matches!(language, "php" | "csharp");
+    if whole_app_only {
+        out.push_str(&format!(
+            "{} {language} unit(s), {} function(s), {} dependency(ies). {language} is whole-app \
+             only in this tool: the loop records and fronts the app (`app record`, \
+             `app front-door`, `app lift`), and there is no per-unit bridge or recorder.\n\n",
+            units.len(),
+            total_functions,
+            dependencies.len()
+        ));
+    } else {
+        out.push_str(&format!(
+            "{} {language} unit(s), {} function(s), {} dependency(ies). Port one unit at a time; \
+             `bridge`, `record`, `diff` and `gate` are per unit.\n\n",
+            units.len(),
+            total_functions,
+            dependencies.len()
+        ));
+    }
 
     if whole_app {
         out.push_str("## What the app is\n\n");
@@ -414,13 +433,26 @@ pub fn render_plan(doc: &Json, repo: &Path, whole_app: bool) -> String {
         let lang_flag = match doc.get("language").and_then(Json::as_str) {
             Some("c") => " --lang c",
             Some("cpp") => " --lang cpp",
+            Some("ts") => " --lang ts",
+            Some("js") => " --lang js",
+            Some("go") => " --lang go",
+            Some("ruby") => " --lang ruby",
+            Some("java") => " --lang java",
             _ => "",
         };
-        out.push_str(&format!(
-            "\nStart here: `cpp-anything bridge {} {}{lang_flag}` then `cpp-anything record <project>`.\n",
-            repo.display(),
-            first.module
-        ));
+        if whole_app_only {
+            out.push_str(
+                "\nStart here: `cpp-anything app record <repo> -- <command>` then \
+                 `cpp-anything app front-door <repo>`: the app stays whole and the C++ front \
+                 door takes it over command by command.\n",
+            );
+        } else {
+            out.push_str(&format!(
+                "\nStart here: `cpp-anything bridge {} {}{lang_flag}` then `cpp-anything record <project>`.\n",
+                repo.display(),
+                first.bridge_arg
+            ));
+        }
         if first.entry_point {
             out.push_str(
                 "\nThis unit is an entry point: port it together with what it calls, and wire the \

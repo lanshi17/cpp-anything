@@ -1,0 +1,118 @@
+{
+  "schema": "cpp-anything/project@1",
+  "created_at": "2026-11-19T14:45:18Z",
+  "unit": {
+    "name": "textkit",
+    "module": "src.textkit",
+    "file": "../../src/textkit.ts",
+    "package_root": "../..",
+    "lang": "ts",
+    "lines": 28
+  },
+  "target": {
+    "toolchain": "gcc",
+    "version": "13",
+    "std": "c++23"
+  },
+  "float_tolerance": 0.0,
+  "modules": false,
+  "node_args": [],
+  "resolve_from": null,
+  "source_module": null,
+  "batches": [],
+  "functions": [
+    {
+      "name": "squish",
+      "line": 6,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "Collapse whitespace runs and trim the ends."
+      ],
+      "risks": []
+    },
+    {
+      "name": "parseCount",
+      "line": 11,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "Parse a signed decimal count; anything else is a TypeError."
+      ],
+      "risks": []
+    },
+    {
+      "name": "commonPrefix",
+      "line": 18,
+      "params": [
+        {
+          "name": "left",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "right",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "Length of the shared prefix of two strings."
+      ],
+      "risks": []
+    },
+    {
+      "name": "compare",
+      "line": 26,
+      "params": [
+        {
+          "name": "left",
+          "annotation": "float",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "right",
+          "annotation": "float",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "-1, 0 or 1: the usual ordering of two numbers."
+      ],
+      "risks": []
+    }
+  ],
+  "skipped": [],
+  "imports": [],
+  "risks": []
+}

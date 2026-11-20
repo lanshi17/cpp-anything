@@ -112,9 +112,61 @@ cpp/textkit-words/
 └── .cppan/{project.json,inventory.json}
 ```
 
+With `--modules on` (and `--modules auto`, the default, when the toolchain supports
+it) the header is replaced by a module interface, and the driver imports the port
+instead of including it:
+
+```
+├── src/port.cppm               # `export module textkit_words;` — declarations
+├── src/port.cpp                # `module textkit_words;` — the only file you write
+├── src/dispatch.cpp            # #include "cppan/wire.hpp" + import textkit_words;
+```
+
+GCC's CMake support does not hand a compiled module to a second translation unit,
+so the generated `CMakeLists.txt` compiles `src/port.cppm` once with `-fmodules-ts`
+into `gcm.cache/` and makes every importer depend on that file; MSVC and Clang use
+CMake's own module scanner. Both need a Ninja generator (VS for MSVC).
+
 `refresh` rewrites the generated files after a signature change and leaves
 `src/port.cpp` alone. `bridge` refuses to write into a non-empty directory without
 `--force`.
+
+## Bindings per runtime
+
+Shadow is one C ABI (`cppan_shadow_call(fn, args_json)`) and a per-language wrapper
+that calls the original first:
+
+| Source | Wrapper | Calls the port through |
+| --- | --- | --- |
+| Python | `shadow/<ns>_shadow.py` | `ctypes` |
+| TypeScript/JavaScript | `shadow/<ns>_shadow.mjs` | Node-API addon (`shadow/addon.cc`, `build.sh`) |
+| Go | `shadow/<ns>_shadow.go` | cgo, `-lcppan_shadow` with rpath |
+| Ruby | `shadow/<ns>_shadow.rb` | Fiddle; `shadow/magnus/build.sh` builds the optional magnus extension |
+| Java | `shadow/CppanShadow.java` | JNI (`shadow/cppan_shadow_jni.cpp`, `build.sh`) |
+
+Every wrapper returns the original's value or raises its exception; a disagreement
+is appended to `shadow/<ns>.shadow.jsonl` with the arguments, both results and a
+reason. `CPPAN_SHADOW=off` disables the port side, `CPPAN_SHADOW_LOG` moves the log.
+Errors compare by type name, so a C++ port raises `PortError{"ArgumentError", …}`
+where the original raises `ArgumentError`.
+
+## Servers: native routes and lift
+
+`app front-door` for a server owns `PORT`. `app wire <unit> --route "GET /path"`
+generates a router (`src/routing.cpp`, `{param}` capture, `*` catch-all) and a
+handler stub (`src/http_<unit>.cpp`) that receives method, decoded path params,
+query and body. A handler that returns `false` proxies that request and appends
+`http` to the fallback log. `app lift` replays with a fallback log, refuses while
+any request is proxied, then rebuilds with `CPPAN_LIFTED`: the original process is
+gone and unwired paths answer 404.
+
+## Library front door
+
+`app front-door --library` writes `cpp/lib`: `include/cppan/api.hpp` includes every
+unit's port header and aliases each namespace under `cppan_api`, `units.cmake` adds
+the unit projects, and `cppan_api` is a static library linking them. There is no
+`main`, no fallback and no original process: consumers link the target and call the
+typed ports.
 
 ## Risks the analyzer reports
 

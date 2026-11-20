@@ -19,6 +19,17 @@ const SHADOW_CPP: &str = include_str!("cpp_runtime/shadow.cpp");
 const SHADOW_PY: &str = include_str!("cpp_runtime/shadow_module.py.in");
 const BATCH_PY: &str = include_str!("cpp_runtime/batch.py.in");
 
+/// The shared library the shadow bindings load: built by CMake next to the driver.
+pub fn shadow_library(project: &Project) -> std::path::PathBuf {
+    project.dir.join("build").join(if cfg!(windows) {
+        "cppan_shadow.dll"
+    } else if cfg!(target_os = "macos") {
+        "libcppan_shadow.dylib"
+    } else {
+        "libcppan_shadow.so"
+    })
+}
+
 pub fn namespace_of(project: &Project) -> String {
     util::sanitize_identifier(&project.unit)
 }
@@ -38,10 +49,14 @@ pub fn project_files(project: &Project) -> Vec<(String, String)> {
                 &project.target.std,
             ),
         ),
-        (
-            format!("include/{ns}/port.hpp"),
-            render_port_hpp(project, &ns),
-        ),
+        if project.modules {
+            ("src/port.cppm".to_string(), render_port_cppm(project, &ns))
+        } else {
+            (
+                format!("include/{ns}/port.hpp"),
+                render_port_hpp(project, &ns),
+            )
+        },
         ("src/port.cpp".to_string(), render_port_cpp(project, &ns)),
         (
             "src/dispatch.cpp".to_string(),
@@ -51,10 +66,6 @@ pub fn project_files(project: &Project) -> Vec<(String, String)> {
         ("src/shadow.cpp".to_string(), SHADOW_CPP.to_string()),
         ("src/batch.cpp".to_string(), render_batch_cpp(project)),
         (
-            format!("shadow/{ns}_shadow.py"),
-            render_shadow_py(project, &ns),
-        ),
-        (
             format!("batch/{ns}_batch.py"),
             render_batch_py(project, &ns),
         ),
@@ -62,6 +73,14 @@ pub fn project_files(project: &Project) -> Vec<(String, String)> {
         (".clang-format".to_string(), CLANG_FORMAT.to_string()),
         (".gitignore".to_string(), "build/\n".to_string()),
     ];
+    if crate::langs::parse(&project.source_lang).is_none() {
+        files.push((
+            format!("shadow/{ns}_shadow.py"),
+            render_shadow_py(project, &ns),
+        ));
+    } else if let Ok(shadow) = crate::langs::shadow_files(project, &ns) {
+        files.extend(shadow);
+    }
     files.push((
         format!("{}/inventory.json", crate::project::META_DIR),
         unit_inventory(project).to_string_pretty(),
@@ -134,8 +153,60 @@ pub fn refresh(project: &Project) -> Result<Vec<String>, String> {
 }
 
 fn render_cmake(project: &Project, ns: &str) -> String {
+    let port_target = if project.modules {
+        format!(
+            r#"# C++20 modules. GCC's CMake support writes the BMI under CMakeFiles/, where a
+# second translation unit cannot find it, so GCC gets an explicit module compile
+# first (gcm.cache in the build directory); MSVC and Clang use CMake's scanner.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # The module is compiled by the custom command below; CMake's own scan would add a
+  # module mapper that hides gcm.cache from every importing translation unit.
+  set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+  set(CPPAN_MODULE_FLAGS -fmodules-ts)
+  set(CPPAN_MODULE_OBJECT ${{CMAKE_CURRENT_BINARY_DIR}}/port_module.o)
+  set(CPPAN_MODULE_DEPS ${{CMAKE_CURRENT_BINARY_DIR}}/gcm.cache/{ns}.gcm)
+  add_custom_command(
+    OUTPUT ${{CPPAN_MODULE_OBJECT}} ${{CPPAN_MODULE_DEPS}}
+    COMMAND ${{CMAKE_CXX_COMPILER}} -std=c++{std_num} ${{CPPAN_MODULE_FLAGS}}
+            -I${{CMAKE_CURRENT_SOURCE_DIR}}/include
+            -c ${{CMAKE_CURRENT_SOURCE_DIR}}/src/port.cppm -o ${{CPPAN_MODULE_OBJECT}}
+    WORKING_DIRECTORY ${{CMAKE_CURRENT_BINARY_DIR}}
+    DEPENDS src/port.cppm
+    COMMENT "Compiling module {ns}")
+  add_custom_target(cppan_module_{ns} DEPENDS ${{CPPAN_MODULE_OBJECT}})
+  # The .gcm is found through the working directory, so every object that mentions
+  # the module must be compiled after it exists — including `import` sites.
+  set_source_files_properties(
+    src/port.cpp src/dispatch.cpp src/main.cpp src/shadow.cpp src/batch.cpp
+    PROPERTIES OBJECT_DEPENDS "${{CPPAN_MODULE_DEPS}}")
+  add_library(cppan_port_{ns} STATIC src/port.cpp ${{CPPAN_MODULE_OBJECT}})
+  target_compile_options(cppan_port_{ns} PRIVATE ${{CPPAN_MODULE_FLAGS}})
+else()
+  set(CMAKE_CXX_SCAN_FOR_MODULES ON)
+  add_library(cppan_port_{ns} STATIC)
+  target_sources(cppan_port_{ns} PUBLIC FILE_SET CXX_MODULES FILES src/port.cppm)
+  target_sources(cppan_port_{ns} PRIVATE src/port.cpp)
+endif()
+# The shadow library links this statically: the port must be position independent.
+set_target_properties(cppan_port_{ns} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(cppan_port_{ns} PUBLIC ${{CMAKE_CURRENT_SOURCE_DIR}}/include)
+target_compile_features(cppan_port_{ns} PUBLIC cxx_std_{std_num})
+"#,
+            std_num = project.target.std.trim_start_matches("c++")
+        )
+    } else {
+        format!(
+            r#"add_library(cppan_port_{ns} STATIC src/port.cpp)
+# The shadow library links this statically: the port must be position independent.
+set_target_properties(cppan_port_{ns} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(cppan_port_{ns} PUBLIC ${{CMAKE_CURRENT_SOURCE_DIR}}/include)
+target_compile_features(cppan_port_{ns} PUBLIC cxx_std_{std_num})
+"#,
+            std_num = project.target.std.trim_start_matches("c++")
+        )
+    };
     format!(
-        r#"# Generated by cpp-anything bridge for {module} (target: {toolchain} {version}, {std}).
+        r#"# Generated by cpp-anything bridge for {module} (target: {toolchain} {version}, {std}{module_note}).
 cmake_minimum_required(VERSION 3.28)
 project({ns} LANGUAGES CXX)
 
@@ -146,11 +217,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-add_library(cppan_port_{ns} STATIC src/port.cpp)
-# The shadow library links this statically: the port must be position independent.
-set_target_properties(cppan_port_{ns} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(cppan_port_{ns} PUBLIC ${{CMAKE_CURRENT_SOURCE_DIR}}/include)
-target_compile_features(cppan_port_{ns} PUBLIC cxx_std_{std_num})
+{port_target}
 if(MSVC)
   # /Zc:__cplusplus makes __cplusplus tell the truth; without it the
   # static_assert in profile.hpp cannot pass.
@@ -167,17 +234,32 @@ target_link_libraries(cppan_driver PRIVATE cppan_port_{ns})
 add_library(cppan_shadow_{ns} SHARED src/shadow.cpp src/batch.cpp src/dispatch.cpp)
 target_link_libraries(cppan_shadow_{ns} PRIVATE cppan_port_{ns})
 set_target_properties(cppan_shadow_{ns} PROPERTIES OUTPUT_NAME cppan_shadow)
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CPPAN_MODULE_FLAGS)
+  # Every translation unit that imports the module needs the flag, and the module
+  # must exist before any of them is compiled.
+  target_compile_options(cppan_driver PRIVATE ${{CPPAN_MODULE_FLAGS}})
+  target_compile_options(cppan_shadow_{ns} PRIVATE ${{CPPAN_MODULE_FLAGS}})
+  add_dependencies(cppan_driver cppan_module_{ns})
+  add_dependencies(cppan_shadow_{ns} cppan_module_{ns})
+endif()
 "#,
         module = project.module,
         toolchain = project.target.toolchain,
         version = project.target.version,
         std = project.target.std,
         std_num = project.target.std.trim_start_matches("c++"),
+        module_note = if project.modules {
+            ", C++20 modules"
+        } else {
+            ""
+        },
+        port_target = port_target,
         ns = ns,
     )
 }
 
-fn render_port_hpp(project: &Project, ns: &str) -> String {
+fn signature_headers(project: &Project) -> Vec<String> {
     let mut headers: Vec<String> = vec![
         "<cstdint>".into(),
         "<map>".into(),
@@ -194,8 +276,40 @@ fn render_port_hpp(project: &Project, ns: &str) -> String {
         }
         function.returns.headers(&mut headers);
     }
+    headers.retain(|header| header.starts_with('<'));
     headers.sort();
     headers.dedup();
+    headers
+}
+
+/// The declarations themselves: the same text goes into a header or a module.
+fn render_declarations(project: &Project, ns: &str, exported: bool) -> String {
+    let mut out = String::new();
+    let namespace = if exported {
+        format!("export namespace {ns}")
+    } else {
+        format!("namespace {ns}")
+    };
+    out.push_str(&format!("{namespace} {{\n\n"));
+    out.push_str("using cppan::PortError;\n");
+    for function in &project.functions {
+        out.push('\n');
+        if !function.doc.is_empty() {
+            out.push_str(&format!("// {} — {}\n", function.name, function.doc));
+        }
+        if function.returns == Ty::Any {
+            out.push_str(
+                "// no return annotation: this returns cppan::Json; give it a real type in the port\n",
+            );
+        }
+        out.push_str(&format!("{}\n", function.cpp_declaration()));
+    }
+    out.push_str(&format!("\n}}  // namespace {ns}\n"));
+    out
+}
+
+fn render_port_hpp(project: &Project, ns: &str) -> String {
+    let headers = signature_headers(project);
     let mut out = String::new();
     out.push_str(&format!(
         "// Port of {} ({}) to C++. Declarations only: write the bodies in src/port.cpp.\n",
@@ -204,34 +318,56 @@ fn render_port_hpp(project: &Project, ns: &str) -> String {
     out.push_str(
         "//\n// Generated by cpp-anything bridge; `cpp-anything refresh` regenerates the\n",
     );
-    out.push_str("// declarations from the Python signature after you change one.\n");
+    out.push_str("// declarations from the original's signature after you change one.\n");
     out.push_str("#pragma once\n\n");
     for header in &headers {
         out.push_str(&format!("#include {header}\n"));
     }
-    out.push_str("\n#include \"cppan/wire.hpp\"\n");
-    out.push_str(&format!("\nnamespace {ns} {{\n\n"));
-    out.push_str("using cppan::PortError;\n");
-    for function in &project.functions {
-        out.push('\n');
-        if !function.doc.is_empty() {
-            out.push_str(&format!("// {} — {}\n", function.name, function.doc));
-        }
-        if function.returns == Ty::Any {
-            out.push_str("// no return annotation: this returns cppan::Json; give it a real type in port.hpp\n");
-        }
-        out.push_str(&format!("{}\n", function.cpp_declaration()));
+    out.push_str("\n#include \"cppan/wire.hpp\"\n\n");
+    out.push_str(&render_declarations(project, ns, false));
+    out
+}
+
+/// `src/port.cppm`: the C++20 module interface. The runtime stays a header, included
+/// in the global module fragment, so importers that include it agree on the types.
+fn render_port_cppm(project: &Project, ns: &str) -> String {
+    let headers = signature_headers(project);
+    let mut out = String::new();
+    out.push_str(&format!(
+        "// Port of {} ({}) as a C++20 module: import {} instead of including a header.\n",
+        project.module, project.source_lang, ns
+    ));
+    out.push_str(
+        "//\n// Generated by cpp-anything bridge (`--modules`); `refresh` regenerates it.\n",
+    );
+    out.push_str("module;\n");
+    for header in &headers {
+        out.push_str(&format!("#include {header}\n"));
     }
-    out.push_str(&format!("\n}}  // namespace {ns}\n"));
+    out.push_str("#include \"cppan/wire.hpp\"\n\n");
+    out.push_str(&format!("export module {ns};\n\n"));
+    out.push_str(&render_declarations(project, ns, true));
     out
 }
 
 fn render_port_cpp(project: &Project, ns: &str) -> String {
     let mut out = String::new();
-    out.push_str(&format!(
-        "// Port of {} ({}) to C++23.\n//\n// Every body below is a stub: `cpp-anything gate` fails while any of them still\n// returns CPPAN_STUB. Replace the bodies; keep the signatures the header declares.\n#include \"{ns}/port.hpp\"\n\n#include \"cppan/profile.hpp\"\n\nnamespace {ns} {{\n",
-        project.module, project.source_lang
-    ));
+    if project.modules {
+        out.push_str(&format!(
+            "// Port of {} ({}) as a C++20 module implementation unit.\n//\n// The declarations come from src/port.cppm; do not include a port header here.\n//\n// Every body below is a stub: `cpp-anything gate` fails while any of them still\n// returns CPPAN_STUB. Replace the bodies; the interface is src/port.cppm.\nmodule;\n",
+            project.module, project.source_lang
+        ));
+        for header in signature_headers(project) {
+            out.push_str(&format!("#include {header}\n"));
+        }
+        out.push_str("#include \"cppan/wire.hpp\"\n#include \"cppan/profile.hpp\"\n\n");
+        out.push_str(&format!("module {ns};\n\nnamespace {ns} {{\n"));
+    } else {
+        out.push_str(&format!(
+            "// Port of {} ({}) to C++23.\n//\n// Every body below is a stub: `cpp-anything gate` fails while any of them still\n// returns CPPAN_STUB. Replace the bodies; keep the signatures the header declares.\n#include \"{ns}/port.hpp\"\n\n#include \"cppan/profile.hpp\"\n\nnamespace {ns} {{\n",
+            project.module, project.source_lang
+        ));
+    }
     for function in &project.functions {
         out.push('\n');
         if !function.doc.is_empty() {
@@ -261,7 +397,11 @@ fn render_dispatch(project: &Project, ns: &str) -> String {
         "#include <cstdint>\n#include <string>\n#include <string_view>\n#include <vector>\n\n",
     );
     out.push_str("#include \"cppan/wire.hpp\"\n");
-    out.push_str(&format!("#include \"{ns}/port.hpp\"\n\n"));
+    if project.modules {
+        out.push_str(&format!("import {ns};\n\n"));
+    } else {
+        out.push_str(&format!("#include \"{ns}/port.hpp\"\n\n"));
+    }
     out.push_str(
         r#"namespace {
 
@@ -368,7 +508,11 @@ fn render_batch_cpp(project: &Project) -> String {
     );
     out.push_str("#include <exception>\n#include <string>\n#include <thread>\n#include <utility>\n#include <vector>\n\n");
     out.push_str("#include \"cppan/wire.hpp\"\n");
-    out.push_str(&format!("#include \"{ns}/port.hpp\"\n\n"));
+    if project.modules {
+        out.push_str(&format!("import {ns};\n\n"));
+    } else {
+        out.push_str(&format!("#include \"{ns}/port.hpp\"\n\n"));
+    }
     out.push_str(
         r#"namespace {
 

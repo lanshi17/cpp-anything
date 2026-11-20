@@ -1,0 +1,33 @@
+{
+  "unit": "slug",
+  "module": "slug",
+  "lang": "python",
+  "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/http/slug.py",
+  "lines": 12,
+  "functions": [
+    {
+      "name": "slug",
+      "line": 1,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [],
+      "risks": [
+        "str.strip() strips unicode whitespace, not just ASCII",
+        "str.lower() is unicode-aware; std::tolower is ASCII-only"
+      ]
+    }
+  ],
+  "risks": [
+    "str.strip() strips unicode whitespace, not just ASCII",
+    "str.lower() is unicode-aware; std::tolower is ASCII-only"
+  ]
+}

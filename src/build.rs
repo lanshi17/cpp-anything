@@ -45,6 +45,14 @@ pub fn build(
         build_dir.display().to_string(),
         "-DCMAKE_BUILD_TYPE=Release".to_string(),
     ];
+    if project.modules {
+        let ninja = crate::modules::ninja().ok_or(
+            "this project uses C++20 modules, and CMake needs Ninja to scan them: install ninja              (`python3 -m pip install --user ninja`) or regenerate with `bridge --modules off`",
+        )?;
+        configure.push("-G".to_string());
+        configure.push("Ninja".to_string());
+        configure.push(format!("-DCMAKE_MAKE_PROGRAM={}", ninja.display()));
+    }
     if let Some(compiler) = cxx {
         configure.push(format!("-DCMAKE_CXX_COMPILER={compiler}"));
     }

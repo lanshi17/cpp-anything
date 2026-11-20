@@ -1,0 +1,93 @@
+{
+  "unit": "textkit",
+  "module": "textkit",
+  "lang": "ruby",
+  "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/ruby/textkit.rb",
+  "lines": 21,
+  "functions": [
+    {
+      "name": "word_count",
+      "line": 2,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "Any",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "Any",
+      "raises": false,
+      "doc": [
+        "Count the words in text."
+      ],
+      "risks": []
+    },
+    {
+      "name": "digits_only",
+      "line": 7,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "Any",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "Any",
+      "raises": false,
+      "doc": [
+        "Count the digit characters."
+      ],
+      "risks": []
+    },
+    {
+      "name": "repeat_count",
+      "line": 12,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "Any",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "needle",
+          "annotation": "Any",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "Any",
+      "raises": false,
+      "doc": [
+        "Repeat a needle inside text."
+      ],
+      "risks": []
+    },
+    {
+      "name": "average_word_length",
+      "line": 17,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "Any",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "Any",
+      "raises": false,
+      "doc": [
+        "Average word length, zero for empty."
+      ],
+      "risks": []
+    }
+  ],
+  "risks": []
+}

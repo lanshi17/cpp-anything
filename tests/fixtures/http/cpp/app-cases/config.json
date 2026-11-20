@@ -1,0 +1,21 @@
+{
+  "schema": "cpp-anything/app-cases@1",
+  "name": "slugify-server",
+  "run": [
+    "python3",
+    "server.py"
+  ],
+  "timeout_secs": 30,
+  "normalize": [],
+  "float_tolerance": 0.0,
+  "http": true,
+  "port": null,
+  "args": [],
+  "fresh": [],
+  "pace_ms": 0.0,
+  "effects": [],
+  "effect_env": [],
+  "db_reset": null,
+  "db_dump": null,
+  "lifted": false
+}

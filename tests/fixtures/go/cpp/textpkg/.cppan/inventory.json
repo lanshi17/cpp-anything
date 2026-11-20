@@ -1,0 +1,124 @@
+{
+  "unit": "textpkg",
+  "module": "textpkg",
+  "lang": "go",
+  "file": "/mnt/data/Projects/OpenSource/cpp-anything/tests/fixtures/go/textpkg",
+  "lines": 78,
+  "functions": [
+    {
+      "name": "WordCount",
+      "line": 12,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "WordCount counts whitespace-separated fields."
+      ],
+      "risks": []
+    },
+    {
+      "name": "Slash",
+      "line": 17,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "Slash trims the text and replaces every ASCII space with a dash."
+      ],
+      "risks": []
+    },
+    {
+      "name": "CountBetween",
+      "line": 23,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "needle",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "CountBetween counts non-overlapping occurrences of needle. An empty needle counts one more than the number of UTF-8 runes, as strings.Count does."
+      ],
+      "risks": []
+    },
+    {
+      "name": "Greater",
+      "line": 28,
+      "params": [
+        {
+          "name": "a",
+          "annotation": "int",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "b",
+          "annotation": "int",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "bool",
+      "raises": false,
+      "doc": [
+        "Greater reports whether a is greater than b."
+      ],
+      "risks": []
+    },
+    {
+      "name": "MustParse",
+      "line": 33,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "MustParse trims the text and parses a base-10 int64, panicking on bad input."
+      ],
+      "risks": []
+    }
+  ],
+  "risks": [
+    "Go ints are 64-bit on this platform but 32-bit elsewhere: the signature decides the width",
+    "Strings are UTF-8 bytes: len() is bytes, runes are code points, and the port must choose",
+    "nil slices and empty slices print the same, marshal differently, and compare against nil",
+    "Named result parameters and deferred writes: the recorder observes the final value"
+  ]
+}

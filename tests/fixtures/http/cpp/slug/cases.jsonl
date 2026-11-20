@@ -1,0 +1,23 @@
+{"id": "slug:0", "fn": "slug", "args": [""], "expect": {"ok": ""}}
+{"id": "slug:1", "fn": "slug", "args": [" "], "expect": {"ok": ""}}
+{"id": "slug:2", "fn": "slug", "args": ["Hello World"], "expect": {"ok": "hello-world"}}
+{"id": "slug:3", "fn": "slug", "args": ["  Mixed CASE  "], "expect": {"ok": "mixed-case"}}
+{"id": "slug:4", "fn": "slug", "args": ["café — naïve"], "expect": {"ok": "caf-na-ve"}}
+{"id": "slug:5", "fn": "slug", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "expect": {"ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+{"id": "slug:6", "fn": "slug", "args": ["one\ntwo\tthree"], "expect": {"ok": "one-two-three"}}
+{"id": "slug:7", "fn": "slug", "args": ["123"], "expect": {"ok": "123"}}
+{"id": "slug:8", "fn": "slug", "args": ["Ünïcødé ☃"], "expect": {"ok": "n-c-d"}}
+{"id": "slug:9", "fn": "slug", "args": ["trailing---"], "expect": {"ok": "trailing"}}
+{"id": "slug:10", "fn": "slug", "args": [" leading"], "expect": {"ok": "leading"}}
+{"id": "slug:11", "fn": "slug", "args": ["line1\nline2"], "expect": {"ok": "line1-line2"}}
+{"id": "slug:12", "fn": "slug", "args": ["Москва"], "expect": {"ok": ""}}
+{"id": "slug:13", "fn": "slug", "args": ["é"], "expect": {"ok": "e"}}
+{"id": "slug:14", "fn": "slug", "args": ["0"], "expect": {"ok": "0"}}
+{"id": "slug:15", "fn": "slug", "args": ["123"], "expect": {"ok": "123"}}
+{"id": "slug:16", "fn": "slug", "args": ["one\ntwo\tthree"], "expect": {"ok": "one-two-three"}}
+{"id": "slug:17", "fn": "slug", "args": ["Ünïcødé ☃"], "expect": {"ok": "n-c-d"}}
+{"id": "slug:18", "fn": "slug", "args": ["0"], "expect": {"ok": "0"}}
+{"id": "slug:19", "fn": "slug", "args": ["trailing---"], "expect": {"ok": "trailing"}}
+{"id": "slug:20", "fn": "slug", "args": ["Hello World"], "expect": {"ok": "hello-world"}}
+{"id": "slug:21", "fn": "slug", "args": ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "expect": {"ok": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}
+{"id": "slug:22", "fn": "slug", "args": [" leading"], "expect": {"ok": "leading"}}

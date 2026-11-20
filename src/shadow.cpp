@@ -57,6 +57,13 @@ Result<Report> read_report(const Project& project) {
 
 std::string render(const Report& report, const Project& project) {
   if (report.lines == 0) {
+    if (project.source_lang == "rust") {
+      return std::format(
+          "cpp-anything shadow: {} — no mismatches logged yet\n\nadd the generated crate where "
+          "the original was a dependency and run the app:\n  {}_shadow = {{ path = \"{}\" }}\n",
+          project.module, sanitize_identifier(project.unit),
+          (project.dir / "shadow" / "rust").string());
+    }
     return std::format(
         "cpp-anything shadow: {} — no mismatches logged yet\n\nimport the generated module where "
         "the original was imported and run the app:\n  sys.path.insert(0, \"{}\")\n  import "

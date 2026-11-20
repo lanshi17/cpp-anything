@@ -103,6 +103,7 @@ dict 顺序、浮点格式化、正则引擎和异常类型。
 | C、C 风格 C++ | 完整循环（C++ 另有现代化检查） |
 | TypeScript / JavaScript | 分析器、录制器、Node-API 调用映射、shadow |
 | Go | 分析器、录制器、cgo 调用映射、shadow |
+| Rust | 分析器、录制器、Cargo harness、C ABI shadow；仅库 crate 的自由函数 |
 | Ruby | 分析器、录制器、Fiddle / magnus 调用映射、shadow |
 | Java | 分析器、录制器、JNI 调用映射、shadow |
 | PHP、C# | 仅整应用分析；单函数移植尚无录制器 |

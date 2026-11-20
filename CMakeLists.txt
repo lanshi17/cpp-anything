@@ -95,6 +95,7 @@ target_sources(cppan_core
     src/modern.cpp
     src/langs.cpp
     src/langs/go.cpp
+    src/langs/rust.cpp
     src/langs/java.cpp
     src/langs/php.cpp
     src/langs/csharp.cpp

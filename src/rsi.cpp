@@ -292,7 +292,7 @@ Step app_step(const std::filesystem::path& root) {
 Step plugins_step(const std::filesystem::path& root) {
   std::vector<std::string> checked;
   std::vector<std::string> failures;
-  for (const std::string_view language : {"ruby", "go", "java", "ts"}) {
+  for (const std::string_view language : {"ruby", "go", "java", "ts", "rust"}) {
     const std::filesystem::path cpp =
         root / "tests" / "fixtures" / std::string(language) / "cpp";
     std::error_code error;

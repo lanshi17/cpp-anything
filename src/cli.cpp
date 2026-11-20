@@ -681,6 +681,7 @@ Result<int> shadow_command(const Parsed& args) {
     switch (*lang) {
       case langs::Lang::Ruby: binding = "shadow/" + ns + "_shadow.rb"; break;
       case langs::Lang::Go: binding = "shadow/" + ns + "_shadow.go"; break;
+      case langs::Lang::Rust: binding = "shadow/rust"; break;
       case langs::Lang::Java: binding = "shadow/CppanShadow.java"; break;
       case langs::Lang::Ts:
       case langs::Lang::Js: binding = "shadow/" + ns + "_shadow.mjs"; break;
@@ -702,6 +703,11 @@ Result<int> shadow_command(const Parsed& args) {
             "\nimport it where the original package was imported:\n  // module: {} (cgo, links "
             "build/libcppan_shadow.so)\n",
             (dir / "shadow").string());
+        break;
+      case langs::Lang::Rust:
+        std::print(
+            "\nadd it where the original crate was a dependency:\n  {} = {{ path = \"{}\" }}\n",
+            ns + "_shadow", (dir / "shadow" / "rust").string());
         break;
       case langs::Lang::Java:
         std::print("\nload it where the original class was used:\n  "
@@ -1062,7 +1068,7 @@ Result<int> analyze_command(const Parsed& args) {
     }
     if (!handled) {
       return std::unexpected("unknown language " + debug_quote(*lang) +
-                             ": try python, c, cpp, ts, js, go, ruby, java");
+                             ": try python, c, cpp, ts, js, go, rust, ruby, java");
     }
   } else if (const auto plugin = langs::detect(repo); plugin.has_value()) {
     doc = langs::analyze_repo(repo, *plugin);
@@ -1200,8 +1206,8 @@ Run `cpp-anything <command> --help` for one command's options.
   app wire    <repo> <unit> --command NAME          (CLI: one command per unit)
   app wire    <repo> <unit> --route "GET /path"     (server: repeatable; {param}, *)
   app lift    <repo>
-  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python|c|cpp|ts|js|go|ruby|java|php|csharp]
-  bridge  <repo> <unit> [--lang ts|js|go|ruby|java|c|cpp] [--out DIR] [--toolchain gcc]
+  analyze <repo>  [-o plan.md] [--json] [--whole-app] [--lang python|c|cpp|ts|js|go|rust|ruby|java|php|csharp]
+  bridge  <repo> <unit> [--lang ts|js|go|rust|ruby|java|c|cpp] [--out DIR] [--toolchain gcc]
                         [--version 13] [--std c++23] [--modules auto|on|off] [--module-root DIR]
                         [--keep name:reason]… [--as-json T]… [--kind napi]
                         [--node-arg ARG]… [--resolve-from DIR] [--module FILE]

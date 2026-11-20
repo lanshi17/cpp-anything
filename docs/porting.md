@@ -36,6 +36,8 @@ applies unchanged:
 | Go | `string` / `int…uint64`, `byte`, `rune` / `float32/64` / `bool` | `[]T` | structs, pointers, `any`, variadics, multiple results |
 | Java | `String` / `int`, `long`, `short`, `byte` / `double`, `float` / `boolean` | `List<String>`, `Collection<String>` | arrays, custom types, generics other than the listed ones |
 | Ruby | `String`, `Integer`, `Float`, `true`/`false` | `Array` | symbols, ranges, objects (recorded as `$opaque`/errors) |
+| Rust | `String`, `&str` / `i8…i128`, `isize`, `u8…u128`, `usize` / `f32`, `f64` / `bool` | `Vec<T>`, `&[T]` | generics, traits, impl methods, `async`/`const`/`unsafe`, `Result`, tuples, references other than `&str`/`&[T]` |
+| Rust | `Option<T>` / `HashMap<String, T>` | — | values above `int64` (`u64`/`usize`) cannot cross the wire |
 
 Ruby and JavaScript without annotations give every parameter the type `Any`,
 which crosses as `cppan::Json`: the body you write reads `is_string()`,

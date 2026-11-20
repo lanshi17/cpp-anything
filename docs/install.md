@@ -10,6 +10,7 @@
 | C++ compiler for generated projects | GCC 13+, Clang 17+ (libc++ 16+), MSVC 19.33+ | what `matrix` says each release supports |
 | Python | the interpreter that runs the code being ported (`CPPAN_PYTHON` overrides `python3`) | `analyze`, `record`, `bench` |
 | C++23 compiler | the one above | building cpp-anything itself |
+| Rust (`cargo`, `rustc`) | any stable release | `record`, `bench` and the generated shadow crate for `--lang rust`; only needed for Rust sources |
 
 `cpp-anything doctor` checks all of it, with the fix for each missing piece.
 

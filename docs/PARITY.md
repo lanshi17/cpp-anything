@@ -8,10 +8,10 @@ because the target is C++, and what is not there yet. It is updated with the cod
 
 | Reference | cpp-anything | Status |
 | --- | --- | --- |
-| `analyze <root> [--json] [-o] [--lang python|c|cpp] [--whole-app]` | same flags, plus `ts/js/go/ruby/java/php/csharp` | implemented: waves from resolved imports, readiness/priority, keep/blocked, dependency table with C++ libraries, `--whole-app` shape/entry points/decisions |
+| `analyze <root> [--json] [-o] [--lang python|c|cpp] [--whole-app]` | same flags, plus `ts/js/go/rust/ruby/java/php/csharp` | implemented: waves from resolved imports, readiness/priority, keep/blocked, dependency table with C++ libraries, `--whole-app` shape/entry points/decisions |
 | `bridge <root> <unit> [--out] [--force] [--batch] [--keep] [--as-json] [--kind]` | same, plus `--toolchain/--version/--std/--modules` for the C++ target | implemented: `--keep name:reason` leaves an export in the original, `--as-json T` crosses a type parameter as JSON, `--kind napi` is the Node binding (WASM has no C++ target) |
 | `refresh [--batch]` | same | implemented; it also re-reads the source signatures |
-| `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed`, `--module/--resolve-from/--node-arg` for TS/JS | implemented per language: probe for Python, fork-per-case harness for C, out-of-process harnesses for TS/JS, Go, Ruby, Java; `--from-tests` remains Python-only |
+| `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed`, `--module/--resolve-from/--node-arg` for TS/JS | implemented per language: probe for Python, fork-per-case harness for C, out-of-process harnesses for TS/JS, Go, Rust, Ruby, Java; `--from-tests` remains Python-only |
 | `build` | same | implemented (CMake) |
 | `diff [--json] [--ignore-key-order] [--float-tolerance]` | `--json/--strict-errors/--tolerance/--only/--max-report` | implemented; objects already compare unordered, so `--ignore-key-order` is the default and the flag is unnecessary |
 | `bench [--min-ms] [--json]` | `--repeat` (calls per case) `--json` | implemented with the same method: decode once, time only the calls, in the original's own process |

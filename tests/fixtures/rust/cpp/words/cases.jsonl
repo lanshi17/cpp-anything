@@ -1,0 +1,105 @@
+{"id":"word_count:0","fn":"word_count","args":[""],"expect":{"ok":0}}
+{"id":"word_count:1","fn":"word_count","args":[" "],"expect":{"ok":0}}
+{"id":"word_count:2","fn":"word_count","args":["Hello World"],"expect":{"ok":2}}
+{"id":"word_count:3","fn":"word_count","args":["  Mixed CASE  "],"expect":{"ok":2}}
+{"id":"word_count:4","fn":"word_count","args":["café — naïve"],"expect":{"ok":3}}
+{"id":"word_count:5","fn":"word_count","args":["a"],"expect":{"ok":1}}
+{"id":"word_count:6","fn":"word_count","args":["123"],"expect":{"ok":1}}
+{"id":"word_count:7","fn":"word_count","args":["-"],"expect":{"ok":1}}
+{"id":"word_count:8","fn":"word_count","args":["trailing---"],"expect":{"ok":1}}
+{"id":"word_count:9","fn":"word_count","args":[" leading"],"expect":{"ok":1}}
+{"id":"word_count:10","fn":"word_count","args":["one\ntwo"],"expect":{"ok":2}}
+{"id":"word_count:11","fn":"word_count","args":["Москва"],"expect":{"ok":1}}
+{"id":"word_count:12","fn":"word_count","args":["0"],"expect":{"ok":1}}
+{"id":"word_count:13","fn":"word_count","args":["a-b_c"],"expect":{"ok":1}}
+{"id":"word_count:14","fn":"word_count","args":["x"],"expect":{"ok":1}}
+{"id":"digits_only:0","fn":"digits_only","args":[""],"expect":{"ok":""}}
+{"id":"digits_only:1","fn":"digits_only","args":[" "],"expect":{"ok":""}}
+{"id":"digits_only:2","fn":"digits_only","args":["Hello World"],"expect":{"ok":""}}
+{"id":"digits_only:3","fn":"digits_only","args":["  Mixed CASE  "],"expect":{"ok":""}}
+{"id":"digits_only:4","fn":"digits_only","args":["café — naïve"],"expect":{"ok":""}}
+{"id":"digits_only:5","fn":"digits_only","args":["a"],"expect":{"ok":""}}
+{"id":"digits_only:6","fn":"digits_only","args":["123"],"expect":{"ok":"123"}}
+{"id":"digits_only:7","fn":"digits_only","args":["-"],"expect":{"ok":""}}
+{"id":"digits_only:8","fn":"digits_only","args":["trailing---"],"expect":{"ok":""}}
+{"id":"digits_only:9","fn":"digits_only","args":[" leading"],"expect":{"ok":""}}
+{"id":"digits_only:10","fn":"digits_only","args":["one\ntwo"],"expect":{"ok":""}}
+{"id":"digits_only:11","fn":"digits_only","args":["Москва"],"expect":{"ok":""}}
+{"id":"digits_only:12","fn":"digits_only","args":["0"],"expect":{"ok":"0"}}
+{"id":"digits_only:13","fn":"digits_only","args":["a-b_c"],"expect":{"ok":""}}
+{"id":"digits_only:14","fn":"digits_only","args":["x"],"expect":{"ok":""}}
+{"id":"repeat_count:0","fn":"repeat_count","args":["",""],"expect":{"ok":1}}
+{"id":"repeat_count:1","fn":"repeat_count","args":[" "," "],"expect":{"ok":1}}
+{"id":"repeat_count:2","fn":"repeat_count","args":["Hello World","Hello World"],"expect":{"ok":1}}
+{"id":"repeat_count:3","fn":"repeat_count","args":["  Mixed CASE  ","  Mixed CASE  "],"expect":{"ok":1}}
+{"id":"repeat_count:4","fn":"repeat_count","args":["café — naïve","café — naïve"],"expect":{"ok":1}}
+{"id":"repeat_count:5","fn":"repeat_count","args":["a","a"],"expect":{"ok":1}}
+{"id":"repeat_count:6","fn":"repeat_count","args":["123","123"],"expect":{"ok":1}}
+{"id":"repeat_count:7","fn":"repeat_count","args":["-","-"],"expect":{"ok":1}}
+{"id":"repeat_count:8","fn":"repeat_count","args":["trailing---","trailing---"],"expect":{"ok":1}}
+{"id":"repeat_count:9","fn":"repeat_count","args":[" leading"," leading"],"expect":{"ok":1}}
+{"id":"repeat_count:10","fn":"repeat_count","args":["one\ntwo","one\ntwo"],"expect":{"ok":1}}
+{"id":"repeat_count:11","fn":"repeat_count","args":["Москва","Москва"],"expect":{"ok":1}}
+{"id":"repeat_count:12","fn":"repeat_count","args":["0","0"],"expect":{"ok":1}}
+{"id":"repeat_count:13","fn":"repeat_count","args":["a-b_c","a-b_c"],"expect":{"ok":1}}
+{"id":"repeat_count:14","fn":"repeat_count","args":["x","x"],"expect":{"ok":1}}
+{"id":"average_word_length:0","fn":"average_word_length","args":[""],"expect":{"ok":0.0}}
+{"id":"average_word_length:1","fn":"average_word_length","args":[" "],"expect":{"ok":0.0}}
+{"id":"average_word_length:2","fn":"average_word_length","args":["Hello World"],"expect":{"ok":5.0}}
+{"id":"average_word_length:3","fn":"average_word_length","args":["  Mixed CASE  "],"expect":{"ok":4.5}}
+{"id":"average_word_length:4","fn":"average_word_length","args":["café — naïve"],"expect":{"ok":4.666666666666667}}
+{"id":"average_word_length:5","fn":"average_word_length","args":["a"],"expect":{"ok":1.0}}
+{"id":"average_word_length:6","fn":"average_word_length","args":["123"],"expect":{"ok":3.0}}
+{"id":"average_word_length:7","fn":"average_word_length","args":["-"],"expect":{"ok":1.0}}
+{"id":"average_word_length:8","fn":"average_word_length","args":["trailing---"],"expect":{"ok":11.0}}
+{"id":"average_word_length:9","fn":"average_word_length","args":[" leading"],"expect":{"ok":7.0}}
+{"id":"average_word_length:10","fn":"average_word_length","args":["one\ntwo"],"expect":{"ok":3.0}}
+{"id":"average_word_length:11","fn":"average_word_length","args":["Москва"],"expect":{"ok":12.0}}
+{"id":"average_word_length:12","fn":"average_word_length","args":["0"],"expect":{"ok":1.0}}
+{"id":"average_word_length:13","fn":"average_word_length","args":["a-b_c"],"expect":{"ok":5.0}}
+{"id":"average_word_length:14","fn":"average_word_length","args":["x"],"expect":{"ok":1.0}}
+{"id":"slugify:0","fn":"slugify","args":[""],"expect":{"ok":""}}
+{"id":"slugify:1","fn":"slugify","args":[" "],"expect":{"ok":""}}
+{"id":"slugify:2","fn":"slugify","args":["Hello World"],"expect":{"ok":"hello-world"}}
+{"id":"slugify:3","fn":"slugify","args":["  Mixed CASE  "],"expect":{"ok":"mixed-case"}}
+{"id":"slugify:4","fn":"slugify","args":["café — naïve"],"expect":{"ok":"café-naïve"}}
+{"id":"slugify:5","fn":"slugify","args":["a"],"expect":{"ok":"a"}}
+{"id":"slugify:6","fn":"slugify","args":["123"],"expect":{"ok":"123"}}
+{"id":"slugify:7","fn":"slugify","args":["-"],"expect":{"ok":""}}
+{"id":"slugify:8","fn":"slugify","args":["trailing---"],"expect":{"ok":"trailing"}}
+{"id":"slugify:9","fn":"slugify","args":[" leading"],"expect":{"ok":"leading"}}
+{"id":"slugify:10","fn":"slugify","args":["one\ntwo"],"expect":{"ok":"one-two"}}
+{"id":"slugify:11","fn":"slugify","args":["Москва"],"expect":{"ok":"москва"}}
+{"id":"slugify:12","fn":"slugify","args":["0"],"expect":{"ok":"0"}}
+{"id":"slugify:13","fn":"slugify","args":["a-b_c"],"expect":{"ok":"a-b-c"}}
+{"id":"slugify:14","fn":"slugify","args":["x"],"expect":{"ok":"x"}}
+{"id":"is_palindrome:0","fn":"is_palindrome","args":[""],"expect":{"ok":true}}
+{"id":"is_palindrome:1","fn":"is_palindrome","args":[" "],"expect":{"ok":true}}
+{"id":"is_palindrome:2","fn":"is_palindrome","args":["Hello World"],"expect":{"ok":false}}
+{"id":"is_palindrome:3","fn":"is_palindrome","args":["  Mixed CASE  "],"expect":{"ok":false}}
+{"id":"is_palindrome:4","fn":"is_palindrome","args":["café — naïve"],"expect":{"ok":false}}
+{"id":"is_palindrome:5","fn":"is_palindrome","args":["a"],"expect":{"ok":true}}
+{"id":"is_palindrome:6","fn":"is_palindrome","args":["123"],"expect":{"ok":false}}
+{"id":"is_palindrome:7","fn":"is_palindrome","args":["-"],"expect":{"ok":true}}
+{"id":"is_palindrome:8","fn":"is_palindrome","args":["trailing---"],"expect":{"ok":false}}
+{"id":"is_palindrome:9","fn":"is_palindrome","args":[" leading"],"expect":{"ok":false}}
+{"id":"is_palindrome:10","fn":"is_palindrome","args":["one\ntwo"],"expect":{"ok":false}}
+{"id":"is_palindrome:11","fn":"is_palindrome","args":["Москва"],"expect":{"ok":false}}
+{"id":"is_palindrome:12","fn":"is_palindrome","args":["0"],"expect":{"ok":true}}
+{"id":"is_palindrome:13","fn":"is_palindrome","args":["a-b_c"],"expect":{"ok":false}}
+{"id":"is_palindrome:14","fn":"is_palindrome","args":["x"],"expect":{"ok":true}}
+{"id":"initials:0","fn":"initials","args":[""],"expect":{"ok":""}}
+{"id":"initials:1","fn":"initials","args":[" "],"expect":{"ok":""}}
+{"id":"initials:2","fn":"initials","args":["Hello World"],"expect":{"ok":"HW"}}
+{"id":"initials:3","fn":"initials","args":["  Mixed CASE  "],"expect":{"ok":"MC"}}
+{"id":"initials:4","fn":"initials","args":["café — naïve"],"expect":{"ok":"C—N"}}
+{"id":"initials:5","fn":"initials","args":["a"],"expect":{"ok":"A"}}
+{"id":"initials:6","fn":"initials","args":["123"],"expect":{"ok":"1"}}
+{"id":"initials:7","fn":"initials","args":["-"],"expect":{"ok":"-"}}
+{"id":"initials:8","fn":"initials","args":["trailing---"],"expect":{"ok":"T"}}
+{"id":"initials:9","fn":"initials","args":[" leading"],"expect":{"ok":"L"}}
+{"id":"initials:10","fn":"initials","args":["one\ntwo"],"expect":{"ok":"OT"}}
+{"id":"initials:11","fn":"initials","args":["Москва"],"expect":{"ok":"М"}}
+{"id":"initials:12","fn":"initials","args":["0"],"expect":{"ok":"0"}}
+{"id":"initials:13","fn":"initials","args":["a-b_c"],"expect":{"ok":"A"}}
+{"id":"initials:14","fn":"initials","args":["x"],"expect":{"ok":"X"}}

@@ -1,0 +1,168 @@
+{
+  "schema": "cpp-anything/project@1",
+  "created_at": "2026-11-20T08:17:45Z",
+  "unit": {
+    "name": "words",
+    "module": "src.words",
+    "file": "../../textkit/src/words.rs",
+    "package_root": "../../textkit",
+    "lang": "rust",
+    "lines": 69
+  },
+  "target": {
+    "toolchain": "gcc",
+    "version": "13",
+    "std": "c++23"
+  },
+  "float_tolerance": 0.0,
+  "modules": false,
+  "node_args": [],
+  "resolve_from": null,
+  "source_module": null,
+  "batches": [],
+  "functions": [
+    {
+      "name": "word_count",
+      "line": 4,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "Count whitespace-separated words."
+      ],
+      "risks": []
+    },
+    {
+      "name": "digits_only",
+      "line": 9,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "Keep ASCII digits only."
+      ],
+      "risks": []
+    },
+    {
+      "name": "repeat_count",
+      "line": 14,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        },
+        {
+          "name": "needle",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "int",
+      "raises": false,
+      "doc": [
+        "Count non-overlapping occurrences of `needle`."
+      ],
+      "risks": []
+    },
+    {
+      "name": "average_word_length",
+      "line": 22,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "float",
+      "raises": false,
+      "doc": [
+        "Mean word length in bytes, or 0.0 for empty input."
+      ],
+      "risks": []
+    },
+    {
+      "name": "slugify",
+      "line": 32,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "Lowercase, runs of non-alphanumerics become one '-', trimmed."
+      ],
+      "risks": []
+    },
+    {
+      "name": "is_palindrome",
+      "line": 53,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "bool",
+      "raises": false,
+      "doc": [
+        "True when the character sequence reads the same both ways."
+      ],
+      "risks": []
+    },
+    {
+      "name": "initials",
+      "line": 64,
+      "params": [
+        {
+          "name": "text",
+          "annotation": "str",
+          "default": null,
+          "has_default": false,
+          "keyword_only": false
+        }
+      ],
+      "returns": "str",
+      "raises": false,
+      "doc": [
+        "First character of each whitespace word, uppercased."
+      ],
+      "risks": []
+    }
+  ],
+  "skipped": [],
+  "imports": [],
+  "risks": []
+}

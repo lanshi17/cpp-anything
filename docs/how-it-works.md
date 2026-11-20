@@ -143,6 +143,7 @@ that calls the original first:
 | Go | `shadow/<ns>_shadow.go` | cgo, `-lcppan_shadow` with rpath |
 | Ruby | `shadow/<ns>_shadow.rb` | Fiddle; `shadow/magnus/build.sh` builds the optional magnus extension |
 | Java | `shadow/CppanShadow.java` | JNI (`shadow/cppan_shadow_jni.cpp`, `build.sh`) |
+| Rust | `shadow/rust/` (Cargo crate) | generated `build.rs`: `-lcppan_shadow` plus rpath; `LD_LIBRARY_PATH` as fallback |
 
 Every wrapper returns the original's value or raises its exception; a disagreement
 is appended to `shadow/<ns>.shadow.jsonl` with the arguments, both results and a

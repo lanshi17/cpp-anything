@@ -18,7 +18,7 @@ export {
 
 namespace cppan::langs {
 
-enum class Lang : std::uint8_t { Ts, Js, Go, Ruby, Java, Php, Csharp };
+enum class Lang : std::uint8_t { Ts, Js, Go, Rust, Ruby, Java, Php, Csharp };
 
 [[nodiscard]] std::string_view id(Lang lang);
 [[nodiscard]] std::string_view label(Lang lang);
@@ -96,6 +96,14 @@ namespace java {
 }
 namespace php {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
+}
+namespace rust {
+[[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
+[[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
+                                         const std::vector<Json>& calls);
+[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
+    const Project& project, std::string_view ns);
 }
 namespace ruby {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);

@@ -280,6 +280,7 @@ gates a port gates the tool.
 | C-style C++ (`--lang cpp`) | the same loop, with modernization as the job: the analyzer names every C idiom (`malloc`/`free`, `char*`, `printf`, C casts, index loops, `typedef struct`) and the C++20/23 facility that replaces it, the generated README and profile gate each replacement on the target toolchain, and `gate` refuses C idioms left in `src/port.cpp` |
 | TypeScript/JavaScript | analyze, bridge, record, diff, bench, gate, shadow (Node-API addon); `--keep`/`--as-json`/`--kind napi`/`--node-arg`/`--resolve-from`/`--module` |
 | Go | analyze, bridge, record, diff, bench, gate, shadow (cgo); a unit is a package directory |
+| Rust | analyze, bridge, record, diff, bench, gate, shadow (generated Cargo crate over the C ABI); library crates only, free functions with integers, floats, bool, `String`/`&str`, `Vec<T>`/`&[T]`, `Option<T>`, `HashMap<String, T>` |
 | Ruby | analyze, bridge, record, diff, bench, gate, shadow (Fiddle, or the optional magnus extension) |
 | Java | analyze, bridge, record, diff, bench, gate, shadow (JNI); public static methods only |
 | PHP, C# | whole-app only: `app record`/`front-door`/`lift` exec the original; no per-unit recorder |

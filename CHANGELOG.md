@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Rust source language
+
+- `--lang rust` (and `Cargo.toml` detection) analyzes free functions in a library
+  crate: integers, floats, bool, `String`/`&str`, `Vec<T>`/`&[T]`, `Option<T>` and
+  `HashMap<String, T>`. Generics, traits, impl methods, `async`/`const`/`unsafe`,
+  `Result` and tuples are skipped with the reason.
+- `record` builds a small Cargo harness that depends on the original crate and
+  calls the functions; `bench` reuses it. Panics are recorded as the error type
+  `panic` with the message.
+- `shadow` emits a Cargo crate that re-exports the original functions, runs the
+  C++ port over the C ABI, and logs value/error disagreements.
+
 ### The tool is C++23
 
 - The Rust crate is gone: `cpp-anything` is a CMake/Ninja C++23 project with the

@@ -1,6 +1,6 @@
 ---
 name: cpp-anything
-description: Port Python, C, C-style C++, TypeScript/JavaScript, Go, Ruby or Java to C++20/23 with the cpp-anything CLI or MCP tools: analyze a repository, bridge one unit, record the original's behaviour, write the port, diff, bench, gate and shadow it. Use when asked to rewrite, port or migrate code or an app to C++ or C++23, to plan such a migration, to make slow Python faster by moving hot code to C++, or to check which compiler release supports a C++ feature.
+description: Port Python, C, C-style C++, TypeScript/JavaScript, Go, Rust, Ruby or Java to C++20/23 with the cpp-anything CLI or MCP tools: analyze a repository, bridge one unit, record the original's behaviour, write the port, diff, bench, gate and shadow it. Use when asked to rewrite, port or migrate code or an app to C++ or C++23, to plan such a migration, to make slow Python faster by moving hot code to C++, or to check which compiler release supports a C++ feature.
 ---
 
 # Migration to C++ with cpp-anything
@@ -17,10 +17,13 @@ CLI. If `cpp-anything` is not installed, ask the user to run
 
 ## Source languages
 
-`--lang python|c|cpp|ts|js|go|ruby|java|php|csharp` selects the plugin; without it
+`--lang python|c|cpp|ts|js|go|rust|ruby|java|php|csharp` selects the plugin; without it
 `analyze` detects from the manifest and `bridge` from the unit's extension. Python,
-C, C-style C++, TS/JS, Go, Ruby and Java have the full loop (analyze, bridge,
-record, build, diff, bench, gate, shadow). PHP and C# are whole-app only: `analyze`
+C, C-style C++, TS/JS, Go, Rust, Ruby and Java have the full loop (analyze,
+bridge, record, build, diff, bench, gate, shadow). Rust units must come from a
+library crate (`src/lib.rs` or `[lib]`) and the harness compiles a small Cargo
+crate that depends on it; functions with generics, traits, impl methods, `async`,
+`Result` or unsupported types are skipped with a reason. PHP and C# are whole-app only: `analyze`
 plans them, `app record`/`app front-door` front the app, and there is no per-unit
 bridge.
 

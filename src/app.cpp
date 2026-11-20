@@ -925,7 +925,7 @@ std::string discover_name(const std::filesystem::path& repo,
     if (stem.empty()) continue;
     if (stem != "python" && stem != "python3" && stem != "node" && stem != "sh" &&
         stem != "bash" && stem != "ruby" && stem != "go" && stem != "java" && stem != "php" &&
-        stem != "dotnet") {
+        stem != "dotnet" && stem != "cargo" && stem != "rustc") {
       return stem;
     }
   }

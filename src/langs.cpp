@@ -83,6 +83,7 @@ std::string_view id(Lang lang) {
     case Lang::Ts: return "ts";
     case Lang::Js: return "js";
     case Lang::Go: return "go";
+    case Lang::Rust: return "rust";
     case Lang::Ruby: return "ruby";
     case Lang::Java: return "java";
     case Lang::Php: return "php";
@@ -96,6 +97,7 @@ std::string_view label(Lang lang) {
     case Lang::Ts: return "TypeScript";
     case Lang::Js: return "JavaScript";
     case Lang::Go: return "Go";
+    case Lang::Rust: return "Rust";
     case Lang::Ruby: return "Ruby";
     case Lang::Java: return "Java";
     case Lang::Php: return "PHP";
@@ -111,6 +113,7 @@ std::vector<std::string_view> extensions(Lang lang) {
     case Lang::Ts: return {"ts", "mts", "cts"};
     case Lang::Js: return {"js", "mjs", "cjs", "jsx"};
     case Lang::Go: return {"go"};
+    case Lang::Rust: return {"rs"};
     case Lang::Ruby: return {"rb"};
     case Lang::Java: return {"java"};
     case Lang::Php: return {"php"};
@@ -127,6 +130,7 @@ std::optional<Lang> parse(std::string_view name) {
   if (name == "ts" || name == "typescript") return Lang::Ts;
   if (name == "js" || name == "javascript" || name == "node") return Lang::Js;
   if (name == "go" || name == "golang") return Lang::Go;
+  if (name == "rust" || name == "rs") return Lang::Rust;
   if (name == "rb" || name == "ruby") return Lang::Ruby;
   if (name == "java") return Lang::Java;
   if (name == "php") return Lang::Php;
@@ -139,7 +143,9 @@ std::optional<Lang> detect(const std::filesystem::path& repo) {
     return std::filesystem::is_regular_file(repo / std::string(name));
   };
   std::optional<Lang> manifest;
-  if (has("go.mod")) {
+  if (has("Cargo.toml")) {
+    manifest = Lang::Rust;
+  } else if (has("go.mod")) {
     manifest = Lang::Go;
   } else if (has("pom.xml") || has("build.gradle") || has("build.gradle.kts")) {
     manifest = Lang::Java;
@@ -180,7 +186,7 @@ std::optional<Lang> detect(const std::filesystem::path& repo) {
       }
       const std::string extension = entry.path().extension().string();
       const std::string_view bare = extension.empty() ? std::string_view() : std::string_view(extension).substr(1);
-      for (const Lang lang : {Lang::Ts, Lang::Js, Lang::Go, Lang::Ruby, Lang::Java}) {
+      for (const Lang lang : {Lang::Ts, Lang::Js, Lang::Go, Lang::Rust, Lang::Ruby, Lang::Java}) {
         for (const std::string_view candidate : extensions(lang)) {
           if (bare == candidate) ++counts[lang];
         }
@@ -214,8 +220,8 @@ std::optional<Lang> infer(const std::filesystem::path& repo, std::string_view un
   }
   const std::string extension = path.extension().string();
   const std::string_view bare = extension.empty() ? std::string_view() : std::string_view(extension).substr(1);
-  for (const Lang lang : {Lang::Ts, Lang::Js, Lang::Go, Lang::Ruby, Lang::Java, Lang::Php,
-                          Lang::Csharp}) {
+  for (const Lang lang : {Lang::Ts, Lang::Js, Lang::Go, Lang::Rust, Lang::Ruby, Lang::Java,
+                          Lang::Php, Lang::Csharp}) {
     for (const std::string_view candidate : extensions(lang)) {
       if (bare == candidate) return lang;
     }
@@ -315,6 +321,14 @@ std::vector<std::string_view> language_risks(Lang lang) {
           "the wire",
           "Modules with side effects on import make recording observe more than the functions",
       };
+    case Lang::Rust:
+      return {
+          "Rust integers are width-typed: u64/usize values above int64 do not cross the wire",
+          "Strings are UTF-8 bytes: byte offsets, chars and grapheme clusters are three answers",
+          "Panics are the error channel: the recorder captures the message, not a typed Result",
+          "Ownership and mutation are invisible at the call site; the port mirrors the observable "
+          "value, not the aliasing",
+      };
     case Lang::Go:
       return {
           "Go ints are 64-bit on this platform but 32-bit elsewhere: the signature decides the "
@@ -376,6 +390,7 @@ std::string module_name(const std::filesystem::path& relative) {
 Result<Analysis> analyze_file(const std::filesystem::path& file, Lang lang) {
   switch (lang) {
     case Lang::Ruby: return ruby::analyze(file);
+    case Lang::Rust: return rust::analyze(file);
     case Lang::Go: {
       if (!file.has_parent_path()) {
         return std::unexpected(file.string() + ": no parent directory");
@@ -575,6 +590,7 @@ Result<std::size_t> record(const Project& project, std::size_t count,
     }
   }
   switch (*lang) {
+    case Lang::Rust: return rust::record(project, *unit, calls);
     case Lang::Ruby: return ruby::record(project, *unit, calls);
     case Lang::Go: return go::record(project, *unit, calls);
     case Lang::Java: return java::record(project, *unit, calls);
@@ -590,6 +606,7 @@ Result<double> bench_original(const Project& project, std::size_t repeat) {
   const auto lang = parse(project.source_lang);
   if (!lang.has_value()) return std::unexpected(project.source_lang + " is not a plugin language");
   switch (*lang) {
+    case Lang::Rust: return rust::bench(project, repeat);
     case Lang::Ruby: return ruby::bench(project, repeat);
     case Lang::Go: return go::bench(project, repeat);
     case Lang::Java: return java::bench(project, repeat);
@@ -608,6 +625,7 @@ Result<std::vector<std::pair<std::string, std::string>>> shadow_files(const Proj
   if (!lang.has_value()) return std::vector<std::pair<std::string, std::string>>{};
   if (whole_app_only(*lang)) return std::vector<std::pair<std::string, std::string>>{};
   switch (*lang) {
+    case Lang::Rust: return rust::shadow_files(project, ns);
     case Lang::Ruby: return ruby::shadow_files(project, ns);
     case Lang::Go: return go::shadow_files(project, ns);
     case Lang::Java: return java::shadow_files(project, ns);

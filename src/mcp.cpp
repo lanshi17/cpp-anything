@@ -1,12 +1,14 @@
-#include "cppan/mcp.hpp"
-
+module;
 #include <cstdio>
-#include <iostream>
-#include <print>
-#include <sstream>
-
-#include "cppan/json.hpp"
 #include "cppan/skill_md.hpp"
+
+module cppan.mcp;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.json;
+
+import std;
 
 namespace cppan::mcp {
 namespace {

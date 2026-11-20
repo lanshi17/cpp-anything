@@ -1,12 +1,12 @@
-#include "cppan/langs.hpp"
+module;
 
-#include "cppan/corpora.hpp"
-
-#include <algorithm>
-#include <format>
-#include <map>
-#include <set>
-
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.corpora;
+import std;
 
 namespace cppan::langs {
 namespace {

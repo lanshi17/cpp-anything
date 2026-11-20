@@ -1,10 +1,12 @@
-#include "cppan/bench.hpp"
-
-#include <algorithm>
+module;
 #include <cmath>
-#include <format>
 
-#include "cppan/python.hpp"
+module cppan.bench;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.python;
+import std;
 
 namespace cppan::bench {
 

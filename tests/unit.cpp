@@ -1,12 +1,9 @@
+#include <cstdio>
 // Unit checks for the pieces the reference implementation defines exactly:
 // float text, hashing, version comparison and the host name of the probe.
-#include <cstdio>
-#include <cstdlib>
-#include <string>
-#include <vector>
-
-#include "cppan/json.hpp"
-#include "cppan/util.hpp"
+import std;
+import cppan.json;
+import cppan.util;
 
 namespace {
 

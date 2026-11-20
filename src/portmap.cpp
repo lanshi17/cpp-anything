@@ -1,11 +1,14 @@
-#include "cppan/portmap.hpp"
+module;
 
-#include <algorithm>
-#include <format>
-
-#include "cppan/python.hpp"
-#include "cppan/project.hpp"
-#include "cppan/recording.hpp"
+module cppan.portmap;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.project;
+import cppan.python;
+import cppan.recording;
+import std;
 
 namespace cppan::portmap {
 namespace {

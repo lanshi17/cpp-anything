@@ -1,10 +1,11 @@
-#include "cppan/docs.hpp"
+module;
 
-#include <algorithm>
-#include <format>
-#include <map>
-
-#include "cppan/matrix.hpp"
+module cppan.docs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.matrix;
+import std;
 
 namespace cppan::docs {
 namespace {

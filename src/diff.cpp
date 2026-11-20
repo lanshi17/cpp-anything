@@ -1,13 +1,13 @@
-#include "cppan/diff.hpp"
-
-#include <algorithm>
-#include <bit>
+module;
 #include <cctype>
 #include <cmath>
-#include <format>
-#include <map>
 
-#include "cppan/recording.hpp"
+module cppan.diff;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.recording;
+import std;
 
 namespace cppan::diff {
 namespace {

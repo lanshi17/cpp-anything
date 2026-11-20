@@ -1,10 +1,12 @@
-#include "cppan/setup.hpp"
-
-#include <algorithm>
-#include <format>
-#include <print>
-
+module;
 #include "cppan/skill_md.hpp"
+
+module cppan.setup;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+
+import std;
 
 namespace cppan::setup {
 namespace {

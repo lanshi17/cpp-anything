@@ -1,7 +1,9 @@
 // `app`: record a CLI black-box, replay any build against it, and put a C++ front
 // door in front of the original so the app can ship before every unit is ported.
-#include "cppan/app.hpp"
-
+module;
+#include <cctype>
+#include <cerrno>
+#include <cstring>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -9,28 +11,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <algorithm>
-#include <atomic>
-#include <cctype>
-#include <cerrno>
-#include <charconv>
-#include <chrono>
-#include <cstring>
-#include <format>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <optional>
-#include <print>
-#include <set>
-#include <string_view>
-#include <thread>
-
-#include "cppan/appcase.hpp"
-#include "cppan/appfront.hpp"
-#include "cppan/apphttp.hpp"
-#include "cppan/json.hpp"
-#include "cppan/util.hpp"
+module cppan.app;
+import cppan.types;
+import cppan.appcase;
+import cppan.appfront;
+import cppan.apphttp;
+import cppan.json;
+import cppan.util;
+import std;
 
 namespace cppan::app {
 namespace {

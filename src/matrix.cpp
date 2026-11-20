@@ -1,16 +1,15 @@
-#include "cppan/matrix.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
-#include <format>
-#include <stdexcept>
-#include <tuple>
-
-#include "cppan/json.hpp"
-#include "cppan/util.hpp"
 #include "cppan/matrix_json.hpp"
+
+module cppan.matrix;
+import cppan.types;
+import cppan.json;
+
+import cppan.util;
+import std;
 
 namespace cppan {
 namespace {

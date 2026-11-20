@@ -1,7 +1,11 @@
-#include "cppan/modules.hpp"
-
+module;
 #include <cstdlib>
-#include <format>
+
+module cppan.modules;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan::modules {
 

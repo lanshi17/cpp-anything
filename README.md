@@ -28,8 +28,10 @@ $ cpp-anything bench cpp/textkit-words            # 333 ns -> 141 ns per call (2
 
 ## Quick start
 
-Requirements: CMake 3.28+, a C++23 compiler (GCC 13+, Clang 17+, MSVC 19.33+), and
-the Python 3 that runs the code you are porting.
+Requirements: CMake 3.28+, Ninja, a C++23 compiler with modules and `import std;`
+(GCC 15+, Clang 18+ with libc++ modules, MSVC 19.44+), and the Python 3 that runs
+the code you are porting. Generated projects still target GCC 13+/Clang 17+/MSVC
+19.33+; the higher floor is for building cpp-anything itself.
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

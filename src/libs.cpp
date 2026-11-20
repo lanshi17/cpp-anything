@@ -1,9 +1,12 @@
-#include "cppan/libs.hpp"
-
-#include <algorithm>
-
-#include "cppan/json.hpp"
+module;
 #include "cppan/libs_json.hpp"
+
+module cppan.libs;
+import cppan.types;
+import cppan.util;
+import cppan.json;
+
+import std;
 
 namespace cppan::libs {
 namespace {

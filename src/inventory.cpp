@@ -1,6 +1,10 @@
-#include "cppan/inventory.hpp"
+module;
 
-#include <format>
+module cppan.inventory;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan {
 namespace {

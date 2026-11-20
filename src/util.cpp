@@ -1,24 +1,20 @@
-#include "cppan/util.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
-#include <thread>
 #include <cerrno>
-#include <chrono>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
-#include <fstream>
-#include <sstream>
-
+#include <cwchar>
 #if defined(__unix__) || defined(__APPLE__)
 #include <poll.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #elif defined(_WIN32)
 #include <windows.h>
-#include <cwchar>
 #endif
+
+module cppan.util;
+import std;
 
 namespace cppan {
 namespace {
@@ -535,6 +531,21 @@ std::optional<std::filesystem::path> relative_path(const std::filesystem::path& 
   for (; base_part != absolute_base.end(); ++base_part) out /= "..";
   for (; path_part != absolute_path.end(); ++path_part) out /= *path_part;
   return out;
+}
+
+std::filesystem::path shadow_library_path(const std::filesystem::path& project_dir) {
+#if defined(_WIN32)
+  return project_dir / "build" / "cppan_shadow.dll";
+#elif defined(__APPLE__)
+  return project_dir / "build" / "libcppan_shadow.dylib";
+#else
+  return project_dir / "build" / "libcppan_shadow.so";
+#endif
+}
+
+std::filesystem::path shadow_log_path(const std::filesystem::path& project_dir,
+                                      std::string_view unit) {
+  return project_dir / "shadow" / (sanitize_identifier(unit) + ".shadow.jsonl");
 }
 
 std::string sanitize_identifier(std::string_view text) {

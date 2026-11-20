@@ -1,6 +1,4 @@
-#include "cppan/python.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cstdlib>
 #if defined(_WIN32)
@@ -12,7 +10,12 @@
 #include "cppan/probe_py.hpp"
 #include "cppan/sitecustomize_py.hpp"
 
-#include <set>
+module cppan.python;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import std;
 
 namespace cppan::python {
 namespace {

@@ -1,8 +1,11 @@
-#include "cppan/corpora.hpp"
+module;
 
-#include <algorithm>
-#include <format>
-#include <initializer_list>
+module cppan.corpora;
+import cppan.json;
+import cppan.util;
+import cppan.inventory;
+import std;
+import cppan.types;
 
 namespace cppan::corpora {
 namespace {

@@ -7,21 +7,16 @@
 // double/float, boolean, String, List<String> and Map<String,String>. Everything
 // else (arrays, varargs, other generic types, instance methods, constructors) is
 // reported as skipped with the type that refused it.
-#include <algorithm>
-#include <charconv>
+module;
 #include <cctype>
 #include <cmath>
-#include <cstdint>
-#include <format>
-#include <map>
-#include <optional>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <vector>
 
-#include "cppan/langs.hpp"
-#include "cppan/shadow.hpp"
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import std;
 
 namespace cppan::langs::java {
 namespace {
@@ -1518,7 +1513,7 @@ std::vector<std::pair<std::string, std::string>> shadow_files(const Project& pro
   (void)ns;
   const auto parsed = parse_java(project.source_file);
   if (!parsed) return {};
-  const std::string log = shadow::log_path(project).string();
+  const std::string log = shadow_log_path(project.dir, project.unit).string();
   const std::string qualified =
       parsed->package.empty() ? parsed->class_name : parsed->package + "." + parsed->class_name;
   std::string out;

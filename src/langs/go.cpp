@@ -1,15 +1,15 @@
 // Go: a unit is a package. The analyzer reads exported functions and their Go
 // types; the recorder builds a harness inside the module; the shadow binding uses
 // cgo over the same C ABI.
-#include <algorithm>
+module;
 #include <cctype>
-#include <format>
-#include <map>
-#include <set>
 
-#include "cppan/codegen.hpp"
-#include "cppan/langs.hpp"
-#include "cppan/shadow.hpp"
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import std;
 
 namespace cppan::langs::go {
 namespace {
@@ -1242,7 +1242,7 @@ Result<std::size_t> record(const Project& project, const Unit& unit,
   if (unit.functions.empty()) {
     return std::unexpected("the package has no functions with a supported signature");
   }
-  const std::string ns = codegen::namespace_of(project);
+  const std::string ns = sanitize_identifier(project.unit);
   auto harness = locate_harness(project, unit.file, ns);
   if (!harness) return std::unexpected(harness.error());
   std::vector<std::string> functions;
@@ -1290,7 +1290,7 @@ Result<double> bench(const Project& project, std::size_t repeat) {
     })));
   }
   if (calls.empty()) return std::unexpected("no recorded cases to benchmark");
-  const std::string ns = codegen::namespace_of(project);
+  const std::string ns = sanitize_identifier(project.unit);
   auto harness = locate_harness(project, project.source_file, ns);
   if (!harness) return std::unexpected(harness.error());
 
@@ -1726,7 +1726,7 @@ std::vector<std::pair<std::string, std::string>> shadow_files(const Project& pro
   if (std::filesystem::is_directory(project.source_file, error)) {
     signatures = read_signatures(project.source_file);
   }
-  const std::string log = shadow::log_path(project).string();
+  const std::string log = shadow_log_path(project.dir, project.unit).string();
   std::string wrappers;
   for (const Function& function : project.functions) {
     if (function.name == "Call" || function.name == "Error") {

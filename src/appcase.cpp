@@ -1,14 +1,15 @@
-#include "cppan/appcase.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
-#include <functional>
-#include <map>
-#include <stdexcept>
 #include <unistd.h>
+
+module cppan.appcase;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan::appcase {
 namespace {

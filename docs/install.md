@@ -4,8 +4,9 @@
 
 | Tool | Version | Why |
 | --- | --- | --- |
-| CMake | 3.28+ | generated projects; the `project()`/`target_compile_features` surface used |
-| C++ compiler | GCC 14+, Clang 18+, MSVC 19.33+ | building cpp-anything itself (`std::print`, `std::expected`, `std::span`) |
+| CMake | 3.28+ | module scanning (`FILE_SET CXX_MODULES`) and generated projects |
+| Ninja | 1.10+ | CMake scans module interfaces with Ninja (or Visual Studio) |
+| C++ compiler | GCC 15+, Clang 18+ with libc++ modules, MSVC 19.44+ | building cpp-anything itself (C++20 modules, `import std;`) |
 | C++ compiler for generated projects | GCC 13+, Clang 17+ (libc++ 16+), MSVC 19.33+ | what `matrix` says each release supports |
 | Python | the interpreter that runs the code being ported (`CPPAN_PYTHON` overrides `python3`) | `analyze`, `record`, `bench` |
 | C++23 compiler | the one above | building cpp-anything itself |
@@ -17,7 +18,7 @@
 ```sh
 git clone https://github.com/lanshi17/cpp-anything
 cd cpp-anything
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 cmake --install build        # or run ./build/cpp-anything directly
 cpp-anything doctor
@@ -57,11 +58,11 @@ analyze → plan → bridge → record → port → diff → gate, one unit at a
 ## CI
 
 `cpp-anything` is one dependency-free binary, so CI is: configure and build with
-CMake, run the CTest suite, then `rsi check` (which needs CMake and a C++ compiler
-for the self-port step).
+CMake and a C++23 compiler that ships the `std` module (GCC 15+), run the CTest
+suite, then `rsi check`.
 
 ```yaml
-- run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+- run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 - run: cmake --build build -j
 - run: ctest --test-dir build --output-on-failure
 - run: ./build/cpp-anything matrix docs --check

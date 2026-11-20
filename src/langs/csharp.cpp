@@ -1,9 +1,13 @@
 // C# is whole-app only: the analyzer lists public static methods so
 // `analyze --whole-app` can plan an app; `bridge`/`record` refuse per-unit ports.
-#include <algorithm>
+module;
 #include <cctype>
 
-#include "cppan/langs.hpp"
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan::langs::csharp {
 namespace {

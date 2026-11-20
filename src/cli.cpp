@@ -1,34 +1,35 @@
-#include "cppan/cli.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
-#include <iostream>
 #include <cstdio>
-#include <format>
-#include <print>
-#include <thread>
 
-#include "cppan/analyze.hpp"
-#include "cppan/app.hpp"
-#include "cppan/docs.hpp"
-#include "cppan/json.hpp"
-#include "cppan/langc.hpp"
-#include "cppan/build.hpp"
-#include "cppan/codegen.hpp"
-#include "cppan/bench.hpp"
-#include "cppan/diff.hpp"
-#include "cppan/doctor.hpp"
-#include "cppan/mcp.hpp"
-#include "cppan/setup.hpp"
-#include "cppan/gate.hpp"
-#include "cppan/langs.hpp"
-#include "cppan/modules.hpp"
-#include "cppan/portmap.hpp"
-#include "cppan/profile.hpp"
-#include "cppan/rsi.hpp"
-#include "cppan/python.hpp"
-#include "cppan/shadow.hpp"
-#include "cppan/matrix.hpp"
+module cppan.cli;
+import cppan.args;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.analyze;
+import cppan.app;
+import cppan.bench;
+import cppan.build;
+import cppan.codegen;
+import cppan.diff;
+import cppan.docs;
+import cppan.doctor;
+import cppan.gate;
+import cppan.json;
+import cppan.langc;
+import cppan.langs;
+import cppan.matrix;
+import cppan.mcp;
+import cppan.modules;
+import cppan.project;
+import cppan.portmap;
+import cppan.profile;
+import cppan.python;
+import cppan.rsi;
+import cppan.setup;
+import cppan.shadow;
+import std;
 
 namespace cppan::cli {
 namespace {
@@ -1125,73 +1126,6 @@ Result<int> matrix_command(const Parsed& args) {
 }
 
 }  // namespace
-
-std::optional<std::string> Parsed::value(std::string_view name) const {
-  if (auto found = values.find(std::string(name)); found != values.end()) return found->second;
-  return std::nullopt;
-}
-
-bool Parsed::flag(std::string_view name) const { return flags.contains(std::string(name)); }
-
-std::vector<std::string> Parsed::many(std::string_view name) const {
-  if (auto found = multi.find(std::string(name)); found != multi.end()) return found->second;
-  return {};
-}
-
-std::optional<std::uint64_t> Parsed::number(std::string_view name) const {
-  const auto text = value(name);
-  if (!text.has_value()) return std::nullopt;
-  try {
-    std::size_t used = 0;
-    const auto number = std::stoull(*text, &used);
-    if (used != text->size()) return std::nullopt;
-    return number;
-  } catch (const std::exception&) {
-    return std::nullopt;
-  }
-}
-
-Result<Parsed> parse_args(const std::vector<std::string>& argv) {
-  static const std::set<std::string> kBooleanFlags = {
-      "json",  "force", "clean",       "check", "strict-errors", "help",
-      "list",  "bench", "refresh",     "offline", "library"};
-  Parsed parsed;
-  std::size_t index = 0;
-  while (index < argv.size()) {
-    const std::string& arg = argv[index];
-    if (arg == "--") {
-      parsed.trailing.assign(argv.begin() + static_cast<std::ptrdiff_t>(index + 1), argv.end());
-      break;
-    }
-    if (arg.starts_with("--")) {
-      const std::string body = arg.substr(2);
-      if (const std::size_t equals = body.find('='); equals != std::string::npos) {
-        const std::string key = body.substr(0, equals);
-        const std::string value = body.substr(equals + 1);
-        parsed.values[key] = value;
-        parsed.multi[key].push_back(value);
-      } else if (kBooleanFlags.contains(body)) {
-        parsed.flags.insert(body);
-      } else if (index + 1 < argv.size() && !argv[index + 1].starts_with("--")) {
-        parsed.values[body] = argv[index + 1];
-        parsed.multi[body].push_back(argv[index + 1]);
-        ++index;
-      } else {
-        parsed.flags.insert(body);
-      }
-    } else if (arg == "-h") {
-      parsed.flags.insert("help");
-    } else if (arg == "-o") {
-      if (index + 1 >= argv.size()) return std::unexpected("-o needs a file name");
-      parsed.values["out"] = argv[index + 1];
-      ++index;
-    } else {
-      parsed.positional.push_back(arg);
-    }
-    ++index;
-  }
-  return parsed;
-}
 
 Result<int> run(const std::vector<std::string>& argv) {
   if (argv.empty()) {

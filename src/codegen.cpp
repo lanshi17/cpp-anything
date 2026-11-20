@@ -1,20 +1,23 @@
-#include "cppan/codegen.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cmath>
-#include <format>
-#include <optional>
-#include <string_view>
-
+#include <cstdlib>
+#include <cstring>
 #include "cppan/batch_py.hpp"
 #include "cppan/driver_main_cpp.hpp"
 #include "cppan/json_hpp.hpp"
-#include "cppan/langs.hpp"
-#include "cppan/matrix.hpp"
 #include "cppan/shadow_cpp.hpp"
 #include "cppan/shadow_module_py.hpp"
 #include "cppan/wire_hpp.hpp"
+
+module cppan.codegen;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.langs;
+import cppan.matrix;
+import std;
 
 namespace cppan::codegen {
 namespace {

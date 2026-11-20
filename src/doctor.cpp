@@ -1,18 +1,17 @@
-#include "cppan/doctor.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cstdlib>
-#include <ranges>
-#include <format>
-#include <print>
 
-#include "cppan/docs.hpp"
-#include "cppan/json.hpp"
-#include "cppan/matrix.hpp"
-#include "cppan/modules.hpp"
-#include "cppan/python.hpp"
-#include "cppan/setup.hpp"
+module cppan.doctor;
+import cppan.types;
+import cppan.util;
+import cppan.docs;
+import cppan.json;
+import cppan.matrix;
+import cppan.modules;
+import cppan.python;
+import cppan.setup;
+import std;
 
 namespace cppan::doctor {
 namespace {

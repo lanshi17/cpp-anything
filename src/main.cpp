@@ -1,15 +1,14 @@
+#include <cstdio>
+import cppan.cli;
+import std;
+
 // cpp-anything: rewrite your app in C++ (C++20/23), and prove it still behaves
 // the same.
 //
 // The loop is `analyze` → `bridge` → `record` → (write C++) → `build` → `diff` →
 // `gate`, with `matrix` answering what the target toolchain can compile and `rsi`
 // using the same loop to check cpp-anything itself.
-#include <cstdio>
-#include <print>
-#include <string>
-#include <vector>
 
-#include "cppan/cli.hpp"
 
 int main(int argc, char** argv) {
   // Rust's stdout is line buffered; matching that keeps stdout/stderr interleaved

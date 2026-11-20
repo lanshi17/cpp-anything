@@ -1,9 +1,11 @@
-#include "cppan/build.hpp"
+module;
 
-#include <algorithm>
-#include <format>
-
-#include "cppan/modules.hpp"
+module cppan.build;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.modules;
+import std;
 
 namespace cppan::build {
 namespace {

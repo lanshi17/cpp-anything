@@ -8,18 +8,20 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    # cpp-anything is built as C++20 modules and imports the standard library;
+    # GCC 15 is the first release that ships the `std` module source.
+    container: gcc:15
     steps:
       - uses: actions/checkout@v4
       - name: toolchain
         run: |
-          sudo apt-get update
-          # std::print (C++23) needs GCC 14+; generated projects still target GCC 13+.
-          sudo apt-get install -y cmake ninja-build g++-14 python3
-          g++-14 --version | head -1
+          apt-get update
+          apt-get install -y cmake ninja-build python3 git
+          g++ --version | head -1
           cmake --version | head -1
       - name: configure and build
         run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=g++-14
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j
       - name: tests
         run: ctest --test-dir build --output-on-failure

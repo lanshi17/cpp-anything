@@ -10,8 +10,9 @@ are the frozen transcript of that reference.
 | path | what |
 | --- | --- |
 | `CMakeLists.txt` | the C++ project: C++23, warnings, `CPPAN_SANITIZE`, install, CTest |
-| `include/cppan/` | headers, one per module; `json.hpp` is also embedded into generated projects |
-| `src/` | implementations, one translation unit per Rust module |
+| `src/modules/*.cppm` | C++20 module interfaces (`export module cppan.*`), one per component |
+| `src/` | implementation units (`module cppan.*;`) that `import std;` and their dependencies |
+| `include/cppan/json.hpp` | the only header: it is embedded into generated projects and wrapped by `cppan.json` |
 | `src/langs/` | the Go, Java, PHP, C#, Ruby and TS/JS plugins |
 | `resources/` | the runtime files generated projects embed (wire header, driver, shadow, probe) |
 | `tests/golden.py`, `tests/unit.cpp` | CLI golden replay and unit checks (CTest) |
@@ -44,8 +45,9 @@ are the frozen transcript of that reference.
 
 ## Rules
 
-- One Rust module becomes one header plus one translation unit, same function
-  names, same output text. Behaviour that looks odd is copied deliberately until
+- Code is built as C++20 modules: interfaces live in `src/modules/*.cppm`,
+  implementation units import them, and the standard library comes from
+  `import std;`. Only the generated-project JSON codec stays a header. Behaviour that looks odd is copied deliberately until
   the reference changes; note it where it is not obvious.
 - Errors are `cppan::Result<T>` (`std::expected<T, std::string>`), never
   exceptions across module boundaries. `JsonError` from the shared codec is
@@ -64,7 +66,7 @@ this is part of the wire contract.
 ## Verifying
 
 ```sh
-cmake -S . -B build -G Ninja && cmake --build build -j
+cmake -S . -B build -G Ninja && cmake --build build -j   # GCC 15+ (std module)
 ctest --test-dir build --output-on-failure
 ./build/cpp-anything rsi check
 ```

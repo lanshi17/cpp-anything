@@ -1,31 +1,22 @@
-#include "cppan/profile.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
-#include <charconv>
-#include <chrono>
 #include <cmath>
 #include <cstdlib>
-#include <format>
-#include <functional>
-#include <map>
-#include <optional>
-#include <print>
-#include <string_view>
-#include <system_error>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-
 #if defined(_WIN32)
 #include <process.h>
 #else
 #include <unistd.h>
 #endif
 
-#include "cppan/langc.hpp"
-#include "cppan/langs.hpp"
-#include "cppan/python.hpp"
+module cppan.profile;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.langc;
+import cppan.langs;
+import cppan.python;
+import std;
 
 namespace cppan::profile {
 namespace {

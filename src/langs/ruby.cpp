@@ -1,14 +1,15 @@
 // Ruby: top-level functions (and module functions) with arguments the wire can
 // carry. The recorder runs the original with `ruby`, the shadow module calls the
 // C++ port through Fiddle (no compiler needed in the Ruby process).
-#include <algorithm>
+module;
 #include <cctype>
-#include <format>
-#include <map>
 
-#include "cppan/codegen.hpp"
-#include "cppan/langs.hpp"
-#include "cppan/shadow.hpp"
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import std;
 
 namespace cppan::langs::ruby {
 namespace {
@@ -546,8 +547,8 @@ puts JSON.generate({ 'ns' => ((finished - started) * 1_000_000_000).to_i, 'calls
 
 std::vector<std::pair<std::string, std::string>> shadow_files(const Project& project,
                                                               std::string_view ns) {
-  const std::string library = codegen::shadow_library(project).string();
-  const std::string log = shadow::log_path(project).string();
+  const std::string library = shadow_library_path(project.dir).string();
+  const std::string log = shadow_log_path(project.dir, project.unit).string();
   std::string calls;
   for (std::size_t index = 0; index < project.functions.size(); ++index) {
     const Function& function = project.functions[index];

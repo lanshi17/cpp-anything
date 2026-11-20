@@ -1,12 +1,14 @@
-#include "cppan/langc.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
-#include <format>
-#include <map>
-
 #include "cppan/harness_c_cpp.hpp"
-#include "cppan/modern.hpp"
+
+module cppan.langc;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.modern;
+import std;
 
 namespace cppan::langc {
 namespace {
@@ -248,6 +250,14 @@ std::string describe(const CFunction& function) {
   return function.ret_c + " " + function.name + "(" + params + ")";
 }
 
+std::vector<modern::FunctionStart> function_starts(const Analysis& analysis) {
+  std::vector<modern::FunctionStart> starts;
+  for (const CFunction& function : analysis.functions) {
+    starts.push_back(modern::FunctionStart{function.line, function.name});
+  }
+  return starts;
+}
+
 Function to_function(const CFunction& function) {
   Function out;
   out.name = function.name;
@@ -404,7 +414,7 @@ Result<Unit> unit(const std::filesystem::path& repo, std::string_view relative_o
         "accepts any port behaviour",
     };
     const auto source = read_file(file).value_or(std::string());
-    const auto opportunities = modern::scan(source, analysis->functions);
+    const auto opportunities = modern::scan(source, function_starts(*analysis));
     for (std::size_t index = 0; index < opportunities.size() && index < 20; ++index) {
       out.risks.push_back(opportunities[index].function + ": " + opportunities[index].describe());
     }
@@ -451,7 +461,7 @@ Result<Json> analyze_repo(const std::filesystem::path& repo, Lang lang) {
       std::vector<modern::Opportunity> modernization;
       if (lang == Lang::Cpp) {
         modernization = modern::scan(read_file(entry.path()).value_or(std::string()),
-                                     analysis->functions);
+                                     function_starts(*analysis));
       }
       Json::Array functions;
       for (const CFunction& function : analysis->functions) {

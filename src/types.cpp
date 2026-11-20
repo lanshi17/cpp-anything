@@ -1,10 +1,12 @@
-#include "cppan/types.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
-#include <charconv>
 #include <cmath>
 #include <cstdio>
+
+module cppan.types;
+import cppan.json;
+import cppan.util;
+import std;
 
 namespace cppan {
 namespace {

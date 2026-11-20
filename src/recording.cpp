@@ -1,7 +1,10 @@
-#include "cppan/recording.hpp"
+module;
 
-#include "cppan/json.hpp"
-#include "cppan/util.hpp"
+module cppan.recording;
+import cppan.types;
+import cppan.json;
+import cppan.util;
+import std;
 
 namespace cppan::recording {
 

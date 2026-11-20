@@ -1,11 +1,11 @@
-#include "cppan/modern.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
-#include <set>
-#include <tuple>
 
-#include "cppan/util.hpp"
+module cppan.modern;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan::modern {
 namespace {
@@ -67,9 +67,9 @@ std::string Opportunity::describe() const {
 }
 
 std::vector<Opportunity> scan(std::string_view source,
-                              const std::vector<langc::CFunction>& functions) {
+                              const std::vector<FunctionStart>& functions) {
   std::vector<std::pair<std::uint32_t, std::string>> starts;
-  for (const langc::CFunction& function : functions) {
+  for (const FunctionStart& function : functions) {
     starts.emplace_back(std::max<std::uint32_t>(function.line, 1), function.name);
   }
   std::vector<Opportunity> out;

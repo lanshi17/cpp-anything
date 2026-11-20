@@ -1,11 +1,13 @@
-#include "cppan/analyze.hpp"
+module;
 
-#include <algorithm>
-#include <format>
-#include <map>
-
-#include "cppan/libs.hpp"
-#include "cppan/python.hpp"
+module cppan.analyze;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.libs;
+import cppan.python;
+import std;
 
 namespace cppan::analyze {
 namespace {

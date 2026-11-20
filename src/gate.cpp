@@ -1,15 +1,17 @@
-#include "cppan/gate.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cmath>
-#include <format>
-#include <optional>
 
-#include "cppan/bench.hpp"
-#include "cppan/build.hpp"
-#include "cppan/diff.hpp"
-#include "cppan/matrix.hpp"
+module cppan.gate;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import cppan.bench;
+import cppan.build;
+import cppan.diff;
+import cppan.matrix;
+import std;
 
 namespace cppan::gate {
 namespace {

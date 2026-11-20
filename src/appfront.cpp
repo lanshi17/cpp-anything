@@ -1,19 +1,19 @@
-#include "cppan/appfront.hpp"
-
-#include <algorithm>
+module;
 #include <cctype>
 #include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
-#include <filesystem>
-#include <map>
-#include <set>
-#include <string_view>
 #include <unistd.h>
 
-#include "cppan/codegen.hpp"
-#include "cppan/json.hpp"
-#include "cppan/project.hpp"
+module cppan.appfront;
+import cppan.types;
+import cppan.util;
+import cppan.codegen;
+import cppan.json;
+import cppan.project;
+import std;
 
 namespace cppan::appfront {
 namespace {

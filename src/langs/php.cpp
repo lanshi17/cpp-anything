@@ -1,8 +1,12 @@
 // PHP is whole-app only: the analyzer lists top-level functions so `analyze
 // --whole-app` can plan an app, and `bridge`/`record` refuse per-unit ports.
-#include <algorithm>
+module;
 
-#include "cppan/langs.hpp"
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan::langs::php {
 namespace {

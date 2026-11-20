@@ -1,23 +1,23 @@
 // `rsi`: cpp-anything checking itself with its own loop. Every step either proves a
 // shipped artefact still works or says exactly what drifted.
-#include "cppan/cli.hpp"
-
-#include <algorithm>
-#include <format>
-#include <print>
+module;
 #if !defined(_WIN32)
 #include <unistd.h>
 #endif
 
-#include "cppan/build.hpp"
-#include "cppan/codegen.hpp"
-#include "cppan/diff.hpp"
-#include "cppan/docs.hpp"
-#include "cppan/json.hpp"
-#include "cppan/matrix.hpp"
-#include "cppan/project.hpp"
-#include "cppan/python.hpp"
-#include "cppan/util.hpp"
+module cppan.rsi;
+import cppan.types;
+import cppan.build;
+import cppan.args;
+import cppan.codegen;
+import cppan.diff;
+import cppan.docs;
+import cppan.json;
+import cppan.matrix;
+import cppan.project;
+import cppan.python;
+import cppan.util;
+import std;
 
 namespace cppan::rsi {
 namespace {

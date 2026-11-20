@@ -7,15 +7,17 @@
 // `export function`, `export const ... = (...) =>`, `export const ... = function`
 // and `module.exports.name = ...` forms. Everything else is reported in `skipped`
 // with a reason, never guessed.
-#include <algorithm>
+module;
 #include <cctype>
 #include <cmath>
-#include <format>
-#include <map>
+#include <cstdlib>
 
-#include "cppan/codegen.hpp"
-#include "cppan/langs.hpp"
-#include "cppan/shadow.hpp"
+module cppan.langs;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import std;
 
 namespace cppan::langs::ts {
 namespace {
@@ -1675,8 +1677,8 @@ std::string addon_name(std::string_view ns) { return std::string(ns) + "_shadow"
 
 std::vector<std::pair<std::string, std::string>> shadow_files(const Project& project,
                                                               std::string_view ns, Lang) {
-  const std::string library = codegen::shadow_library(project).string();
-  const std::string log = shadow::log_path(project).string();
+  const std::string library = shadow_library_path(project.dir).string();
+  const std::string log = shadow_log_path(project.dir, project.unit).string();
   const std::string addon = (project.dir / "shadow" / (addon_name(ns) + ".node")).string();
   const Specifier spec =
       specifier(project,

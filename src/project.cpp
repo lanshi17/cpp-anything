@@ -1,4 +1,11 @@
-#include "cppan/project.hpp"
+module;
+
+module cppan.project;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import cppan.inventory;
+import std;
 
 namespace cppan {
 namespace {

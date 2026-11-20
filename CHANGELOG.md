@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### The tool is C++23
+
+- The Rust crate is gone: `cpp-anything` is a CMake/Ninja C++23 project with the
+  same CLI, MCP server and golden outputs. No third-party dependencies: JSON,
+  argv parsing, the compiler matrix and the language plugins are first-party.
+- The implementation is built as C++20 modules (`src/modules/*.cppm`,
+  `import std;`). Shared leaves (`cppan.args`, shadow paths in `cppan.util`) keep
+  the module graph acyclic; only the JSON codec stays a header because it is also
+  embedded into generated projects.
+- Requires GCC 15+ (the `std` module), Clang 18+ with libc++ modules, or MSVC
+  19.44+, and Ninja for module scanning. Generated projects keep the lower
+  GCC 13+/Clang 17+/MSVC 19.33+ floor.
+
 ## 0.4.0
 
 ### Source language plugins
@@ -215,8 +230,10 @@ First release: the loop, the matrix and the self-check.
 cpp-anything has been rewritten in C++23. The Rust implementation is gone; the
 tool, its JSON codec and the generated projects are now one C++ codebase.
 
-- **Build**: `cmake -S . -B build && cmake --build build`; tests run under CTest
-  (`ctest --test-dir build`). Requires GCC 14+ / Clang 18+ / MSVC 19.33+.
+- **Build**: `cmake -S . -B build -G Ninja && cmake --build build`; tests run under
+  CTest (`ctest --test-dir build`). The tool itself is built as C++20 modules and
+  uses `import std;`, so it requires GCC 15+ / Clang 18+ with libc++ modules /
+  MSVC 19.44+, plus Ninja for module scanning.
 - **No behaviour change by design**: recorded CLI output, generated projects,
   `cases.jsonl`, shadow bindings and `rsi check` are byte-compatible with 0.4.0.
 - **Portability**: process execution has a POSIX and a Windows implementation;

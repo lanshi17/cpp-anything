@@ -1,16 +1,16 @@
-#include "cppan/shadow.hpp"
+module;
 
-#include <algorithm>
-#include <format>
-#include <map>
-
-#include "cppan/codegen.hpp"
+module cppan.shadow;
+import cppan.json;
+import cppan.types;
+import cppan.util;
+import std;
 
 namespace cppan::shadow {
 
 std::filesystem::path log_path(const Project& project) {
   return project.dir / "shadow" /
-         (codegen::namespace_of(project) + ".shadow.jsonl");
+         (sanitize_identifier(project.unit) + ".shadow.jsonl");
 }
 
 Result<Report> read_report(const Project& project) {
@@ -61,7 +61,7 @@ std::string render(const Report& report, const Project& project) {
         "cpp-anything shadow: {} — no mismatches logged yet\n\nimport the generated module where "
         "the original was imported and run the app:\n  sys.path.insert(0, \"{}\")\n  import "
         "{}_shadow as ...\n",
-        project.module, (project.dir / "shadow").string(), codegen::namespace_of(project));
+        project.module, (project.dir / "shadow").string(), sanitize_identifier(project.unit));
   }
   std::string out = std::format("cpp-anything shadow: {} — {} mismatch(es) over {} call(s)\n\n",
                                 project.module, report.mismatches.size(), report.lines);

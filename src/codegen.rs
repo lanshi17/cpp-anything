@@ -12,7 +12,7 @@ use crate::project::Project;
 use crate::types::Ty;
 use crate::util;
 
-const JSON_HPP: &str = include_str!("cpp_runtime/json.hpp");
+const JSON_HPP: &str = include_str!("../native/include/cppan/json.hpp");
 const WIRE_HPP: &str = include_str!("cpp_runtime/wire.hpp");
 const MAIN_CPP: &str = include_str!("cpp_runtime/main.cpp");
 const SHADOW_CPP: &str = include_str!("cpp_runtime/shadow.cpp");

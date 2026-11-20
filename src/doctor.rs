@@ -89,12 +89,20 @@ pub fn command(args: &Parsed) -> Result<i32, String> {
         fix: Some("cpp-anything matrix sync, then rebuild"),
     });
 
-    let guides = crate::docs::check(Path::new("docs/guides")).unwrap_or_default();
+    let guides_path = Path::new("docs/guides");
+    let in_source = guides_path.is_dir();
+    let guides = if in_source {
+        crate::docs::check(guides_path).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
     checks.push(Check {
         name: "guides",
         status: if guides.is_empty() { "ok" } else { "outdated" },
-        required: true,
-        detail: if guides.is_empty() {
+        required: in_source,
+        detail: if !in_source {
+            "no docs/guides in the current directory (installed binary): skipped".into()
+        } else if guides.is_empty() {
             "docs/guides matches data/matrix.json".into()
         } else {
             format!("{} drifted: {}", guides.len(), guides.join(", "))
@@ -378,6 +386,46 @@ fn agent_check(agent: Agent, home: &Path) -> Check {
         .map(|path| path.display().to_string())
         .unwrap_or_default();
     let text = util::read(&config).ok();
+    if agent == Agent::Codex {
+        // Codex's config is TOML; check the section by text instead of parsing it.
+        let (status, detail) = match text.as_deref() {
+            None => (
+                "missing",
+                format!("no `{}` server in {}", setup::SERVER_KEY, config.display()),
+            ),
+            Some(text) => {
+                let header = format!("[mcp_servers.{}]", setup::SERVER_KEY);
+                let section = text
+                    .split_once(&header)
+                    .map(|(_, rest)| rest.split("\n[").next().unwrap_or(rest))
+                    .unwrap_or("");
+                let command = format!("command = \"{executable}\"");
+                if section.is_empty() {
+                    (
+                        "missing",
+                        format!("no `{}` server in {}", setup::SERVER_KEY, config.display()),
+                    )
+                } else if section.contains(&command) && section.contains("\"mcp\"") {
+                    (
+                        "ok",
+                        format!("{} runs this binary's `mcp`", config.display()),
+                    )
+                } else {
+                    (
+                        "outdated",
+                        format!("{} runs a different command", config.display()),
+                    )
+                }
+            }
+        };
+        return Check {
+            name: "agents",
+            status,
+            required: true,
+            detail: format!("{}: {detail}", agent.title()),
+            fix: Some("cpp-anything setup"),
+        };
+    }
     let entry = text.as_deref().and_then(|text| {
         let doc = Json::parse(text).ok()?;
         let path: &[&str] = match agent {

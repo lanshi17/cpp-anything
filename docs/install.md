@@ -14,7 +14,7 @@
 ## From source
 
 ```sh
-git clone https://github.com/cpp-anything/cpp-anything
+git clone https://github.com/lanshi17/cpp-anything
 cd cpp-anything
 cargo install --path .
 cpp-anything doctor

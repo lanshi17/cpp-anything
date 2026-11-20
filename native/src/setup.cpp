@@ -9,15 +9,6 @@
 namespace cppan::setup {
 namespace {
 
-std::filesystem::path current_executable() {
-#if defined(__linux__)
-  std::error_code error;
-  const auto path = std::filesystem::canonical("/proc/self/exe", error);
-  if (!error) return path;
-#endif
-  return std::filesystem::path(std::string(kServerKey));
-}
-
 std::filesystem::path home_dir() {
   const char* home = std::getenv("HOME");
   if (home == nullptr) home = std::getenv("USERPROFILE");
@@ -509,9 +500,9 @@ Result<int> command(const cli::Parsed& args) {
   const auto home = home_dir();
   if (home.empty()) return std::unexpected("no home directory (HOME is not set)");
   std::error_code error;
-  const auto executable = std::filesystem::canonical(current_executable(), error);
+  const auto executable = std::filesystem::canonical(cppan::current_executable(), error);
   const std::filesystem::path binary =
-      error ? current_executable() : executable;
+      error ? cppan::current_executable() : executable;
 
   std::vector<Agent> requested;
   if (args.many("agent").empty()) {

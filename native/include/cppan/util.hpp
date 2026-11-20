@@ -65,6 +65,9 @@ Result<void> write_file(const std::filesystem::path& path, std::string_view cont
 [[nodiscard]] Result<bool> prepare_dir(const std::filesystem::path& path, bool force);
 
 /// Walks up from the current directory looking for the cpp-anything checkout.
+/// The running binary, wherever the platform keeps it.
+[[nodiscard]] std::filesystem::path current_executable();
+
 /// The first executable named `program` on PATH.
 [[nodiscard]] std::optional<std::filesystem::path> which_on_path(std::string_view program);
 

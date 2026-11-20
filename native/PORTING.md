@@ -33,7 +33,8 @@ implementation and the source of the CLI goldens in `tests/golden/cli.jsonl`.
 | `codegen`, `modules`, `build`, `diff`, `bench`, `gate`, `shadow` | done | byte-identical generated projects, example gate output |
 | `record` (Python/C/Ruby/Go/Java/TS) | done | cases.jsonl byte-identical |
 | `setup`, `doctor`, `mcp`, `map` | done | dry-run/real config diffs, golden tool list |
-| Python `record --from-tests` | not ported | needs the sitecustomize hook |
+| Python `record --from-tests` | done | cases.jsonl and recorded-from.json identical on the fixture suite |
+| `rsi` | done (app/http steps wait on the whole-app port) | `rsi check`: matrix, guides, goldens, self port, C, plugins pass |
 | `profile` (Node/Ruby/Go/Java collectors) | not ported | |
 | whole-app (`app record/replay/front-door/wire/lift`) | not ported | |
 | `rsi` | not ported | |

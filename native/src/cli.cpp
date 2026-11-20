@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "cppan/analyze.hpp"
+#include "cppan/app.hpp"
 #include "cppan/docs.hpp"
 #include "cppan/json.hpp"
 #include "cppan/langc.hpp"
@@ -23,6 +24,8 @@
 #include "cppan/langs.hpp"
 #include "cppan/modules.hpp"
 #include "cppan/portmap.hpp"
+#include "cppan/profile.hpp"
+#include "cppan/rsi.hpp"
 #include "cppan/python.hpp"
 #include "cppan/shadow.hpp"
 #include "cppan/matrix.hpp"
@@ -909,10 +912,16 @@ Result<int> record_command(const Parsed& args) {
       return std::unexpected("--float-tolerance \"" + *tolerance + "\" is not a number");
     }
   }
+  std::optional<python::FromTests> suite;
   if (args.flag("from-tests")) {
-    return std::unexpected(
-        "--from-tests needs the test command after `--`, e.g. `record . --from-tests -- pytest -q` "
-        "(the Python suite hook is not ported yet)");
+    if (args.trailing.empty()) {
+      return std::unexpected(
+          "--from-tests needs the test command after `--`, e.g. `record . --from-tests -- pytest "
+          "-q`");
+    }
+    auto result = python::record_from_tests(*project, args.trailing);
+    if (!result) return std::unexpected(result.error());
+    suite = std::move(*result);
   }
   Recorded entry;
   entry.cases = count;
@@ -922,6 +931,23 @@ Result<int> record_command(const Parsed& args) {
   if (!saved) return std::unexpected(saved.error());
   std::print("cpp-anything record: {} cases for {} → {}/cases.jsonl\n", count, project->module,
              project->dir.string());
+  if (suite.has_value()) {
+    std::string command;
+    for (const std::string& part : suite->command) {
+      if (!command.empty()) command += ' ';
+      command += part;
+    }
+    std::print("  from tests ({}): {} call(s) captured, {} new case(s), suite {}\n", command,
+               suite->calls, suite->added,
+               suite->suite_ok ? "passed" : "failed (" + suite->suite_error + ")");
+    if (suite->coverage.has_value()) {
+      std::print("  coverage: {} of {} source lines reached by the suite\n",
+                 suite->coverage->first, suite->coverage->second);
+    }
+    if (!suite->suite_ok) {
+      std::print("  the cases the suite did reach were kept; fix the suite to capture the rest\n");
+    }
+  }
   if (project->tolerance > 0.0) {
     std::print("  float tolerance: {} (saved with the project; diff and gate use it)\n",
                project->tolerance);
@@ -1157,6 +1183,7 @@ Result<int> run(const std::vector<std::string>& argv) {
     return 0;
   }
   if (command == "matrix") return matrix_command(*parsed);
+  if (command == "app") return app::command(*parsed);
   if (command == "analyze") return analyze_command(*parsed);
   if (command == "bridge") return bridge_command(*parsed);
   if (command == "refresh") return refresh_command(*parsed);
@@ -1168,6 +1195,8 @@ Result<int> run(const std::vector<std::string>& argv) {
   if (command == "map") return map_command(*parsed);
   if (command == "setup") return setup::command(*parsed);
   if (command == "doctor") return doctor::command(*parsed);
+  if (command == "rsi") return rsi::command(*parsed);
+  if (command == "profile") return profile::command(*parsed);
   if (command == "mcp") return mcp::serve();
   if (command == "gate") return gate_command(*parsed);
   if (command == "help" || command == "--help") {

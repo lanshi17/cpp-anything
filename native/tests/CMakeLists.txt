@@ -9,3 +9,7 @@ add_test(
           ${CMAKE_CURRENT_SOURCE_DIR}/../../tests/golden/cli.jsonl
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../..
 )
+
+add_executable(cppan_unit_tests unit.cpp)
+target_link_libraries(cppan_unit_tests PRIVATE cppan_core)
+add_test(NAME unit COMMAND cppan_unit_tests)

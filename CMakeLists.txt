@@ -46,7 +46,13 @@ add_library(cppan_core STATIC
   native/src/setup.cpp
   native/src/doctor.cpp
   native/src/mcp.cpp
+  native/src/app.cpp
+  native/src/appcase.cpp
+  native/src/appfront.cpp
+  native/src/apphttp.cpp
   native/src/portmap.cpp
+  native/src/profile.cpp
+  native/src/rsi.cpp
   native/src/recording.cpp
   native/src/modern.cpp
   native/src/langs.cpp

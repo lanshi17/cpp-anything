@@ -66,9 +66,15 @@ std::string render(const Report& report, const Project& project) {
   std::string out = std::format("cpp-anything shadow: {} — {} mismatch(es) over {} call(s)\n\n",
                                 project.module, report.mismatches.size(), report.lines);
   std::size_t width = 8;
+  bool first_name = true;
   for (const auto& [name, count] : report.by_function) {
     (void)count;
-    width = std::max(width, name.size());
+    if (first_name) {
+      width = name.size();
+      first_name = false;
+    } else {
+      width = std::max(width, name.size());
+    }
   }
   for (const auto& [name, count] : report.by_function) {
     out += std::format("  {}  {}\n", pad_right(name, width), count);

@@ -67,12 +67,6 @@ const Tool kTools[] = {
     Tool{"doctor", "Check the tools", "cmake, a C++ compiler, python3, the matrix, the guides, this MCP server and the agent entries, with the fix for each.",
          R"JSON({"type":"object","properties":{"json":{"type":"boolean"}}})JSON", true, false},};
 
-std::filesystem::path current_executable() {
-  std::error_code error;
-  const auto path = std::filesystem::canonical("/proc/self/exe", error);
-  return error ? std::filesystem::path("cpp-anything") : path;
-}
-
 Json result_response(Json id, Json result) {
   return Json::object({
       {"jsonrpc", Json::string("2.0")},
@@ -564,7 +558,7 @@ Result<std::string> call_tool(const Json& params) {
   if (!known) return std::unexpected("unknown tool `" + name + "`");
   auto argv = build_argv(name, arguments);
   if (!argv) return std::unexpected(argv.error());
-  const auto executable = current_executable();
+  const auto executable = cppan::current_executable();
   std::vector<std::string> args = *argv;
   const Run run = run_command(executable.string(), args);
   if (run.ok) return run.out;

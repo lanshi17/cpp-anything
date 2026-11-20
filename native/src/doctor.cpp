@@ -79,10 +79,7 @@ Check program_check(std::string_view name, std::string_view program,
 }
 
 Check mcp_check() {
-  std::error_code error;
-  const auto executable = std::filesystem::canonical("/proc/self/exe", error);
-  const std::filesystem::path binary =
-      error ? std::filesystem::path("cpp-anything") : executable;
+  const std::filesystem::path binary = current_executable();
   const Json request = Json::object({
       {"jsonrpc", Json::string("2.0")},
       {"id", Json::integer(1)},
@@ -295,10 +292,7 @@ Result<int> command(const cli::Parsed& args) {
   } else if (const char* profile = std::getenv("USERPROFILE"); profile != nullptr) {
     home = profile;
   }
-  std::error_code error;
-  const auto executable = std::filesystem::canonical("/proc/self/exe", error);
-  const std::filesystem::path binary =
-      error ? std::filesystem::path("cpp-anything") : executable;
+  const std::filesystem::path binary = current_executable();
   bool any_agent = false;
   if (!home.empty()) {
     for (const setup::Agent agent : setup::kAllAgents) {

@@ -12,6 +12,9 @@
 #include "cppan/cli.hpp"
 
 int main(int argc, char** argv) {
+  // Rust's stdout is line buffered; matching that keeps stdout/stderr interleaved
+  // the same way when both are redirected to one file.
+  std::setvbuf(stdout, nullptr, _IOLBF, 0);
   std::vector<std::string> args;
   args.reserve(static_cast<std::size_t>(argc > 0 ? argc - 1 : 0));
   for (int index = 1; index < argc; ++index) args.emplace_back(argv[index]);

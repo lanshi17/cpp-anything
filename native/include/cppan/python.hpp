@@ -36,6 +36,21 @@ namespace cppan::python {
 /// Times the original over the recorded cases; nanoseconds per call.
 [[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
 
+struct FromTests {
+  std::vector<std::string> command;
+  std::size_t calls = 0;
+  std::size_t added = 0;
+  std::optional<std::pair<std::size_t, std::size_t>> coverage;
+  bool suite_ok = false;
+  std::string suite_error;
+};
+
+/// Runs the original's own test suite with a hook that records every call it makes
+/// to the unit. The hook is injected through PYTHONPATH (`sitecustomize.py`), so it
+/// works for pytest, unittest and plain scripts without touching the project.
+[[nodiscard]] Result<FromTests> record_from_tests(const Project& project,
+                                                  const std::vector<std::string>& command);
+
 /// Records generated edge cases for every ported function; returns how many.
 [[nodiscard]] Result<std::size_t> record(const Project& project, std::size_t cases,
                                          std::uint64_t seed,

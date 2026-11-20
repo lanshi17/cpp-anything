@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <thread>
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
@@ -14,7 +15,9 @@
 #include <poll.h>
 #include <sys/wait.h>
 #include <unistd.h>
-extern char** environ;
+#elif defined(_WIN32)
+#include <windows.h>
+#include <cwchar>
 #endif
 
 namespace cppan {
@@ -164,6 +167,19 @@ Result<bool> prepare_dir(const std::filesystem::path& path, bool force) {
   return false;
 }
 
+std::filesystem::path current_executable() {
+#if defined(__linux__)
+  std::error_code error;
+  const auto path = std::filesystem::canonical("/proc/self/exe", error);
+  if (!error) return path;
+#elif defined(_WIN32)
+  wchar_t buffer[MAX_PATH * 4];
+  const DWORD length = GetModuleFileNameW(nullptr, buffer, static_cast<DWORD>(std::size(buffer)));
+  if (length > 0) return std::filesystem::path(std::wstring(buffer, length));
+#endif
+  return std::filesystem::path("cpp-anything");
+}
+
 std::optional<std::filesystem::path> which_on_path(std::string_view program) {
   const char* path = std::getenv("PATH");
   if (path == nullptr) return std::nullopt;
@@ -257,7 +273,7 @@ std::string hash64(std::string_view text) {
   std::uint64_t hash = 0xcbf29ce484222325ULL;
   for (const char ch : text) {
     hash ^= static_cast<std::uint64_t>(static_cast<unsigned char>(ch));
-    hash *= 0x100000001b3ULL;
+    hash *= 0x1000000001b3ULL;
   }
   char buffer[17];
   std::snprintf(buffer, sizeof buffer, "%016llx", static_cast<unsigned long long>(hash));
@@ -539,3 +555,200 @@ std::string sanitize_identifier(std::string_view text) {
 }
 
 }  // namespace cppan
+
+#if defined(_WIN32)
+namespace cppan {
+namespace {
+
+std::wstring widen(std::string_view text) {
+  if (text.empty()) return {};
+  const int size = MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                                       nullptr, 0);
+  std::wstring out(static_cast<std::size_t>(size), L'\0');
+  MultiByteToWideChar(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), out.data(), size);
+  return out;
+}
+
+std::string narrow(std::wstring_view text) {
+  if (text.empty()) return {};
+  const int size = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+                                       nullptr, 0, nullptr, nullptr);
+  std::string out(static_cast<std::size_t>(size), '\0');
+  WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), out.data(), size,
+                      nullptr, nullptr);
+  return out;
+}
+
+std::wstring quote_arg(std::string_view argument) {
+  const std::wstring text = widen(argument);
+  if (!text.empty() && text.find_first_of(L" \t\n\v\"") == std::wstring::npos) return text;
+  std::wstring out = L"\"";
+  std::size_t backslashes = 0;
+  for (const wchar_t ch : text) {
+    if (ch == L'\\') {
+      ++backslashes;
+    } else if (ch == L'"') {
+      out.append(backslashes * 2 + 1, L'\\');
+      out += L'"';
+      backslashes = 0;
+    } else {
+      out.append(backslashes, L'\\');
+      backslashes = 0;
+      out += ch;
+    }
+  }
+  out.append(backslashes * 2, L'\\');
+  out += L'"';
+  return out;
+}
+
+std::vector<wchar_t> environment_block(
+    const std::vector<std::pair<std::string, std::string>>& overrides) {
+  std::vector<std::pair<std::wstring, std::wstring>> entries;
+  if (wchar_t* block = GetEnvironmentStringsW(); block != nullptr) {
+    for (wchar_t* at = block; *at != L'\0'; at += std::wcslen(at) + 1) {
+      std::wstring entry(at);
+      const std::size_t equals = entry.find(L'=');
+      if (equals == std::wstring::npos) continue;
+      entries.emplace_back(entry.substr(0, equals), entry.substr(equals + 1));
+    }
+    FreeEnvironmentStringsW(block);
+  }
+  for (const auto& [name, value] : overrides) {
+    const std::wstring wide_name = widen(name);
+    const std::wstring wide_value = widen(value);
+    bool replaced = false;
+    for (auto& [existing, existing_value] : entries) {
+      if (CompareStringOrdinal(existing.c_str(), -1, wide_name.c_str(), -1, TRUE) ==
+          CSTR_EQUAL) {
+        existing_value = wide_value;
+        replaced = true;
+        break;
+      }
+    }
+    if (!replaced) entries.emplace_back(wide_name, wide_value);
+  }
+  std::vector<wchar_t> out;
+  for (const auto& [name, value] : entries) {
+    out.insert(out.end(), name.begin(), name.end());
+    out.push_back(L'=');
+    out.insert(out.end(), value.begin(), value.end());
+    out.push_back(L'\0');
+  }
+  out.push_back(L'\0');
+  return out;
+}
+
+std::string read_pipe(HANDLE pipe) {
+  std::string out;
+  char buffer[8192];
+  DWORD got = 0;
+  while (ReadFile(pipe, buffer, sizeof buffer, &got, nullptr) && got > 0) {
+    out.append(buffer, got);
+  }
+  return out;
+}
+
+Run run_windows(const std::string& program, const std::vector<std::string>& args,
+                const std::optional<std::filesystem::path>& cwd,
+                const std::vector<std::pair<std::string, std::string>>& envs,
+                const std::optional<std::string_view>& input) {
+  SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+  HANDLE out_read = nullptr;
+  HANDLE out_write = nullptr;
+  HANDLE err_read = nullptr;
+  HANDLE err_write = nullptr;
+  HANDLE in_read = nullptr;
+  HANDLE in_write = nullptr;
+  if (!CreatePipe(&out_read, &out_write, &security, 0) ||
+      !CreatePipe(&err_read, &err_write, &security, 0) ||
+      !CreatePipe(&in_read, &in_write, &security, 0)) {
+    Run failed;
+    failed.err = "cannot create pipes";
+    return failed;
+  }
+  SetHandleInformation(out_read, HANDLE_FLAG_INHERIT, 0);
+  SetHandleInformation(err_read, HANDLE_FLAG_INHERIT, 0);
+  SetHandleInformation(in_write, HANDLE_FLAG_INHERIT, 0);
+
+  std::wstring command = quote_arg(program);
+  for (const std::string& arg : args) {
+    command += L' ';
+    command += quote_arg(arg);
+  }
+
+  STARTUPINFOW startup{};
+  startup.cb = sizeof startup;
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdInput = in_read;
+  startup.hStdOutput = out_write;
+  startup.hStdError = err_write;
+  PROCESS_INFORMATION process{};
+  std::vector<wchar_t> environment = environment_block(envs);
+  const std::wstring working = cwd.has_value() ? cwd->wstring() : std::wstring();
+  const BOOL started =
+      CreateProcessW(nullptr, command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+                     environment.data(), cwd.has_value() ? working.c_str() : nullptr, &startup,
+                     &process);
+  if (!started) {
+    const DWORD code = GetLastError();
+    CloseHandle(out_read);
+    CloseHandle(out_write);
+    CloseHandle(err_read);
+    CloseHandle(err_write);
+    CloseHandle(in_read);
+    CloseHandle(in_write);
+    Run failed;
+    failed.err = code == ERROR_FILE_NOT_FOUND ? program + ": command not found"
+                                              : program + ": cannot start (error " +
+                                                    std::to_string(code) + ")";
+    return failed;
+  }
+  CloseHandle(out_write);
+  CloseHandle(err_write);
+  CloseHandle(in_read);
+
+  if (input.has_value()) {
+    DWORD written = 0;
+    WriteFile(in_write, input->data(), static_cast<DWORD>(input->size()), &written, nullptr);
+  }
+  CloseHandle(in_write);
+
+  std::string out;
+  std::string err;
+  std::thread out_reader([&] { out = read_pipe(out_read); });
+  std::thread err_reader([&] { err = read_pipe(err_read); });
+  out_reader.join();
+  err_reader.join();
+  CloseHandle(out_read);
+  CloseHandle(err_read);
+
+  WaitForSingleObject(process.hProcess, INFINITE);
+  DWORD status = 0;
+  GetExitCodeProcess(process.hProcess, &status);
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+
+  Run run;
+  run.out = std::move(out);
+  run.err = std::move(err);
+  run.status = static_cast<int>(status);
+  run.ok = status == 0;
+  return run;
+}
+
+}  // namespace
+
+Run run_command(const std::string& program, const std::vector<std::string>& args,
+                const std::optional<std::filesystem::path>& cwd,
+                const std::vector<std::pair<std::string, std::string>>& envs) {
+  return run_windows(program, args, cwd, envs, std::nullopt);
+}
+
+Run run_command_with_input(const std::string& program, const std::vector<std::string>& args,
+                           std::string_view input) {
+  return run_windows(program, args, std::nullopt, {}, input);
+}
+
+}  // namespace cppan
+#endif

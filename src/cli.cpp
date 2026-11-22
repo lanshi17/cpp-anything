@@ -768,54 +768,39 @@ Result<int> bench_command(const Parsed& args) {
                            project->dir.string() + "` first");
   }
   const std::size_t repeat = args.number("repeat").value_or(1000);
+  const std::size_t samples =
+      std::clamp<std::size_t>(args.number("samples").value_or(5), 1, 50);
+  const auto emit = [&](const bench::BenchReport& report) -> Result<int> {
+    if (args.flag("json")) {
+      std::print("{}\n", dump(bench::to_json(report, *project), true));
+    } else {
+      std::print("{}", bench::render(report, *project));
+    }
+    return 0;
+  };
   if (const auto lang = langc::parse_lang(project->source_lang); lang.has_value()) {
     const std::filesystem::path repo =
         project->package_root.value_or(project->source_file.parent_path());
     auto unit = langc::unit(repo, project->source_file.string(), *lang);
     if (!unit) return std::unexpected(unit.error());
-    auto original = langc::bench_original(*project, *unit, repeat, *lang);
-    if (!original) return std::unexpected(original.error());
-    auto port = bench::run_port(*project, driver, repeat);
-    if (!port) return std::unexpected(port.error());
-    bench::BenchReport report;
-    report.original_ns = *original;
-    report.cpp_ns = port->first;
-    report.calls = port->second;
-    report.repeat = std::max<std::size_t>(repeat, 1);
-    report.original_label = std::string(langc::label(*lang));
-    if (args.flag("json")) {
-      std::print("{}\n", dump(bench::to_json(report, *project), true));
-    } else {
-      std::print("{}", bench::render(report, *project));
-    }
-    return 0;
+    auto report = bench::run_samples(
+        *project, driver, repeat, samples, std::string(langc::label(*lang)),
+        [&](std::size_t calls) {
+          return langc::bench_original(*project, *unit, calls, *lang);
+        });
+    if (!report) return std::unexpected(report.error());
+    return emit(*report);
   }
   if (const auto lang = langs::parse(project->source_lang); lang.has_value()) {
-    auto original = langs::bench_original(*project, repeat);
-    if (!original) return std::unexpected(original.error());
-    auto port = bench::run_port(*project, driver, repeat);
-    if (!port) return std::unexpected(port.error());
-    bench::BenchReport report;
-    report.original_ns = *original;
-    report.cpp_ns = port->first;
-    report.calls = port->second;
-    report.repeat = std::max<std::size_t>(repeat, 1);
-    report.original_label = std::string(langs::label(*lang));
-    if (args.flag("json")) {
-      std::print("{}\n", dump(bench::to_json(report, *project), true));
-    } else {
-      std::print("{}", bench::render(report, *project));
-    }
-    return 0;
+    auto report = bench::run_samples(
+        *project, driver, repeat, samples, std::string(langs::label(*lang)),
+        [&](std::size_t calls) { return langs::bench_original(*project, calls); });
+    if (!report) return std::unexpected(report.error());
+    return emit(*report);
   }
-  auto report = bench::run(*project, driver, repeat);
+  auto report = bench::run(*project, driver, repeat, samples);
   if (!report) return std::unexpected(report.error());
-  if (args.flag("json")) {
-    std::print("{}\n", dump(bench::to_json(*report, *project), true));
-  } else {
-    std::print("{}", bench::render(*report, *project));
-  }
-  return 0;
+  return emit(*report);
 }
 
 Result<int> gate_command(const Parsed& args) {
@@ -828,6 +813,8 @@ Result<int> gate_command(const Parsed& args) {
   if (args.flag("bench")) {
     options.relevance =
         std::pair<std::size_t, std::size_t>{args.number("repeat").value_or(500), 1};
+    options.bench_samples =
+        std::clamp<std::size_t>(args.number("samples").value_or(3), 1, 20);
   }
   auto report = gate::run(*project, options);
   if (!report) return std::unexpected(report.error());

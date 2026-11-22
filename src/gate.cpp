@@ -337,7 +337,8 @@ Result<GateReport> run(const Project& project, const Options& options) {
   }
 
   if (options.relevance.has_value() && driver.has_value()) {
-    auto bench = bench::run(project, *driver, options.relevance->first);
+    auto bench = bench::run(project, *driver, options.relevance->first,
+                            options.bench_samples);
     if (bench) {
       const bool fast = bench->speedup() >= 1.0;
       report.steps.push_back(Step{

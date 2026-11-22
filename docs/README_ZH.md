@@ -13,7 +13,7 @@ $ cpp-anything record cpp/textkit-words           # 105 条用例：原实现的
 $ $EDITOR cpp/textkit-words/src/port.cpp          # 你写 C++
 $ cpp-anything diff cpp/textkit-words             # 105/105 全部一致
 $ cpp-anything gate cpp/textkit-words             # 完成，且被证明
-$ cpp-anything bench cpp/textkit-words            # 333 ns → 141 ns（2.37x）
+$ cpp-anything bench cpp/textkit-words            # 中位数 333 ns → 141 ns（2.37x）
 ```
 
 ## 快速开始

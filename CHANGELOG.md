@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Benchmark sampling
+
+- `bench --samples N` runs the original and the port in N separate processes,
+  alternates which side goes first, and reports median, P95, min/max and the
+  speedup of the medians. The JSON schema is now `cpp-anything/bench@2`.
+- `gate --bench` uses three process samples by default, so a single turbo or
+  scheduler outlier no longer decides whether the port is "done".
+- `bench` output now labels the unit (`ns`, `µs`, `ms`) and shows P95 instead of
+  a bare number.
+
 ### Rust source language
 
 - `--lang rust` (and `Cargo.toml` detection) analyzes free functions in a library

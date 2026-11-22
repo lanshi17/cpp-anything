@@ -23,7 +23,7 @@ $ cpp-anything record cpp/textkit-words           # 105 cases: what the original
 $ $EDITOR cpp/textkit-words/src/port.cpp          # you (or your agent) write the C++
 $ cpp-anything diff cpp/textkit-words             # 105/105 cases match
 $ cpp-anything gate cpp/textkit-words             # done, and proven
-$ cpp-anything bench cpp/textkit-words            # 333 ns -> 141 ns per call (2.37x)
+$ cpp-anything bench cpp/textkit-words            # median 333 ns -> 141 ns (2.37x)
 ```
 
 ## Case study: xsv-cpp
@@ -82,7 +82,7 @@ that can run a terminal or call a tool gets the same loop.
 | port | `$EDITOR cpp/unit/src/port.cpp` | the only file you write |
 | build / diff | `build`, `diff` | every recorded case, replayed through the C++ driver |
 | shadow | `shadow cpp/unit` | a drop-in module: original returns, port runs second, disagreements logged |
-| bench | `bench cpp/unit` | per-call timing on both sides |
+| bench | `bench cpp/unit [--repeat N] [--samples N]` | median and P95 per-call timing on both sides, from repeated process samples |
 | gate | `gate cpp/unit` | matrix, stubs, error paths, panics, size, staleness, coverage, build, dispatch, diff |
 | whole app | `app record`, `app replay`, `app front-door`, `app wire`, `app lift` | a C++ front door that ships with everything falling back, then lifts to standalone |
 | map | `map --write` | every unit's port, cases, last diff, and which originals changed upstream |
@@ -101,7 +101,8 @@ that can run a terminal or call a tool gets the same loop.
 4. **write the port** — the only file you edit is `src/port.cpp`.
 5. **diff** — the C++ driver replays every case; the numbers, strings, lists, dicts,
    `NaN`, `-0.0` and exception types must agree.
-6. **bench** — the same cases, timed in both processes.
+6. **bench** — the same cases, timed in both processes. It reports the median of
+   several process-level samples and a P95, not a single lucky run.
 7. **gate** — matrix, no stubs, build, dispatch, every case. Non-zero until it all passes.
 
 `refresh` regenerates the declarations and dispatch after a signature change, and

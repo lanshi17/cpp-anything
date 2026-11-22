@@ -31,6 +31,7 @@ struct Options {
   std::size_t jobs = 4;
   /// (repeat, minimum records) for --bench
   std::optional<std::pair<std::size_t, std::size_t>> relevance;
+  std::size_t bench_samples = 3;
 };
 
 [[nodiscard]] Result<GateReport> run(const Project& project, const Options& options);

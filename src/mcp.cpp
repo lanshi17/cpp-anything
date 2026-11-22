@@ -41,7 +41,7 @@ const Tool kTools[] = {
     Tool{"profile", "Profile a workload", "Run a workload under the language's profiler and rank what to move: hot functions, callers, and batch advice.",
          R"JSON({"type":"object","properties":{"root":{"type":"string"},"command":{"type":"array","items":{"type":"string"}},"json":{"type":"boolean"},"top":{"type":"number"}},"required":["root","command"]})JSON", true, true},
     Tool{"bench", "Benchmark the port", "Time the recorded cases on the original and on the port, and say whether it is worth shipping.",
-         R"JSON({"type":"object","properties":{"project":{"type":"string"},"repeat":{"type":"number"},"json":{"type":"boolean"}},"required":["project"]})JSON", true, true},
+         R"JSON({"type":"object","properties":{"project":{"type":"string"},"repeat":{"type":"number"},"samples":{"type":"number"},"json":{"type":"boolean"}},"required":["project"]})JSON", true, true},
     Tool{"shadow", "Run the port beside the original", "Generate the drop-in shadow module: the original returns, the port runs second, disagreements are logged.",
          R"JSON({"type":"object","properties":{"project":{"type":"string"},"report":{"type":"boolean"},"check":{"type":"boolean"},"json":{"type":"boolean"}},"required":["project"]})JSON", false, false},
     Tool{"map", "Map the port", "Every unit, its project, cases and last diff, what is still only in Python, and which originals changed since they were recorded.",
@@ -364,6 +364,7 @@ Result<std::vector<std::string>> build_argv(std::string_view name, const Json& a
     if (!project) return std::unexpected(project.error());
     argv.push_back(*project);
     add("repeat", "repeat");
+    add("samples", "samples");
     add("json", "json");
   } else if (name == "shadow") {
     argv.push_back("shadow");

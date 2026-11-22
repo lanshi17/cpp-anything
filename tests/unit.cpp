@@ -2,6 +2,7 @@
 // Unit checks for the pieces the reference implementation defines exactly:
 // float text, hashing, version comparison and the host name of the probe.
 import std;
+import cppan.bench;
 import cppan.json;
 import cppan.util;
 
@@ -58,6 +59,16 @@ int main() {
   check_equal(cppan::sanitize_identifier("9lives"), "u_9lives", "sanitize_identifier");
   check_equal(cppan::sanitize_identifier("textkit.words"), "textkit_words",
               "sanitize_identifier dotted");
+
+  // Benchmark samples: median and nearest-rank P95, not a single run.
+  const auto bench = cppan::bench::make_report({1, 2, 3, 4, 5}, {2, 2, 2, 2, 2}, 25, 5,
+                                               "python");
+  check(bench.samples == 5, "bench sample count");
+  check(bench.original_ns == 3.0, "bench median");
+  check(bench.original_p95_ns == 5.0, "bench P95");
+  check(bench.cpp_p95_ns == 2.0, "bench port P95");
+  check(bench.original_min_ns == 1.0 && bench.original_max_ns == 5.0, "bench range");
+  check(std::abs(bench.speedup() - 1.5) < 1e-12, "bench speedup uses medians");
 
   if (failures == 0) std::printf("unit checks: ok\n");
   return failures == 0 ? 0 : 1;

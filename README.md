@@ -23,7 +23,19 @@ $ cpp-anything record cpp/textkit-words           # 105 cases: what the original
 $ $EDITOR cpp/textkit-words/src/port.cpp          # you (or your agent) write the C++
 $ cpp-anything diff cpp/textkit-words             # 105/105 cases match
 $ cpp-anything gate cpp/textkit-words             # done, and proven
-$ cpp-anything bench cpp/textkit-words            # median 333 ns -> 141 ns (2.37x)
+$ cpp-anything bench cpp/textkit-words --samples 5
+```
+
+Example output on the reference host — median, 95% bootstrap CI, P95 and peak
+RSS for both sides:
+
+```text
+cpp-anything bench: textkit.words — 146000 calls over 146 cases, 1000x repeated, 5 samples
+
+  original (python)   378.9 ns/call  P95 383.1 ns  CI [372.0 ns, 383.1 ns]  RSS 17.6 MiB
+  port (C++)          147.3 ns/call  P95 167.7 ns  CI [146.3 ns, 167.7 ns]  RSS 4.4 MiB
+
+  speedup (median): 2.57x — the port is faster
 ```
 
 ## Case study: xsv-cpp

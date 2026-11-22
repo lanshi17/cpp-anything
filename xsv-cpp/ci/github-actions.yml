@@ -1,0 +1,113 @@
+# Template: copy to <repository-root>/.github/workflows/xsv-cpp.yml
+# when xsv-cpp is its own repository. GitHub only reads workflows from the
+# repository root, so this file is inert inside a subdirectory.
+name: xsv-cpp
+
+on:
+  push:
+    paths: ["xsv-cpp/**", ".github/workflows/xsv-cpp.yml"]
+  pull_request:
+    paths: ["xsv-cpp/**", ".github/workflows/xsv-cpp.yml"]
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: xsv-cpp
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [base, all]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14 cmake ninja-build python3
+      - name: Configure
+        env:
+          CC: gcc-14
+          CXX: g++-14
+        run: cmake --preset ${{ matrix.preset }}
+      - name: Build
+        run: cmake --build build/${{ matrix.preset }} -j "$(nproc)"
+      - name: Test
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14 cmake ninja-build python3
+      - name: ASan + UBSan
+        env: {CC: gcc-14, CXX: g++-14}
+        run: |
+          cmake --preset asan
+          cmake --build build/asan -j "$(nproc)"
+          ctest --test-dir build/asan --output-on-failure
+      - name: TSan
+        env: {CC: gcc-14, CXX: g++-14}
+        run: |
+          cmake --preset tsan
+          cmake --build build/tsan -j "$(nproc)"
+          ctest --test-dir build/tsan --output-on-failure
+
+  differential:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14 cmake ninja-build python3
+      - name: Build reference
+        run: scripts/fetch_upstream.sh
+      - name: Build C++
+        env: {CC: gcc-14, CXX: g++-14}
+        run: |
+          cmake --preset all
+          cmake --build build/all -j "$(nproc)"
+      - name: Differential (count family)
+        run: |
+          python3 scripts/run_correctness.py \
+            --cpp-bin build/all/xsv \
+            --rust-bin upstream/xsv/target/release/xsv \
+            --filter count --verbose
+      # `--gate p0` stays red until headers/select/slice/search/index/sort/stats/join exist.
+
+  smoke-benchmark:
+    runs-on: ubuntu-24.04
+    needs: [build-and-test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++-14 cmake ninja-build python3 time
+      - name: Build all
+        env: {CC: gcc-14, CXX: g++-14}
+        run: |
+          cmake --preset all
+          cmake --build build/all -j "$(nproc)"
+      - name: Datasets and report
+        run: |
+          python3 scripts/generate_datasets.py --profile smoke --force
+          python3 scripts/run_benchmarks.py \
+            --rust-bin upstream/xsv/target/release/xsv \
+            --cpp-variant all=build/all/xsv \
+            --profile smoke --runs 3 --warmup 1 --memory
+          python3 scripts/generate_report.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: xsv-cpp-smoke-results
+          path: |
+            xsv-cpp/results/report.md
+            xsv-cpp/results/raw/*.jsonl
+            xsv-cpp/results/figures/*.svg

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="900" height="380" role="img" aria-label="Wall time by case (median, ms)">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="70" y="26" font-family="sans-serif" font-size="16" fill="#222">Wall time by case (median, ms)</text>
+<text x="14" y="175.0" font-family="sans-serif" font-size="12" fill="#555" transform="rotate(-90 14 175.0)">milliseconds</text>
+<line x1="70" y1="300.0" x2="880" y2="300.0" stroke="#e6e6e6"/>
+<text x="62" y="304.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">0</text>
+<line x1="70" y1="237.5" x2="880" y2="237.5" stroke="#e6e6e6"/>
+<text x="62" y="241.5" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">2.05e+03</text>
+<line x1="70" y1="175.0" x2="880" y2="175.0" stroke="#e6e6e6"/>
+<text x="62" y="179.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">4.09e+03</text>
+<line x1="70" y1="112.5" x2="880" y2="112.5" stroke="#e6e6e6"/>
+<text x="62" y="116.5" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">6.14e+03</text>
+<line x1="70" y1="50.0" x2="880" y2="50.0" stroke="#e6e6e6"/>
+<text x="62" y="54.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">8.19e+03</text>
+<rect x="78.1" y="209.7" width="19.4" height="90.3" fill="#4c78a8"/>
+<rect x="99.7" y="50.0" width="19.4" height="250.0" fill="#59a14f"/>
+<rect x="121.3" y="232.1" width="19.4" height="67.9" fill="#e15759"/>
+<text x="110.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B01.count.large</text>
+<rect x="159.1" y="294.4" width="19.4" height="5.6" fill="#4c78a8"/>
+<rect x="180.7" y="285.2" width="19.4" height="14.8" fill="#59a14f"/>
+<rect x="202.3" y="295.2" width="19.4" height="4.8" fill="#e15759"/>
+<text x="191.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B01.count.medium</text>
+<rect x="240.1" y="299.6" width="19.4" height="0.4" fill="#4c78a8"/>
+<rect x="261.7" y="299.3" width="19.4" height="0.7" fill="#59a14f"/>
+<rect x="283.3" y="299.7" width="19.4" height="0.3" fill="#e15759"/>
+<text x="272.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B01.count.small</text>
+<rect x="321.1" y="294.4" width="19.4" height="5.6" fill="#4c78a8"/>
+<rect x="342.7" y="284.8" width="19.4" height="15.2" fill="#59a14f"/>
+<rect x="364.3" y="295.0" width="19.4" height="5.0" fill="#e15759"/>
+<text x="353.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B02.index.medium</text>
+<rect x="402.1" y="293.6" width="19.4" height="6.4" fill="#4c78a8"/>
+<rect x="423.7" y="283.7" width="19.4" height="16.3" fill="#59a14f"/>
+<rect x="445.3" y="293.9" width="19.4" height="6.1" fill="#e15759"/>
+<text x="434.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B03.select.medium</text>
+<rect x="483.1" y="289.8" width="19.4" height="10.2" fill="#4c78a8"/>
+<rect x="504.7" y="269.8" width="19.4" height="30.2" fill="#59a14f"/>
+<rect x="526.3" y="279.8" width="19.4" height="20.2" fill="#e15759"/>
+<text x="515.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B04.search.medium</text>
+<rect x="564.1" y="281.6" width="19.4" height="18.4" fill="#4c78a8"/>
+<rect x="585.7" y="263.6" width="19.4" height="36.4" fill="#59a14f"/>
+<rect x="607.3" y="277.0" width="19.4" height="23.0" fill="#e15759"/>
+<text x="596.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B05.sort.medium</text>
+<rect x="645.1" y="289.7" width="19.4" height="10.3" fill="#4c78a8"/>
+<rect x="666.7" y="289.7" width="19.4" height="10.3" fill="#59a14f"/>
+<rect x="688.3" y="293.9" width="19.4" height="6.1" fill="#e15759"/>
+<text x="677.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B06.join.medium</text>
+<rect x="726.1" y="275.3" width="19.4" height="24.7" fill="#4c78a8"/>
+<rect x="747.7" y="262.7" width="19.4" height="37.3" fill="#59a14f"/>
+<rect x="769.3" y="271.4" width="19.4" height="28.6" fill="#e15759"/>
+<text x="758.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B07.stats.medium</text>
+<rect x="807.1" y="299.9" width="19.4" height="0.1" fill="#4c78a8"/>
+<rect x="828.7" y="290.9" width="19.4" height="9.1" fill="#59a14f"/>
+<rect x="850.3" y="299.9" width="19.4" height="0.1" fill="#e15759"/>
+<text x="839.5" y="320" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">B10.slice.medium</text>
+<rect x="70" y="340" width="12" height="12" fill="#4c78a8"/>
+<text x="88" y="350" font-family="sans-serif" font-size="12" fill="#333">rust</text>
+<rect x="180" y="340" width="12" height="12" fill="#59a14f"/>
+<text x="198" y="350" font-family="sans-serif" font-size="12" fill="#333">base</text>
+<rect x="290" y="340" width="12" height="12" fill="#e15759"/>
+<text x="308" y="350" font-family="sans-serif" font-size="12" fill="#333">all</text>
+</svg>

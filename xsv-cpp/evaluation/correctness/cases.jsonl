@@ -1,0 +1,150 @@
+{"id":"count.basic","command":"count","argv":["count","{fixtures}/basic.csv"],"tags":["p0","smoke"]}
+{"id":"count.no_headers","command":"count","argv":["count","-n","{fixtures}/basic.csv"],"tags":["p0","smoke"]}
+{"id":"count.no_headers_toggle","command":"count","argv":["count","{fixtures}/basic.csv"],"env":{"XSV_TOGGLE_HEADERS":"1"},"tags":["p0"]}
+{"id":"count.quoted","command":"count","argv":["count","{fixtures}/quoted.csv"],"tags":["p0"]}
+{"id":"count.crlf","command":"count","argv":["count","{fixtures}/crlf.csv"],"tags":["p0"]}
+{"id":"count.bom","command":"count","argv":["count","{fixtures}/bom.csv"],"tags":["p0"]}
+{"id":"count.empty","command":"count","argv":["count","{fixtures}/empty.csv"],"tags":["p0"]}
+{"id":"count.no_newline","command":"count","argv":["count","{fixtures}/no_newline.csv"],"tags":["p0"]}
+{"id":"count.blank_lines","command":"count","argv":["count","{fixtures}/blank_lines.csv"],"tags":["p0"]}
+{"id":"count.unicode","command":"count","argv":["count","{fixtures}/unicode.csv"],"tags":["p0"]}
+{"id":"count.duplicate_headers","command":"count","argv":["count","{fixtures}/duplicate_headers.csv"],"tags":["p0"]}
+{"id":"count.long_field","command":"count","argv":["count","{fixtures}/long_field.csv"],"tags":["p0"]}
+{"id":"count.empty_fields","command":"count","argv":["count","{fixtures}/empty_fields.csv"],"tags":["p0"]}
+{"id":"count.semicolon","command":"count","argv":["count","-d",";","{fixtures}/semicolon.csv"],"tags":["p0"]}
+{"id":"count.tab_escaped","command":"count","argv":["count","-d","\\t","{fixtures}/basic.tsv"],"tags":["p0"]}
+{"id":"count.tsv_extension","command":"count","argv":["count","{fixtures}/basic.tsv"],"tags":["p0"]}
+{"id":"count.stdin","command":"count","argv":["count"],"stdin_file":"{fixtures}/quoted.csv","tags":["p0"]}
+{"id":"count.stdin_dash","command":"count","argv":["count","-"],"stdin_file":"{fixtures}/basic.csv","tags":["p0"]}
+{"id":"count.stdin_no_headers","command":"count","argv":["count","-n"],"stdin_file":"{fixtures}/basic.csv","tags":["p0"]}
+{"id":"count.help","command":"count","argv":["count","-h"],"tags":["p0","help"]}
+{"id":"count.help_long","command":"count","argv":["count","--help"],"tags":["p0","help"]}
+{"id":"count.missing_file","command":"count","argv":["count","{fixtures}/does-not-exist.csv"],"stderr_contains":["failed to open"],"tags":["p0","error"]}
+{"id":"count.ragged","command":"count","argv":["count","{fixtures}/ragged.csv"],"stderr_contains":["found record with 3 fields"],"tags":["p0","error"]}
+{"id":"count.unclosed_quote","command":"count","argv":["count","{fixtures}/unclosed.csv"],"stderr_contains":["EOF"],"tags":["p0","error"]}
+{"id":"count.invalid_delimiter","command":"count","argv":["count","-d","ab","{fixtures}/basic.csv"],"stderr_contains":["Could not convert"],"tags":["p0","error"]}
+{"id":"count.unknown_flag","command":"count","argv":["count","--bogus","{fixtures}/basic.csv"],"stderr_contains":["Unknown flag"],"tags":["p0","error"]}
+{"id":"count.two_inputs","command":"count","argv":["count","{fixtures}/basic.csv","{fixtures}/quoted.csv"],"compare_stdout":false,"stderr_class":false,"tags":["p0","error"]}
+{"id":"count.index_fresh","command":"count","argv":["count","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/basic.csv"},"prepare":"index","tags":["p0","index"]}
+{"id":"count.index_no_headers","command":"count","argv":["count","-n","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/basic.csv"},"prepare":"index","tags":["p0","index"]}
+{"id":"count.index_stale","command":"count","argv":["count","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/basic.csv"},"prepare":"index_stale","stderr_contains":["modified after the index"],"tags":["p0","index","error"]}
+{"id":"count.index_corrupt","command":"count","argv":["count","{work}/input.csv"],"prepare":"index_corrupt","compare_stdout":false,"stderr_class":false,"tags":["p0","index","error"]}
+{"id":"count.index_self","command":"count","argv":["count","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/quoted.csv"},"prepare":"index_self","tags":["p0","index"]}
+{"id":"index.basic","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/basic.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.quoted","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/quoted.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.crlf","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/crlf.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.bom","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/bom.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.empty","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/empty.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.output_option","command":"index","argv":["index","-o","{work}/custom.idx","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/basic.csv"},"output_files":["custom.idx"],"tags":["p0","index"]}
+{"id":"index.help","command":"index","argv":["index","-h"],"tags":["p0","help"]}
+{"id":"index.stdin","command":"index","argv":["index","-"],"stdin_text":"a,b\n1,2\n","stderr_contains":["Cannot use <stdin> here"],"tags":["p0","error"]}
+{"id":"index.missing","command":"index","argv":["index","{fixtures}/nope.csv"],"stderr_contains":["failed to open"],"tags":["p0","error"]}
+{"id":"index.blank_lines","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/blank_lines.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.no_newline","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/no_newline.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"index.unicode","command":"index","argv":["index","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/unicode.csv"},"output_files":["input.csv.idx"],"tags":["p0","index"]}
+{"id":"headers.basic","command":"headers","argv":["headers","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"headers.just_names","command":"headers","argv":["headers","-j","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"headers.multiple","command":"headers","argv":["headers","{fixtures}/headers_a.csv","{fixtures}/headers_b.csv"],"tags":["p0"]}
+{"id":"headers.intersect","command":"headers","argv":["headers","--intersect","{fixtures}/headers_a.csv","{fixtures}/headers_b.csv"],"tags":["p0"]}
+{"id":"headers.unicode","command":"headers","argv":["headers","{fixtures}/unicode.csv"],"tags":["p0"]}
+{"id":"headers.empty","command":"headers","argv":["headers","{fixtures}/empty.csv"],"tags":["p0"]}
+{"id":"headers.stdin","command":"headers","argv":["headers"],"stdin_file":"{fixtures}/basic.csv","tags":["p0"]}
+{"id":"headers.help","command":"headers","argv":["headers","-h"],"tags":["p0","help"]}
+{"id":"headers.missing","command":"headers","argv":["headers","{fixtures}/nope.csv"],"stderr_contains":["failed to open"],"tags":["p0","error"]}
+{"id":"headers.two_stdin","command":"headers","argv":["headers","-","-"],"stdin_file":"{fixtures}/basic.csv","stderr_contains":["At most one"],"tags":["p0","error"]}
+
+{"id":"select.columns","command":"select","argv":["select","1,3","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.range","command":"select","argv":["select","2-3","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.reverse_range","command":"select","argv":["select","3-1","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.open_range","command":"select","argv":["select","2-","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.invert","command":"select","argv":["select","!2","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.names","command":"select","argv":["select","city,name","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.no_headers","command":"select","argv":["select","-n","2","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.duplicate_name","command":"select","argv":["select","a[1]","{fixtures}/duplicate_headers.csv"],"tags":["p0"]}
+{"id":"select.output","command":"select","argv":["select","-o","{work}/out.tsv","1,2","{fixtures}/basic.csv"],"output_files":["out.tsv"],"tags":["p0"]}
+{"id":"select.semicolon","command":"select","argv":["select","-d",";","1,3","{fixtures}/semicolon.csv"],"tags":["p0"]}
+{"id":"select.stdin","command":"select","argv":["select","2"],"stdin_file":"{fixtures}/basic.csv","tags":["p0"]}
+{"id":"select.empty_selection","command":"select","argv":["select","--","","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"select.help","command":"select","argv":["select","-h"],"tags":["p0","help"]}
+{"id":"select.bad_index","command":"select","argv":["select","9","{fixtures}/basic.csv"],"stderr_contains":["out of bounds"],"tags":["p0","error"]}
+{"id":"select.name_without_headers","command":"select","argv":["select","-n","name","{fixtures}/basic.csv"],"stderr_contains":["Cannot use names"],"tags":["p0","error"]}
+
+{"id":"slice.range","command":"slice","argv":["slice","-s","1","-l","2","{fixtures}/slice_basic.csv"],"tags":["p0"]}
+{"id":"slice.no_headers","command":"slice","argv":["slice","-n","-s","1","-l","1","{fixtures}/slice_basic.csv"],"tags":["p0"]}
+{"id":"slice.end","command":"slice","argv":["slice","-e","2","{fixtures}/slice_basic.csv"],"tags":["p0"]}
+{"id":"slice.index_shortcut","command":"slice","argv":["slice","-i","2","{fixtures}/slice_basic.csv"],"tags":["p0"]}
+{"id":"slice.past_end","command":"slice","argv":["slice","-s","10","-l","2","{fixtures}/slice_basic.csv"],"tags":["p0"]}
+{"id":"slice.bad_range","command":"slice","argv":["slice","-s","2","-e","1","{fixtures}/slice_basic.csv"],"stderr_contains":["must be greater"],"tags":["p0","error"]}
+{"id":"slice.end_and_len","command":"slice","argv":["slice","-e","2","-l","1","{fixtures}/slice_basic.csv"],"stderr_contains":["--end and --len"],"tags":["p0","error"]}
+{"id":"slice.index_conflict","command":"slice","argv":["slice","-i","1","-s","0","{fixtures}/slice_basic.csv"],"stderr_contains":["--index cannot be used"],"tags":["p0","error"]}
+{"id":"slice.indexed","command":"slice","argv":["slice","-s","2","-l","2","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/slice_basic.csv"},"prepare":"index","tags":["p0","index"]}
+{"id":"slice.indexed_no_headers","command":"slice","argv":["slice","-n","-s","2","-l","1","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/slice_basic.csv"},"prepare":"index","tags":["p0","index"]}
+{"id":"slice.indexed_stale","command":"slice","argv":["slice","-s","1","-l","1","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/slice_basic.csv"},"prepare":"index_stale","stderr_contains":["modified after the index"],"tags":["p0","index","error"]}
+{"id":"slice.output","command":"slice","argv":["slice","-o","{work}/out.tsv","-s","1","-l","1","{fixtures}/slice_basic.csv"],"output_files":["out.tsv"],"tags":["p0"]}
+{"id":"slice.help","command":"slice","argv":["slice","-h"],"tags":["p0","help"]}
+
+{"id":"search.literal","command":"search","argv":["search","foo","{fixtures}/search_basic.csv"],"tags":["p0"]}
+{"id":"search.ignore_case","command":"search","argv":["search","-i","foo","{fixtures}/search_basic.csv"],"tags":["p0"]}
+{"id":"search.invert","command":"search","argv":["search","-v","foo","{fixtures}/search_basic.csv"],"tags":["p0"]}
+{"id":"search.select","command":"search","argv":["search","-s","2","alpha","{fixtures}/search_basic.csv"],"tags":["p0"]}
+{"id":"search.regex","command":"search","argv":["search","^[A-Z]+$","{fixtures}/search_basic.csv"],"tags":["p0"]}
+{"id":"search.no_headers","command":"search","argv":["search","-n","foo","{fixtures}/search_basic.csv"],"tags":["p0"]}
+{"id":"search.stdin","command":"search","argv":["search","foo"],"stdin_file":"{fixtures}/search_basic.csv","tags":["p0"]}
+{"id":"search.output","command":"search","argv":["search","-o","{work}/out.tsv","foo","{fixtures}/search_basic.csv"],"output_files":["out.tsv"],"tags":["p0"]}
+{"id":"search.help","command":"search","argv":["search","-h"],"tags":["p0","help"]}
+{"id":"search.invalid_regex","command":"search","argv":["search","(","{fixtures}/search_basic.csv"],"compare_stdout":false,"stderr_class":false,"tags":["p0","error"]}
+
+{"id":"sort.lexical","command":"sort","argv":["sort","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"sort.numeric","command":"sort","argv":["sort","-N","-s","1","{fixtures}/sort_mixed.csv"],"tags":["p0"]}
+{"id":"sort.numeric_all","command":"sort","argv":["sort","-N","{fixtures}/sort_mixed.csv"],"tags":["p0"]}
+{"id":"sort.reverse","command":"sort","argv":["sort","-R","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"sort.numeric_reverse","command":"sort","argv":["sort","-N","-R","-s","1","{fixtures}/sort_mixed.csv"],"tags":["p0"]}
+{"id":"sort.stable","command":"sort","argv":["sort","-s","1","{fixtures}/sort_stable.csv"],"tags":["p0"]}
+{"id":"sort.no_headers","command":"sort","argv":["sort","-n","{fixtures}/basic.csv"],"tags":["p0"]}
+{"id":"sort.output","command":"sort","argv":["sort","-o","{work}/out.tsv","-N","-s","1","{fixtures}/sort_mixed.csv"],"output_files":["out.tsv"],"tags":["p0"]}
+{"id":"sort.header_only","command":"sort","argv":["sort","{fixtures}/header_only.csv"],"tags":["p0"]}
+{"id":"sort.empty","command":"sort","argv":["sort","{fixtures}/empty.csv"],"tags":["p0"]}
+{"id":"sort.help","command":"sort","argv":["sort","-h"],"tags":["p0","help"]}
+
+{"id":"stats.default","command":"stats","argv":["stats","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.everything","command":"stats","argv":["stats","--everything","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.nulls","command":"stats","argv":["stats","--everything","--nulls","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.select","command":"stats","argv":["stats","-s","2,4","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.no_headers","command":"stats","argv":["stats","-n","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.mixed_types","command":"stats","argv":["stats","--everything","{fixtures}/stats_mixed_types.csv"],"tags":["p0"]}
+{"id":"stats.empty","command":"stats","argv":["stats","{fixtures}/empty.csv"],"tags":["p0"]}
+{"id":"stats.header_only","command":"stats","argv":["stats","--everything","{fixtures}/header_only.csv"],"tags":["p0"]}
+{"id":"stats.unicode","command":"stats","argv":["stats","--everything","{fixtures}/unicode.csv"],"tags":["p0"]}
+{"id":"stats.mode","command":"stats","argv":["stats","--mode","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.median","command":"stats","argv":["stats","--median","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.cardinality","command":"stats","argv":["stats","--cardinality","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.jobs","command":"stats","argv":["stats","-j","1","{fixtures}/stats_mixed.csv"],"tags":["p0"]}
+{"id":"stats.output","command":"stats","argv":["stats","-o","{work}/out.tsv","{fixtures}/stats_mixed.csv"],"output_files":["out.tsv"],"tags":["p0"]}
+{"id":"stats.help","command":"stats","argv":["stats","-h"],"tags":["p0","help"]}
+
+{"id":"join.inner","command":"join","argv":["join","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.left","command":"join","argv":["join","--left","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.right","command":"join","argv":["join","--right","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.full","command":"join","argv":["join","--full","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.cross","command":"join","argv":["join","--cross","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.nulls","command":"join","argv":["join","--nulls","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.no_case","command":"join","argv":["join","--no-case","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.no_headers","command":"join","argv":["join","-n","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.multi","command":"join","argv":["join","1,2","{fixtures}/join_multi_left.csv","1,2","{fixtures}/join_multi_right.csv"],"tags":["p0"]}
+{"id":"join.multi_full","command":"join","argv":["join","--full","1,2","{fixtures}/join_multi_left.csv","1,2","{fixtures}/join_multi_right.csv"],"tags":["p0"]}
+{"id":"join.by_name","command":"join","argv":["join","k","{fixtures}/join_left.csv","k","{fixtures}/join_right.csv"],"tags":["p0"]}
+{"id":"join.semicolon","command":"join","argv":["join","-d",";","1","{fixtures}/semicolon.csv","1","{fixtures}/semicolon.csv"],"tags":["p0"]}
+{"id":"join.output","command":"join","argv":["join","-o","{work}/out.tsv","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"output_files":["out.tsv"],"tags":["p0"]}
+{"id":"join.header_only","command":"join","argv":["join","--full","1","{fixtures}/header_only.csv","1","{fixtures}/header_only.csv"],"tags":["p0"]}
+{"id":"join.empty","command":"join","argv":["join","1","{fixtures}/empty.csv","1","{fixtures}/empty.csv"],"tags":["p0"]}
+{"id":"join.mismatch","command":"join","argv":["join","1,2","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"stderr_contains":["Column selections must"],"tags":["p0","error"]}
+{"id":"join.multiple_ops","command":"join","argv":["join","--left","--right","1","{fixtures}/join_left.csv","1","{fixtures}/join_right.csv"],"stderr_contains":["Please pick exactly one"],"tags":["p0","error"]}
+{"id":"join.stdin","command":"join","argv":["join","1","-","1","{fixtures}/join_right.csv"],"stdin_text":"k,r\na,x\n","stderr_contains":["Cannot use <stdin> here"],"tags":["p0","error"]}
+{"id":"join.help","command":"join","argv":["join","-h"],"tags":["p0","help"]}
+{"id":"headers.tabs","command":"headers","argv":["headers","{fixtures}/headers_tabs.csv"],"tags":["p0"]}
+{"id":"headers.just_names_tabs","command":"headers","argv":["headers","-j","{fixtures}/headers_tabs.csv"],"tags":["p0"]}
+{"id":"select.empty_result","command":"select","argv":["select","--","!1","{fixtures}/one_column.csv"],"tags":["p0"]}
+{"id":"stats.mode_tie","command":"stats","argv":["stats","--everything","{fixtures}/stats_mode_tie.csv"],"tags":["p0"]}
+{"id":"sort.nan","command":"sort","argv":["sort","-N","-s","1","{fixtures}/sort_nan.csv"],"tags":["p0"]}
+{"id":"slice.indexed_self","command":"slice","argv":["slice","-s","1","-l","2","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/slice_basic.csv"},"prepare":"index_self","tags":["p0","index"]}
+{"id":"stats.indexed","command":"stats","argv":["stats","-j","1","{work}/input.csv"],"copy":{"input.csv":"{fixtures}/stats_mixed.csv"},"prepare":"index","tags":["p0","index"]}

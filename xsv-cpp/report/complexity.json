@@ -1,0 +1,22 @@
+{
+  "binary_bytes": 2057568,
+  "build_seconds": 16.483042802021373,
+  "cmake_lines": 130,
+  "ctest_tests": 14,
+  "differential_cases": 144,
+  "direct_dependencies": 5,
+  "doc_files": 6,
+  "doc_lines": 1218,
+  "gate_pass_rate": 1.0,
+  "header_files": 14,
+  "header_lines": 732,
+  "implementation_lines": 4902,
+  "linked_shared_objects": 4,
+  "planned_person_days": 60,
+  "script_files": 13,
+  "script_lines": 2624,
+  "source_files": 38,
+  "source_lines": 5634,
+  "test_files": 12,
+  "test_lines": 859
+}

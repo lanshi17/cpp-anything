@@ -1,0 +1,260 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "displayName": "C++ base (no optimization axes)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "XSV_VARIANT_NAME": "base",
+        "XSV_WITH_PMR": "OFF",
+        "XSV_WITH_SIMD": "OFF",
+        "XSV_WITH_TBB": "OFF",
+        "XSV_WITH_CUSTOM_HASH": "OFF",
+        "XSV_WITH_MMAP": "OFF",
+        "XSV_LTO": "ON"
+      }
+    },
+    {
+      "name": "pmr",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/pmr",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "pmr",
+        "XSV_WITH_PMR": "ON"
+      }
+    },
+    {
+      "name": "simd",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/simd",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "simd",
+        "XSV_WITH_SIMD": "ON"
+      }
+    },
+    {
+      "name": "tbb",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/tbb",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "tbb",
+        "XSV_WITH_TBB": "ON"
+      }
+    },
+    {
+      "name": "hash",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/hash",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "hash",
+        "XSV_WITH_CUSTOM_HASH": "ON"
+      }
+    },
+    {
+      "name": "mmap",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/mmap",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "mmap",
+        "XSV_WITH_MMAP": "ON"
+      }
+    },
+    {
+      "name": "pst",
+      "displayName": "PMR + SIMD + TBB",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/pst",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "pst",
+        "XSV_WITH_PMR": "ON",
+        "XSV_WITH_SIMD": "ON",
+        "XSV_WITH_TBB": "ON"
+      }
+    },
+    {
+      "name": "all",
+      "displayName": "All five axes (reference optimized build)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/all",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "all",
+        "XSV_WITH_PMR": "ON",
+        "XSV_WITH_SIMD": "ON",
+        "XSV_WITH_TBB": "ON",
+        "XSV_WITH_CUSTOM_HASH": "ON",
+        "XSV_WITH_MMAP": "ON"
+      }
+    },
+    {
+      "name": "native",
+      "displayName": "All axes, -march=native",
+      "inherits": "all",
+      "binaryDir": "${sourceDir}/build/native",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "native",
+        "XSV_NATIVE": "ON"
+      }
+    },
+    {
+      "name": "asan",
+      "displayName": "All axes + ASan/UBSan",
+      "inherits": "all",
+      "binaryDir": "${sourceDir}/build/asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "XSV_VARIANT_NAME": "asan",
+        "XSV_SANITIZE": "address;undefined",
+        "XSV_LTO": "OFF"
+      }
+    },
+    {
+      "name": "tsan",
+      "displayName": "All axes + TSan",
+      "inherits": "all",
+      "binaryDir": "${sourceDir}/build/tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "XSV_VARIANT_NAME": "tsan",
+        "XSV_SANITIZE": "thread",
+        "XSV_LTO": "OFF"
+      }
+    },
+    {
+      "name": "ps",
+      "displayName": "PMR + SIMD",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/ps",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "ps",
+        "XSV_WITH_PMR": "ON",
+        "XSV_WITH_SIMD": "ON"
+      }
+    },
+    {
+      "name": "pt",
+      "displayName": "PMR + TBB",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/pt",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "pt",
+        "XSV_WITH_PMR": "ON",
+        "XSV_WITH_TBB": "ON"
+      }
+    },
+    {
+      "name": "st",
+      "displayName": "SIMD + TBB",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/st",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "st",
+        "XSV_WITH_SIMD": "ON",
+        "XSV_WITH_TBB": "ON"
+      }
+    },
+    {
+      "name": "ht",
+      "displayName": "Custom hash + TBB (join focus)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build/ht",
+      "cacheVariables": {
+        "XSV_VARIANT_NAME": "ht",
+        "XSV_WITH_CUSTOM_HASH": "ON",
+        "XSV_WITH_TBB": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "base",
+      "configurePreset": "base"
+    },
+    {
+      "name": "pmr",
+      "configurePreset": "pmr"
+    },
+    {
+      "name": "simd",
+      "configurePreset": "simd"
+    },
+    {
+      "name": "tbb",
+      "configurePreset": "tbb"
+    },
+    {
+      "name": "hash",
+      "configurePreset": "hash"
+    },
+    {
+      "name": "mmap",
+      "configurePreset": "mmap"
+    },
+    {
+      "name": "pst",
+      "configurePreset": "pst"
+    },
+    {
+      "name": "all",
+      "configurePreset": "all"
+    },
+    {
+      "name": "native",
+      "configurePreset": "native"
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan"
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan"
+    },
+    {
+      "name": "ps",
+      "configurePreset": "ps"
+    },
+    {
+      "name": "pt",
+      "configurePreset": "pt"
+    },
+    {
+      "name": "st",
+      "configurePreset": "st"
+    },
+    {
+      "name": "ht",
+      "configurePreset": "ht"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "all",
+      "configurePreset": "all",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "asan",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

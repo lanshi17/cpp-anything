@@ -1,0 +1,240 @@
+{
+  "version": 1,
+  "notes": "Formal cases. status=implemented means every binary in the run must contain the command; planned cases are skipped unless --include-planned is given.",
+  "cases": [
+    {
+      "id": "B01.count.small",
+      "benchmark": "B01",
+      "command": "count",
+      "dataset": "small_uniform",
+      "argv": [
+        "count",
+        "{data}/small_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B01.count.medium",
+      "benchmark": "B01",
+      "command": "count",
+      "dataset": "medium_uniform",
+      "argv": [
+        "count",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B01.count.large",
+      "benchmark": "B01",
+      "command": "count",
+      "dataset": "large_uniform",
+      "argv": [
+        "count",
+        "{data}/large_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B02.index.medium",
+      "benchmark": "B02",
+      "command": "index",
+      "dataset": "medium_uniform",
+      "argv": [
+        "index",
+        "{work}/medium_uniform.csv"
+      ],
+      "copy": [
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B03.select.medium",
+      "benchmark": "B03",
+      "command": "select",
+      "dataset": "medium_uniform",
+      "argv": [
+        "select",
+        "-n",
+        "1,10,20",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B04.search.medium",
+      "benchmark": "B04",
+      "command": "search",
+      "dataset": "medium_uniform",
+      "argv": [
+        "search",
+        "-n",
+        "alpha",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B05.sort.medium",
+      "benchmark": "B05",
+      "command": "sort",
+      "dataset": "medium_uniform",
+      "argv": [
+        "sort",
+        "-n",
+        "-s",
+        "1",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B06.join.medium",
+      "benchmark": "B06",
+      "command": "join",
+      "dataset": "join_left",
+      "argv": [
+        "join",
+        "-n",
+        "1",
+        "{data}/join_left.csv",
+        "1",
+        "{data}/join_right.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B07.stats.medium",
+      "benchmark": "B07",
+      "command": "stats",
+      "dataset": "medium_uniform",
+      "argv": [
+        "stats",
+        "-n",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B08.frequency.medium",
+      "benchmark": "B08",
+      "command": "frequency",
+      "dataset": "low_card",
+      "argv": [
+        "frequency",
+        "-n",
+        "1",
+        "{data}/low_card.csv"
+      ],
+      "status": "deferred-p1"
+    },
+    {
+      "id": "B09.sample.medium",
+      "benchmark": "B09",
+      "command": "sample",
+      "dataset": "medium_uniform",
+      "argv": [
+        "sample",
+        "1000",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "deferred-p1"
+    },
+    {
+      "id": "B10.slice.medium",
+      "benchmark": "B10",
+      "command": "slice",
+      "dataset": "medium_uniform",
+      "argv": [
+        "slice",
+        "-s",
+        "1000",
+        "-l",
+        "1000",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "implemented"
+    },
+    {
+      "id": "B11.partition.medium",
+      "benchmark": "B11",
+      "command": "partition",
+      "dataset": "medium_uniform",
+      "argv": [
+        "partition",
+        "-n",
+        "--prefix",
+        "{work}/part",
+        "1",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "deferred-p1"
+    },
+    {
+      "id": "B12.fmt.medium",
+      "benchmark": "B12",
+      "command": "fmt",
+      "dataset": "medium_uniform",
+      "argv": [
+        "fmt",
+        "-t",
+        "{data}/medium_uniform.csv"
+      ],
+      "status": "deferred-p1"
+    },
+    {
+      "id": "B01.count.xlarge",
+      "benchmark": "B01",
+      "command": "count",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "count",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "full"
+      ]
+    },
+    {
+      "id": "B02.index.xlarge",
+      "benchmark": "B02",
+      "command": "index",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "index",
+        "{work}/xlarge_uniform.csv"
+      ],
+      "copy": [
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "full"
+      ]
+    },
+    {
+      "id": "B07.stats.indexed",
+      "benchmark": "B07",
+      "command": "stats",
+      "dataset": "medium_uniform",
+      "argv": [
+        "stats",
+        "-j",
+        "{threads}",
+        "{work}/medium_uniform.csv"
+      ],
+      "copy": [
+        "{data}/medium_uniform.csv"
+      ],
+      "prepare": "index",
+      "scaling": true,
+      "status": "implemented",
+      "profiles": [
+        "smoke",
+        "standard"
+      ]
+    }
+  ]
+}

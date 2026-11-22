@@ -1,0 +1,4 @@
+add_executable(xsv_microbench microbench.cpp)
+target_link_libraries(xsv_microbench PRIVATE xsv_core benchmark::benchmark)
+xsv_apply_warnings(xsv_microbench)
+xsv_apply_optimization(xsv_microbench)

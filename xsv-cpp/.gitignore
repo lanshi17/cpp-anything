@@ -1,0 +1,13 @@
+# Builds and generated data are not source.
+build/
+datasets/data/
+datasets/manifests/
+results/
+upstream/
+__pycache__/
+*.pyc
+.cache/
+compile_commands.json
+video/node_modules/
+video/out/
+video/qa/

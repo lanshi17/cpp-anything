@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "notes": "100M-row D4 run. Base is omitted because its read-whole-file path needs ~38 GB; run rust and all.",
+  "cases": [
+    {
+      "id": "D4.count",
+      "benchmark": "D4",
+      "command": "count",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "count",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "standard"
+      ]
+    },
+    {
+      "id": "D4.index",
+      "benchmark": "D4",
+      "command": "index",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "index",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "standard"
+      ]
+    },
+    {
+      "id": "D4.select",
+      "benchmark": "D4",
+      "command": "select",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "select",
+        "-n",
+        "1,10,20",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "standard"
+      ]
+    },
+    {
+      "id": "D4.search",
+      "benchmark": "D4",
+      "command": "search",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "search",
+        "-n",
+        "alpha",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "standard"
+      ]
+    },
+    {
+      "id": "D4.stats",
+      "benchmark": "D4",
+      "command": "stats",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "stats",
+        "-n",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "standard"
+      ]
+    },
+    {
+      "id": "D4.slice",
+      "benchmark": "D4",
+      "command": "slice",
+      "dataset": "xlarge_uniform",
+      "argv": [
+        "slice",
+        "-s",
+        "50000000",
+        "-l",
+        "1000",
+        "{data}/xlarge_uniform.csv"
+      ],
+      "status": "implemented",
+      "profiles": [
+        "standard"
+      ]
+    }
+  ]
+}

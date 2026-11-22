@@ -26,6 +26,18 @@ $ cpp-anything gate cpp/textkit-words             # done, and proven
 $ cpp-anything bench cpp/textkit-words            # 333 ns -> 141 ns per call (2.37x)
 ```
 
+## Case study: xsv-cpp
+
+A separate in-workspace experiment ports BurntSushi/xsv 0.13.0 to C++23 and
+reports both wins and losses. The 24s summary is generated from raw runs, not
+illustrative numbers.
+
+<p align="center">
+  <img src="xsv-cpp/docs/assets/xsv-cpp-advantages.gif" alt="24-second summary: C++ wins count, index, select, slice and join; Rust wins search and stats" width="840">
+</p>
+
+<p align="center"><sub>24s Remotion summary · <a href="xsv-cpp/README.md">xsv-cpp README</a> · <a href="xsv-cpp/report/REPORT.md">full report</a> · <a href="xsv-cpp/video/src/XsvCppAdvantages.tsx">Remotion source</a></sub></p>
+
 ## Quick start
 
 Requirements: CMake 3.28+, Ninja, a C++23 compiler with modules and `import std;`

@@ -1,0 +1,11 @@
+xsv-cpp is dual-licensed under the MIT license and the Unlicense.
+
+You may use this software under the terms of either license.
+
+- MIT: see licenses/LICENSE-MIT
+- Unlicense: see licenses/UNLICENSE
+
+The upstream xsv project is licensed the same way; its copyright notice and
+license texts are preserved in licenses/ and ATTRIBUTION.md.
+
+SPDX-License-Identifier: MIT OR Unlicense

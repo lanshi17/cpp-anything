@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="900" height="380" role="img" aria-label="Throughput vs threads (indexed stats)">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="80" y="26" font-family="sans-serif" font-size="16" fill="#222">Throughput vs threads (indexed stats)</text>
+<text x="16" y="185.0" font-family="sans-serif" font-size="12" fill="#555" transform="rotate(-90 16 185.0)">M rows/s</text>
+<line x1="80" y1="320.0" x2="720" y2="320.0" stroke="#e6e6e6"/>
+<text x="72" y="324.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">0</text>
+<line x1="80" y1="252.5" x2="720" y2="252.5" stroke="#e6e6e6"/>
+<text x="72" y="256.5" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">2.51</text>
+<line x1="80" y1="185.0" x2="720" y2="185.0" stroke="#e6e6e6"/>
+<text x="72" y="189.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">5.02</text>
+<line x1="80" y1="117.5" x2="720" y2="117.5" stroke="#e6e6e6"/>
+<text x="72" y="121.5" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">7.53</text>
+<line x1="80" y1="50.0" x2="720" y2="50.0" stroke="#e6e6e6"/>
+<text x="72" y="54.0" text-anchor="end" font-family="sans-serif" font-size="11" fill="#666">10</text>
+<line x1="80.0" y1="50" x2="80.0" y2="320" stroke="#f1f1f1"/>
+<text x="80.0" y="340" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">1</text>
+<line x1="208.0" y1="50" x2="208.0" y2="320" stroke="#f1f1f1"/>
+<text x="208.0" y="340" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">2</text>
+<line x1="336.0" y1="50" x2="336.0" y2="320" stroke="#f1f1f1"/>
+<text x="336.0" y="340" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">4</text>
+<line x1="464.0" y1="50" x2="464.0" y2="320" stroke="#f1f1f1"/>
+<text x="464.0" y="340" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">8</text>
+<line x1="592.0" y1="50" x2="592.0" y2="320" stroke="#f1f1f1"/>
+<text x="592.0" y="340" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">16</text>
+<line x1="720.0" y1="50" x2="720.0" y2="320" stroke="#f1f1f1"/>
+<text x="720.0" y="340" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#333">32</text>
+<circle cx="80.0" cy="294.5" r="3.5" fill="#4c78a8"/>
+<circle cx="208.0" cy="273.1" r="3.5" fill="#4c78a8"/>
+<circle cx="336.0" cy="231.1" r="3.5" fill="#4c78a8"/>
+<circle cx="464.0" cy="189.0" r="3.5" fill="#4c78a8"/>
+<circle cx="592.0" cy="108.6" r="3.5" fill="#4c78a8"/>
+<circle cx="720.0" cy="98.8" r="3.5" fill="#4c78a8"/>
+<polyline points="80.0,294.5 208.0,273.1 336.0,231.1 464.0,189.0 592.0,108.6 720.0,98.8" fill="none" stroke="#4c78a8" stroke-width="2"/>
+<circle cx="80.0" cy="299.7" r="3.5" fill="#59a14f"/>
+<circle cx="208.0" cy="300.4" r="3.5" fill="#59a14f"/>
+<circle cx="336.0" cy="300.7" r="3.5" fill="#59a14f"/>
+<circle cx="464.0" cy="300.8" r="3.5" fill="#59a14f"/>
+<circle cx="592.0" cy="300.8" r="3.5" fill="#59a14f"/>
+<circle cx="720.0" cy="301.0" r="3.5" fill="#59a14f"/>
+<polyline points="80.0,299.7 208.0,300.4 336.0,300.7 464.0,300.8 592.0,300.8 720.0,301.0" fill="none" stroke="#59a14f" stroke-width="2"/>
+<circle cx="80.0" cy="292.2" r="3.5" fill="#e15759"/>
+<circle cx="208.0" cy="265.8" r="3.5" fill="#e15759"/>
+<circle cx="336.0" cy="216.2" r="3.5" fill="#e15759"/>
+<circle cx="464.0" cy="162.0" r="3.5" fill="#e15759"/>
+<circle cx="592.0" cy="50.0" r="3.5" fill="#e15759"/>
+<circle cx="720.0" cy="61.8" r="3.5" fill="#e15759"/>
+<polyline points="80.0,292.2 208.0,265.8 336.0,216.2 464.0,162.0 592.0,50.0 720.0,61.8" fill="none" stroke="#e15759" stroke-width="2"/>
+<rect x="740" y="48" width="12" height="12" fill="#4c78a8"/>
+<text x="758" y="58" font-family="sans-serif" font-size="12" fill="#333">all</text>
+<rect x="740" y="70" width="12" height="12" fill="#59a14f"/>
+<text x="758" y="80" font-family="sans-serif" font-size="12" fill="#333">base</text>
+<rect x="740" y="92" width="12" height="12" fill="#e15759"/>
+<text x="758" y="102" font-family="sans-serif" font-size="12" fill="#333">rust</text>
+</svg>

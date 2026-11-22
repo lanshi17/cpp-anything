@@ -464,7 +464,7 @@ end
   return write_cases(project, calls, *output);
 }
 
-Result<double> bench(const Project& project, std::size_t repeat) {
+Result<BenchMeasurement> bench(const Project& project, std::size_t repeat) {
   const std::filesystem::path cases_path = project.dir / "cases.jsonl";
   const std::filesystem::path calls_path = project.dir / "build" / "bench-calls.jsonl";
   const auto text = read_file(cases_path);
@@ -527,7 +527,8 @@ puts JSON.generate({ 'ns' => ((finished - started) * 1_000_000_000).to_i, 'calls
     auto written = write_file(harness_path, harness);
     if (!written) return std::unexpected(written.error());
   }
-  auto output = run_harness(project, "ruby", {harness_path.string()}, std::nullopt);
+  std::uint64_t rss_kb = 0;
+  auto output = run_harness(project, "ruby", {harness_path.string()}, std::nullopt, &rss_kb);
   if (!output) return std::unexpected(output.error());
   Json doc;
   try {
@@ -542,7 +543,7 @@ puts JSON.generate({ 'ns' => ((finished - started) * 1_000_000_000).to_i, 'calls
                            ? calls_field->as_number()
                            : 1.0;
   if (total <= 0.0) return std::unexpected("the Ruby benchmark ran no calls");
-  return ns / total;
+  return BenchMeasurement{ns / total, rss_kb};
 }
 
 std::vector<std::pair<std::string, std::string>> shadow_files(const Project& project,

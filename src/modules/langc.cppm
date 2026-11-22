@@ -66,8 +66,8 @@ struct Recorded {
 /// Records the original: generated calls in, the harness's results out.
 [[nodiscard]] Result<Recorded> record(const Project& project, const Unit& unit, std::size_t count,
                                       Lang lang);
-[[nodiscard]] Result<double> bench_original(const Project& project, const Unit& unit,
-                                            std::size_t repeat, Lang lang);
+[[nodiscard]] Result<BenchMeasurement> bench_original(const Project& project, const Unit& unit,
+                                                      std::size_t repeat, Lang lang);
 
 }  // namespace cppan::langc
 }

@@ -826,8 +826,8 @@ Result<Recorded> record(const Project& project, const Unit& unit, std::size_t co
   return Recorded{count_cases, crashes};
 }
 
-Result<double> bench_original(const Project& project, const Unit& unit, std::size_t repeat,
-                              Lang lang) {
+Result<BenchMeasurement> bench_original(const Project& project, const Unit& unit,
+                                        std::size_t repeat, Lang lang) {
   auto exe = build_harness(project, unit, lang);
   if (!exe) return std::unexpected(exe.error());
   const std::vector<Json> generated = calls(unit, 64);
@@ -872,7 +872,7 @@ Result<double> bench_original(const Project& project, const Unit& unit, std::siz
   if (nanos == nullptr || !nanos->is_number()) {
     return std::unexpected("the harness printed no ns_per_call");
   }
-  return nanos->as_number();
+  return BenchMeasurement{nanos->as_number(), run.rss_kb};
 }
 
 }  // namespace cppan::langc

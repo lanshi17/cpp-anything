@@ -702,10 +702,11 @@ Result<Harness> locate_harness(const Project& project,
 }
 
 /// Writes the harness, runs it, and removes the temporary module either way.
-Result<std::string> execute(const Project& project, Harness harness, std::string_view body) {
+Result<std::string> execute(const Project& project, Harness harness, std::string_view body,
+                            std::uint64_t* rss_kb = nullptr) {
   const auto written = write_file(harness.directory / "main.go", body);
   Result<std::string> result =
-      written ? run_harness(project, "go", {"run", harness.run}, harness.cwd)
+      written ? run_harness(project, "go", {"run", harness.run}, harness.cwd, rss_kb)
               : Result<std::string>(std::unexpected(written.error()));
   std::error_code error;
   std::filesystem::remove_all(harness.directory, error);
@@ -1254,7 +1255,7 @@ Result<std::size_t> record(const Project& project, const Unit& unit,
   return write_cases(project, calls, *output);
 }
 
-Result<double> bench(const Project& project, std::size_t repeat) {
+Result<BenchMeasurement> bench(const Project& project, std::size_t repeat) {
   const std::filesystem::path cases_path = project.dir / "cases.jsonl";
   const auto text = read_file(cases_path);
   if (!text.has_value()) return std::unexpected(cases_path.string() + ": cannot read");
@@ -1324,7 +1325,8 @@ Result<double> bench(const Project& project, std::size_t repeat) {
   source += kGoHarnessHelpers;
   source += kBenchMain;
 
-  auto output = execute(project, std::move(*harness), source);
+  std::uint64_t rss_kb = 0;
+  auto output = execute(project, std::move(*harness), source, &rss_kb);
   if (!output) return std::unexpected(output.error());
   Json doc;
   try {
@@ -1339,7 +1341,7 @@ Result<double> bench(const Project& project, std::size_t repeat) {
                            ? calls_field->as_number()
                            : 1.0;
   if (count <= 0.0) return std::unexpected("the Go benchmark ran no calls");
-  return total / count;
+  return BenchMeasurement{total / count, rss_kb};
 }
 
 namespace {

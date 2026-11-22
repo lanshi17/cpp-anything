@@ -82,7 +82,7 @@ that can run a terminal or call a tool gets the same loop.
 | port | `$EDITOR cpp/unit/src/port.cpp` | the only file you write |
 | build / diff | `build`, `diff` | every recorded case, replayed through the C++ driver |
 | shadow | `shadow cpp/unit` | a drop-in module: original returns, port runs second, disagreements logged |
-| bench | `bench cpp/unit [--repeat N] [--samples N]` | median and P95 per-call timing on both sides, from repeated process samples |
+| bench | `bench cpp/unit [--repeat N] [--samples N]` | median, 95% bootstrap CI, P95 and peak RSS on both sides, from repeated process samples |
 | gate | `gate cpp/unit` | matrix, stubs, error paths, panics, size, staleness, coverage, build, dispatch, diff |
 | whole app | `app record`, `app replay`, `app front-door`, `app wire`, `app lift` | a C++ front door that ships with everything falling back, then lifts to standalone |
 | map | `map --write` | every unit's port, cases, last diff, and which originals changed upstream |
@@ -102,7 +102,8 @@ that can run a terminal or call a tool gets the same loop.
 5. **diff** — the C++ driver replays every case; the numbers, strings, lists, dicts,
    `NaN`, `-0.0` and exception types must agree.
 6. **bench** — the same cases, timed in both processes. It reports the median of
-   several process-level samples and a P95, not a single lucky run.
+   several process-level samples, a 95% bootstrap interval, P95 and peak RSS,
+   not a single lucky run.
 7. **gate** — matrix, no stubs, build, dispatch, every case. Non-zero until it all passes.
 
 `refresh` regenerates the declarations and dispatch after a signature change, and

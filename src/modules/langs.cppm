@@ -82,7 +82,7 @@ namespace go {
 [[nodiscard]] Result<Analysis> analyze_package(const std::filesystem::path& directory);
 [[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
                                          const std::vector<Json>& calls);
-[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] Result<BenchMeasurement> bench(const Project& project, std::size_t repeat);
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
     const Project& project, std::string_view ns);
 }
@@ -90,7 +90,7 @@ namespace java {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
 [[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
                                          const std::vector<Json>& calls);
-[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] Result<BenchMeasurement> bench(const Project& project, std::size_t repeat);
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
     const Project& project, std::string_view ns);
 }
@@ -101,7 +101,7 @@ namespace rust {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
 [[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
                                          const std::vector<Json>& calls);
-[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] Result<BenchMeasurement> bench(const Project& project, std::size_t repeat);
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
     const Project& project, std::string_view ns);
 }
@@ -109,7 +109,7 @@ namespace ruby {
 [[nodiscard]] Result<Analysis> analyze(const std::filesystem::path& path);
 [[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
                                          const std::vector<Json>& calls);
-[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] Result<BenchMeasurement> bench(const Project& project, std::size_t repeat);
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
     const Project& project, std::string_view ns);
 }
@@ -118,7 +118,7 @@ namespace ts {
 [[nodiscard]] Result<std::size_t> record(const Project& project, const Unit& unit,
                                          const std::vector<Json>& calls,
                                          const RecordOptions& options, Lang lang);
-[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat, Lang lang);
+[[nodiscard]] Result<BenchMeasurement> bench(const Project& project, std::size_t repeat, Lang lang);
 [[nodiscard]] std::vector<std::pair<std::string, std::string>> shadow_files(
     const Project& project, std::string_view ns, Lang lang);
 }
@@ -143,14 +143,15 @@ namespace ts {
 [[nodiscard]] Result<std::size_t> write_cases(const Project& project,
                                               const std::vector<Json>& calls,
                                               std::string_view output);
-[[nodiscard]] Result<std::string> run_harness(const Project& project, std::string_view program,
-                                              const std::vector<std::string>& args,
-                                              const std::optional<std::filesystem::path>& cwd);
+[[nodiscard]] Result<std::string> run_harness(
+    const Project& project, std::string_view program, const std::vector<std::string>& args,
+    const std::optional<std::filesystem::path>& cwd,
+    std::uint64_t* rss_kb = nullptr);
 
 /// The per-language recorder: generated calls in, the harness's results out.
 [[nodiscard]] Result<std::size_t> record(const Project& project, std::size_t count,
                                          const RecordOptions& options);
-[[nodiscard]] Result<double> bench_original(const Project& project, std::size_t repeat);
+[[nodiscard]] Result<BenchMeasurement> bench_original(const Project& project, std::size_t repeat);
 /// The language-specific shadow files.
 [[nodiscard]] Result<std::vector<std::pair<std::string, std::string>>> shadow_files(
     const Project& project, std::string_view ns);

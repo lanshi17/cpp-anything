@@ -11,6 +11,17 @@ export {
 
 namespace cppan::bench {
 
+struct BenchSample {
+  double ns_per_call = 0.0;
+  std::uint64_t rss_kb = 0;
+};
+
+struct PortBench {
+  double ns_per_call = 0.0;
+  std::size_t calls = 0;
+  std::uint64_t rss_kb = 0;
+};
+
 struct BenchReport {
   /// Median over process-level samples.
   double original_ns = 0.0;
@@ -21,6 +32,14 @@ struct BenchReport {
   double cpp_min_ns = 0.0;
   double original_max_ns = 0.0;
   double cpp_max_ns = 0.0;
+  /// 95% bootstrap interval for the median.
+  double original_ci_low_ns = 0.0;
+  double original_ci_high_ns = 0.0;
+  double cpp_ci_low_ns = 0.0;
+  double cpp_ci_high_ns = 0.0;
+  /// Peak RSS is the maximum across samples, not a median.
+  std::uint64_t original_rss_kb = 0;
+  std::uint64_t cpp_rss_kb = 0;
   std::size_t samples = 1;
   std::size_t calls = 0;
   std::size_t repeat = 0;
@@ -31,12 +50,12 @@ struct BenchReport {
   [[nodiscard]] std::string_view verdict() const;
 };
 
-/// Turn one timing per sample into medians, P95 and min/max.
-[[nodiscard]] BenchReport make_report(std::vector<double> original_ns,
-                                      std::vector<double> cpp_ns, std::size_t calls,
+/// Turn per-process timings and RSS into medians, P95, ranges and peak RSS.
+[[nodiscard]] BenchReport make_report(std::vector<BenchSample> original,
+                                      std::vector<BenchSample> cpp, std::size_t calls,
                                       std::size_t repeat, std::string original_label);
 
-using OriginalBench = std::function<Result<double>(std::size_t repeat)>;
+using OriginalBench = std::function<Result<BenchMeasurement>(std::size_t repeat)>;
 
 /// Run the original and the port `samples` times; each sample times `repeat`
 /// calls per case. The driver decodes cases once inside each sample.
@@ -49,8 +68,9 @@ using OriginalBench = std::function<Result<double>(std::size_t repeat)>;
                                       const std::filesystem::path& driver, std::size_t repeat,
                                       std::size_t samples = 5);
 /// The port's side only: the driver times the calls with the arguments decoded once.
-[[nodiscard]] Result<std::pair<double, std::size_t>> run_port(
-    const Project& project, const std::filesystem::path& driver, std::size_t repeat);
+[[nodiscard]] Result<PortBench> run_port(const Project& project,
+                                         const std::filesystem::path& driver,
+                                         std::size_t repeat);
 [[nodiscard]] std::string render(const BenchReport& report, const Project& project);
 [[nodiscard]] Json to_json(const BenchReport& report, const Project& project);
 

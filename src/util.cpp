@@ -7,6 +7,7 @@ module;
 #include <cwchar>
 #if defined(__unix__) || defined(__APPLE__)
 #include <poll.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #elif defined(_WIN32)
@@ -395,11 +396,16 @@ Run run_command(const std::string& program, const std::vector<std::string>& args
   if (fds[1].fd >= 0) ::close(fds[1].fd);
 
   int status = 0;
-  while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
+  struct rusage usage {};
+  while (::wait4(child, &status, 0, &usage) < 0 && errno == EINTR) {
   }
   Run run;
   run.out = std::move(out);
   run.err = std::move(err);
+  run.rss_kb = static_cast<std::uint64_t>(usage.ru_maxrss);
+#if defined(__APPLE__)
+  run.rss_kb /= 1024;
+#endif
   if (WIFEXITED(status)) {
     run.status = WEXITSTATUS(status);
     run.ok = *run.status == 0;
@@ -468,11 +474,16 @@ Run run_command_with_input(const std::string& program, const std::vector<std::st
   if (fds[0].fd >= 0) ::close(fds[0].fd);
   if (fds[1].fd >= 0) ::close(fds[1].fd);
   int status = 0;
-  while (::waitpid(child, &status, 0) < 0 && errno == EINTR) {
+  struct rusage usage {};
+  while (::wait4(child, &status, 0, &usage) < 0 && errno == EINTR) {
   }
   Run run;
   run.out = std::move(out);
   run.err = std::move(err);
+  run.rss_kb = static_cast<std::uint64_t>(usage.ru_maxrss);
+#if defined(__APPLE__)
+  run.rss_kb /= 1024;
+#endif
   if (WIFEXITED(status)) {
     run.status = WEXITSTATUS(status);
     run.ok = *run.status == 0;

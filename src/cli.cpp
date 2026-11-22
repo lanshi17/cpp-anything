@@ -786,7 +786,9 @@ Result<int> bench_command(const Parsed& args) {
     auto report = bench::run_samples(
         *project, driver, repeat, samples, std::string(langc::label(*lang)),
         [&](std::size_t calls) {
-          return langc::bench_original(*project, *unit, calls, *lang);
+          auto value = langc::bench_original(*project, *unit, calls, *lang);
+          if (!value) return Result<BenchMeasurement>(std::unexpected(value.error()));
+          return Result<BenchMeasurement>(*value);
         });
     if (!report) return std::unexpected(report.error());
     return emit(*report);
@@ -794,7 +796,11 @@ Result<int> bench_command(const Parsed& args) {
   if (const auto lang = langs::parse(project->source_lang); lang.has_value()) {
     auto report = bench::run_samples(
         *project, driver, repeat, samples, std::string(langs::label(*lang)),
-        [&](std::size_t calls) { return langs::bench_original(*project, calls); });
+        [&](std::size_t calls) {
+          auto value = langs::bench_original(*project, calls);
+          if (!value) return Result<BenchMeasurement>(std::unexpected(value.error()));
+          return Result<BenchMeasurement>(*value);
+        });
     if (!report) return std::unexpected(report.error());
     return emit(*report);
   }

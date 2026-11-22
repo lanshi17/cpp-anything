@@ -6,11 +6,12 @@
 
 - `bench --samples N` runs the original and the port in N separate processes,
   alternates which side goes first, and reports median, P95, min/max and the
-  speedup of the medians. The JSON schema is now `cpp-anything/bench@2`.
+  speedup of the medians. The JSON schema is now `cpp-anything/bench@3`.
 - `gate --bench` uses three process samples by default, so a single turbo or
   scheduler outlier no longer decides whether the port is "done".
-- `bench` output now labels the unit (`ns`, `µs`, `ms`) and shows P95 instead of
-  a bare number.
+- `bench` output now labels the unit (`ns`, `µs`, `ms`), shows P95, a
+  deterministic 95% bootstrap interval for the median, and peak RSS for both
+  sides.
 
 ### Rust source language
 

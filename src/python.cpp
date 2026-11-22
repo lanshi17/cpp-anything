@@ -48,7 +48,8 @@ Result<std::filesystem::path> probe_path() {
 }
 
 Result<std::string> probe(const std::vector<std::string>& args,
-                          const std::optional<std::filesystem::path>& cwd = std::nullopt) {
+                          const std::optional<std::filesystem::path>& cwd = std::nullopt,
+                          std::uint64_t* rss_kb = nullptr) {
   auto script = probe_path();
   if (!script) return std::unexpected(script.error());
   std::vector<std::string> argv;
@@ -79,6 +80,7 @@ Result<std::string> probe(const std::vector<std::string>& args,
     }
     return std::unexpected("python probe failed (" + headline + "):\n" + indent_text(detail, 2));
   }
+  if (rss_kb != nullptr) *rss_kb = run.rss_kb;
   return run.out;
 }
 
@@ -116,7 +118,7 @@ Result<Unit> inventory(const std::filesystem::path& path, std::string_view modul
   }
 }
 
-Result<double> bench(const Project& project, std::size_t repeat) {
+Result<BenchMeasurement> bench(const Project& project, std::size_t repeat) {
   const std::filesystem::path cases = project.dir / "cases.jsonl";
   std::vector<std::string> args = {"bench",
                                    "--path",
@@ -131,13 +133,14 @@ Result<double> bench(const Project& project, std::size_t repeat) {
     args.push_back("--package-root");
     args.push_back(project.package_root->string());
   }
-  auto output = probe(args, project.dir);
+  std::uint64_t rss_kb = 0;
+  auto output = probe(args, project.dir, &rss_kb);
   if (!output) return std::unexpected(output.error());
   try {
     const Json doc = parse(trim(*output));
     if (const Json* nanos = doc.find("ns_per_call");
         nanos != nullptr && nanos->is_number()) {
-      return nanos->as_number();
+      return BenchMeasurement{nanos->as_number(), rss_kb};
     }
   } catch (const JsonError& failure) {
     return std::unexpected(std::string("probe returned invalid JSON: ") + failure.what());

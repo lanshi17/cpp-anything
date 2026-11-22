@@ -1135,7 +1135,7 @@ Result<std::size_t> record(const Project& project, const Unit& unit,
   return write_cases(project, calls, run->out);
 }
 
-Result<double> bench(const Project& project, std::size_t repeat) {
+Result<BenchMeasurement> bench(const Project& project, std::size_t repeat) {
   const auto source = read_file(project.source_file);
   if (!source.has_value()) return std::unexpected(project.source_file.string() + ": cannot read");
   auto parsed = analyze_source(*source);
@@ -1192,7 +1192,7 @@ Result<double> bench(const Project& project, std::size_t repeat) {
                            ? calls_field->as_number()
                            : 1.0;
   if (total <= 0.0) return std::unexpected("the Rust benchmark ran no calls");
-  return ns / total;
+  return BenchMeasurement{ns / total, run->rss_kb};
 }
 
 std::vector<std::pair<std::string, std::string>> shadow_files(const Project& project,

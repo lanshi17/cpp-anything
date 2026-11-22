@@ -17,9 +17,8 @@ std::string_view BenchReport::verdict() const {
   return "about the same";
 }
 
-Result<std::pair<double, std::size_t>> run_port(const Project& project,
-                                                const std::filesystem::path& driver,
-                                                std::size_t repeat) {
+Result<PortBench> run_port(const Project& project, const std::filesystem::path& driver,
+                           std::size_t repeat) {
   const std::filesystem::path cases = project.dir / "cases.jsonl";
   if (!std::filesystem::exists(cases)) {
     return std::unexpected(cases.string() + ": no recorded cases (run `cpp-anything record`)");
@@ -54,22 +53,31 @@ Result<std::pair<double, std::size_t>> run_port(const Project& project,
   const double ns = nanos != nullptr && nanos->is_number() ? nanos->as_number() : 0.0;
   const std::size_t total =
       calls != nullptr && calls->is_integer() ? static_cast<std::size_t>(calls->as_int()) : 0;
-  return std::pair{ns, total};
+  return PortBench{ns, total, run.rss_kb};
 }
 
-BenchReport make_report(std::vector<double> original_ns, std::vector<double> cpp_ns,
-                        std::size_t calls, std::size_t repeat,
-                        std::string original_label) {
-  const auto series = [](std::vector<double> values) {
+BenchReport make_report(std::vector<BenchSample> original_samples,
+                        std::vector<BenchSample> cpp_samples, std::size_t calls,
+                        std::size_t repeat, std::string original_label) {
+  const auto series = [](std::vector<BenchSample> samples) {
     struct Stats {
       double median = 0.0;
       double p95 = 0.0;
       double min = 0.0;
       double max = 0.0;
+      double ci_low = 0.0;
+      double ci_high = 0.0;
+      std::uint64_t rss_kb = 0;
       std::size_t count = 0;
     } stats;
-    stats.count = values.size();
-    if (values.empty()) return stats;
+    stats.count = samples.size();
+    if (samples.empty()) return stats;
+    std::vector<double> values;
+    values.reserve(samples.size());
+    for (const BenchSample& sample : samples) {
+      values.push_back(sample.ns_per_call);
+      stats.rss_kb = std::max(stats.rss_kb, sample.rss_kb);
+    }
     std::ranges::sort(values);
     const std::size_t middle = values.size() / 2;
     stats.median = values.size() % 2 == 0
@@ -84,10 +92,37 @@ BenchReport make_report(std::vector<double> original_ns, std::vector<double> cpp
     stats.p95 = nearest_rank(0.95);
     stats.min = values.front();
     stats.max = values.back();
+    // Deterministic percentile bootstrap for the median. The seed is fixed so
+    // the same samples produce the same interval on every run.
+    std::mt19937 rng(0xC0FFEEu);
+    std::uniform_int_distribution<std::size_t> pick(0, values.size() - 1);
+    std::vector<double> medians;
+    medians.reserve(2000);
+    for (std::size_t resample = 0; resample < 2000; ++resample) {
+      std::vector<double> sample;
+      sample.reserve(values.size());
+      for (std::size_t index = 0; index < values.size(); ++index) {
+        sample.push_back(values[pick(rng)]);
+      }
+      std::ranges::sort(sample);
+      const std::size_t mid = sample.size() / 2;
+      medians.push_back(sample.size() % 2 == 0
+                            ? (sample[mid - 1] + sample[mid]) / 2.0
+                            : sample[mid]);
+    }
+    std::ranges::sort(medians);
+    const auto bootstrap_rank = [&](double percentile) {
+      std::size_t index = static_cast<std::size_t>(
+          std::ceil(percentile * static_cast<double>(medians.size())));
+      index = std::clamp<std::size_t>(index, 1, medians.size());
+      return medians[index - 1];
+    };
+    stats.ci_low = bootstrap_rank(0.025);
+    stats.ci_high = bootstrap_rank(0.975);
     return stats;
   };
-  const auto original = series(std::move(original_ns));
-  const auto port = series(std::move(cpp_ns));
+  const auto original = series(std::move(original_samples));
+  const auto port = series(std::move(cpp_samples));
   BenchReport report;
   report.original_ns = original.median;
   report.cpp_ns = port.median;
@@ -97,6 +132,12 @@ BenchReport make_report(std::vector<double> original_ns, std::vector<double> cpp
   report.cpp_min_ns = port.min;
   report.original_max_ns = original.max;
   report.cpp_max_ns = port.max;
+  report.original_ci_low_ns = original.ci_low;
+  report.original_ci_high_ns = original.ci_high;
+  report.cpp_ci_low_ns = port.ci_low;
+  report.cpp_ci_high_ns = port.ci_high;
+  report.original_rss_kb = original.rss_kb;
+  report.cpp_rss_kb = port.rss_kb;
   report.samples = original.count;
   report.calls = calls;
   report.repeat = std::max<std::size_t>(repeat, 1);
@@ -110,17 +151,17 @@ Result<BenchReport> run_samples(const Project& project, const std::filesystem::p
                                 const OriginalBench& original) {
   repeat = std::max<std::size_t>(repeat, 1);
   samples = std::max<std::size_t>(samples, 1);
-  std::vector<double> original_ns;
-  std::vector<double> cpp_ns;
-  original_ns.reserve(samples);
-  cpp_ns.reserve(samples);
+  std::vector<BenchSample> original_samples;
+  std::vector<BenchSample> cpp_samples;
+  original_samples.reserve(samples);
+  cpp_samples.reserve(samples);
   std::size_t calls = 0;
   for (std::size_t sample = 0; sample < samples; ++sample) {
     const bool port_first = sample % 2 != 0;
     const auto take_original = [&]() -> std::optional<Error> {
       auto value = original(repeat);
       if (!value) return value.error();
-      original_ns.push_back(*value);
+      original_samples.push_back(BenchSample{value->ns_per_call, value->rss_kb});
       return std::nullopt;
     };
     if (!port_first) {
@@ -128,13 +169,13 @@ Result<BenchReport> run_samples(const Project& project, const std::filesystem::p
     }
     auto port = run_port(project, driver, repeat);
     if (!port) return std::unexpected(port.error());
-    cpp_ns.push_back(port->first);
-    calls = port->second;
+    cpp_samples.push_back(BenchSample{port->ns_per_call, port->rss_kb});
+    calls = port->calls;
     if (port_first) {
       if (auto error = take_original(); error.has_value()) return std::unexpected(*error);
     }
   }
-  return make_report(std::move(original_ns), std::move(cpp_ns), calls, repeat,
+  return make_report(std::move(original_samples), std::move(cpp_samples), calls, repeat,
                      std::move(original_label));
 }
 
@@ -152,6 +193,15 @@ std::string format_ns(double nanos) {
   return std::format("{:.1f} ns", nanos);
 }
 
+std::string format_rss(std::uint64_t rss_kb) {
+  if (rss_kb == 0) return "n/a";
+  if (rss_kb >= 1024ULL * 1024ULL) {
+    return std::format("{:.2f} GiB", static_cast<double>(rss_kb) / (1024.0 * 1024.0));
+  }
+  if (rss_kb >= 1024) return std::format("{:.1f} MiB", static_cast<double>(rss_kb) / 1024.0);
+  return std::format("{} KiB", rss_kb);
+}
+
 }  // namespace
 
 std::string render(const BenchReport& report, const Project& project) {
@@ -160,11 +210,15 @@ std::string render(const BenchReport& report, const Project& project) {
       "cpp-anything bench: {} — {} calls over {} recorded cases, {}x repeated, "
       "{} process sample(s)\n\n",
       project.module, report.calls, cases, report.repeat, report.samples);
-  out += std::format("  {:<22} {:>14}/call   P95 {:>14}/call\n",
-                     std::format("original ({})", report.original_label),
-                     format_ns(report.original_ns), format_ns(report.original_p95_ns));
-  out += std::format("  {:<22} {:>14}/call   P95 {:>14}/call\n", "port (C++)",
-                     format_ns(report.cpp_ns), format_ns(report.cpp_p95_ns));
+  out += std::format(
+      "  {:<22} {:>14}/call   P95 {:>14}   CI [{}, {}]   RSS {}\n",
+      std::format("original ({})", report.original_label), format_ns(report.original_ns),
+      format_ns(report.original_p95_ns), format_ns(report.original_ci_low_ns),
+      format_ns(report.original_ci_high_ns), format_rss(report.original_rss_kb));
+  out += std::format(
+      "  {:<22} {:>14}/call   P95 {:>14}   CI [{}, {}]   RSS {}\n", "port (C++)",
+      format_ns(report.cpp_ns), format_ns(report.cpp_p95_ns), format_ns(report.cpp_ci_low_ns),
+      format_ns(report.cpp_ci_high_ns), format_rss(report.cpp_rss_kb));
   out += std::format("\n  speedup (median): {:.2f}x — the port is {}\n", report.speedup(),
                      report.verdict());
   if (report.samples > 1) {
@@ -182,7 +236,7 @@ std::string render(const BenchReport& report, const Project& project) {
 
 Json to_json(const BenchReport& report, const Project& project) {
   return Json::object({
-      {"schema", Json::string("cpp-anything/bench@2")},
+      {"schema", Json::string("cpp-anything/bench@3")},
       {"unit", Json::string(project.unit)},
       {"samples", Json::integer(static_cast<std::int64_t>(report.samples))},
       {"calls", Json::integer(static_cast<std::int64_t>(report.calls))},
@@ -192,10 +246,16 @@ Json to_json(const BenchReport& report, const Project& project) {
       {"original_min_ns_per_call", Json::real(report.original_min_ns)},
       {"original_max_ns_per_call", Json::real(report.original_max_ns)},
       {"original_language", Json::string(report.original_label)},
+      {"original_ci_low_ns_per_call", Json::real(report.original_ci_low_ns)},
+      {"original_ci_high_ns_per_call", Json::real(report.original_ci_high_ns)},
       {"port_ns_per_call", Json::real(report.cpp_ns)},
       {"port_p95_ns_per_call", Json::real(report.cpp_p95_ns)},
       {"port_min_ns_per_call", Json::real(report.cpp_min_ns)},
       {"port_max_ns_per_call", Json::real(report.cpp_max_ns)},
+      {"port_ci_low_ns_per_call", Json::real(report.cpp_ci_low_ns)},
+      {"port_ci_high_ns_per_call", Json::real(report.cpp_ci_high_ns)},
+      {"original_peak_rss_kb", Json::integer(static_cast<std::int64_t>(report.original_rss_kb))},
+      {"port_peak_rss_kb", Json::integer(static_cast<std::int64_t>(report.cpp_rss_kb))},
       {"speedup", Json::real(report.speedup())},
       {"verdict", Json::string(std::string(report.verdict()))},
   });

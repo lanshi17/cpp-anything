@@ -1223,10 +1223,11 @@ Result<std::filesystem::path> compile_java(const Project& project, const Parsed&
 }
 
 Result<std::string> run_java(const Project& project, const std::filesystem::path& classes,
-                             const std::vector<std::string>& extra) {
+                             const std::vector<std::string>& extra,
+                             std::uint64_t* rss_kb = nullptr) {
   std::vector<std::string> args = {"-Dstdout.encoding=UTF-8", "-cp", classes.string()};
   args.insert(args.end(), extra.begin(), extra.end());
-  return run_harness(project, "java", args, std::nullopt);
+  return run_harness(project, "java", args, std::nullopt, rss_kb);
 }
 
 Result<std::string> render_record(const Parsed& parsed, const std::vector<Json>& calls) {
@@ -1436,7 +1437,7 @@ Result<std::size_t> record(const Project& project, const Unit& unit,
   return write_cases(project, calls, *output);
 }
 
-Result<double> bench(const Project& project, std::size_t repeat) {
+Result<BenchMeasurement> bench(const Project& project, std::size_t repeat) {
   const auto parsed = parse_java(project.source_file);
   if (!parsed) return std::unexpected(parsed.error());
   const auto text = read_file(project.dir / "cases.jsonl");
@@ -1486,7 +1487,8 @@ Result<double> bench(const Project& project, std::size_t repeat) {
   }
   auto classes = compile_java(project, *parsed, {harness_path});
   if (!classes) return std::unexpected(classes.error());
-  auto output = run_java(project, *classes, {"Bench", std::to_string(repeat)});
+  std::uint64_t rss_kb = 0;
+  auto output = run_java(project, *classes, {"Bench", std::to_string(repeat)}, &rss_kb);
   if (!output) return std::unexpected(output.error());
   Json doc;
   try {
@@ -1501,7 +1503,7 @@ Result<double> bench(const Project& project, std::size_t repeat) {
   const double calls =
       calls_field != nullptr && calls_field->is_number() ? calls_field->as_number() : 1.0;
   if (calls <= 0.0) return std::unexpected("the Java benchmark ran no calls");
-  return ns / calls;
+  return BenchMeasurement{ns / calls, rss_kb};
 }
 
 // ---------------------------------------------------------------------------

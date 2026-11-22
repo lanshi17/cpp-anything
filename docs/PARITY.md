@@ -14,7 +14,7 @@ because the target is C++, and what is not there yet. It is updated with the cod
 | `record [--count] [--inputs] [--from-tests -- cmd] [--float-tolerance]` | same, plus `--seed`, `--module/--resolve-from/--node-arg` for TS/JS | implemented per language: probe for Python, fork-per-case harness for C, out-of-process harnesses for TS/JS, Go, Rust, Ruby, Java; `--from-tests` remains Python-only |
 | `build` | same | implemented (CMake) |
 | `diff [--json] [--ignore-key-order] [--float-tolerance]` | `--json/--strict-errors/--tolerance/--only/--max-report` | implemented; objects already compare unordered, so `--ignore-key-order` is the default and the flag is unnecessary |
-| `bench [--min-ms] [--json]` | `--repeat` (calls per case) `--samples` (process-level repeats) `--json` | implemented with the same method: decode once per sample, time only the calls; report median and P95, never a single run |
+| `bench [--min-ms] [--json]` | `--repeat` (calls per case) `--samples` (process-level repeats) `--json` | implemented with the same method: decode once per sample, time only the calls; report median, 95% bootstrap CI, P95 and peak RSS, never a single run |
 | `profile <root> -- <cmd>` | same | implemented per runtime: Python (cProfile), Node (`--cpu-prof`), Ruby (TracePoint tracer), Go (`go test -cpuprofile` + `go tool pprof -raw`), Java (JFR `jdk.ExecutionSample`) |
 | `shadow [--out]` | `shadow [--report] [--check] [--json]` | implemented as a drop-in module over a C ABI; `--report`/`--check` summarise the log |
 | `gate [--json]` | `--json/--clean/--cxx/--jobs/--bench` | implemented: matrix, stubs (ported), error paths, panics, size, recording staleness, coverage, build, dispatch, diff, optional bench |

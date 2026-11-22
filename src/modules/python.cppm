@@ -33,7 +33,7 @@ namespace cppan::python {
                                      const std::optional<std::filesystem::path>& package_root);
 
 /// Times the original over the recorded cases; nanoseconds per call.
-[[nodiscard]] Result<double> bench(const Project& project, std::size_t repeat);
+[[nodiscard]] Result<BenchMeasurement> bench(const Project& project, std::size_t repeat);
 
 struct FromTests {
   std::vector<std::string> command;

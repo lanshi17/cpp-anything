@@ -34,8 +34,16 @@ struct Run {
   std::optional<int> status;
   std::string out;
   std::string err;
+  /// Peak resident set size of the child in KiB (0 when unknown).
+  std::uint64_t rss_kb = 0;
 
   [[nodiscard]] std::string failure() const;
+};
+
+/// One timed process: nanoseconds per call and the child's peak RSS.
+struct BenchMeasurement {
+  double ns_per_call = 0.0;
+  std::uint64_t rss_kb = 0;
 };
 
 /// Runs a command with no shell, capturing both streams. A missing binary is a

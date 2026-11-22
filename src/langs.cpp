@@ -538,12 +538,14 @@ Result<std::size_t> write_cases(const Project& project, const std::vector<Json>&
 
 Result<std::string> run_harness(const Project& project, std::string_view program,
                                 const std::vector<std::string>& args,
-                                const std::optional<std::filesystem::path>& cwd) {
+                                const std::optional<std::filesystem::path>& cwd,
+                                std::uint64_t* rss_kb) {
   const Run run = run_command(std::string(program), args, cwd.value_or(project.dir));
   if (!run.ok) {
     return std::unexpected("the " + std::string(program) + " recorder failed: " +
                            run.failure() + "\n" + indent_text(run.err, 2));
   }
+  if (rss_kb != nullptr) *rss_kb = run.rss_kb;
   return run.out;
 }
 
@@ -602,7 +604,7 @@ Result<std::size_t> record(const Project& project, std::size_t count,
   return std::unexpected(std::string(label(*lang)) + " is whole-app only");
 }
 
-Result<double> bench_original(const Project& project, std::size_t repeat) {
+Result<BenchMeasurement> bench_original(const Project& project, std::size_t repeat) {
   const auto lang = parse(project.source_lang);
   if (!lang.has_value()) return std::unexpected(project.source_lang + " is not a plugin language");
   switch (*lang) {

@@ -1356,25 +1356,28 @@ std::vector<std::pair<std::string, std::string>> node_environment(
 
 Result<std::string> run_node(const std::vector<std::string>& args,
                              const std::optional<std::filesystem::path>& cwd,
-                             const std::vector<std::pair<std::string, std::string>>& envs) {
+                             const std::vector<std::pair<std::string, std::string>>& envs,
+                             std::uint64_t* rss_kb = nullptr) {
   const Run run = run_command("node", args, cwd, envs);
   if (!run.ok) {
     return std::unexpected("the node recorder failed: " + run.failure() + "\n" +
                            indent_text(run.err, 2));
   }
+  if (rss_kb != nullptr) *rss_kb = run.rss_kb;
   return run.out;
 }
 
 Result<std::string> run_node_with_fallback(const Project& project, const RecordOptions& options,
                                            const std::filesystem::path& harness,
-                                           const Specifier& spec) {
+                                           const Specifier& spec,
+                                           std::uint64_t* rss_kb = nullptr) {
   std::optional<std::filesystem::path> cwd = options.resolve_from;
   if (!cwd.has_value()) cwd = project.package_root;
   if (!cwd.has_value()) cwd = project.dir;
   const auto envs = node_environment(options.resolve_from);
   std::vector<std::string> args = options.node_args;
   args.push_back(harness.string());
-  auto first = run_node(args, cwd, envs);
+  auto first = run_node(args, cwd, envs, rss_kb);
   if (first) return first;
   bool flagged = false;
   for (const std::string& arg : options.node_args) {
@@ -1393,7 +1396,7 @@ Result<std::string> run_node_with_fallback(const Project& project, const RecordO
   std::vector<std::string> retry{"--experimental-strip-types"};
   for (const std::string& arg : options.node_args) retry.push_back(arg);
   retry.push_back(harness.string());
-  auto second = run_node(retry, cwd, envs);
+  auto second = run_node(retry, cwd, envs, rss_kb);
   if (second) return second;
   return std::unexpected(first.error() +
                          "\n  retried with `--experimental-strip-types`:\n" + second.error() +
@@ -1530,7 +1533,7 @@ for (const call of CALLS) {
 // benchmark
 // ---------------------------------------------------------------------------
 
-Result<double> bench(const Project& project, std::size_t repeat, Lang) {
+Result<BenchMeasurement> bench(const Project& project, std::size_t repeat, Lang) {
   const std::filesystem::path cases_path = project.dir / "cases.jsonl";
   const auto text = read_file(cases_path);
   if (!text.has_value()) return std::unexpected(cases_path.string() + ": cannot read");
@@ -1641,7 +1644,8 @@ process.stdout.write(`{"ns":${finished - started},"calls":${CALLS.length * REPEA
                                    ? std::optional<std::filesystem::path>(*project.resolve_from)
                                    : std::nullopt;
   bench_options.node_args = project.node_args;
-  auto output = run_node_with_fallback(project, bench_options, harness_path, spec);
+  std::uint64_t rss_kb = 0;
+  auto output = run_node_with_fallback(project, bench_options, harness_path, spec, &rss_kb);
   if (!output) return std::unexpected(output.error());
   std::string_view trimmed = *output;
   while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.front()))) {
@@ -1662,7 +1666,7 @@ process.stdout.write(`{"ns":${finished - started},"calls":${CALLS.length * REPEA
   const double total =
       total_field != nullptr && total_field->is_number() ? total_field->as_number() : 0.0;
   if (total <= 0.0) return std::unexpected("the node benchmark ran no calls");
-  return ns / total;
+  return BenchMeasurement{ns / total, rss_kb};
 }
 
 // ---------------------------------------------------------------------------

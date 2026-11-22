@@ -2,6 +2,7 @@
   "name": "xsv-cpp-advantages-video",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "remotion studio src/index.ts",
     "still": "remotion still src/index.ts XsvCppAdvantages",

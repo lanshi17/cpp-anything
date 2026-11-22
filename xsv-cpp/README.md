@@ -239,6 +239,7 @@ help text; stderr is compared by class. See COMPATIBILITY.md §13.
 
 ## License
 
-The C++ implementation is dual-licensed under MIT or the Unlicense, matching the
-upstream project. Upstream copyright and license texts are in `licenses/`; see
-[ATTRIBUTION.md](ATTRIBUTION.md).
+The C++ implementation is MIT-licensed. The upstream xsv project is
+dual-licensed under MIT and the Unlicense; its copyright notice and both license
+texts are preserved in `licenses/`, and the C++ implementation uses the MIT
+option. See [ATTRIBUTION.md](ATTRIBUTION.md).

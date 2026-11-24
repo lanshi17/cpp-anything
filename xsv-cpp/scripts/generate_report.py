@@ -414,7 +414,17 @@ def main(argv: list[str]) -> int:
             f"| binary size (bytes) | {complexity.get('binary_bytes'):,} |",
         ]
         if complexity.get("build_seconds"):
-            lines.append(f"| incremental clean build (s) | {complexity['build_seconds']:.1f} |")
+            lines.append(f"| C++ clean build (s) | {complexity['build_seconds']:.1f} |")
+        if complexity.get("rust_build_seconds"):
+            lines.append(f"| Rust clean build (s) | {complexity['rust_build_seconds']:.1f} |")
+            if complexity.get("build_seconds"):
+                build_ratio = complexity["build_seconds"] / complexity["rust_build_seconds"]
+                lines.append(f"| compile-time ratio (C++/Rust) | {build_ratio:.2f}× |")
+        if complexity.get("cpp_rebuild_seconds") and complexity.get("rust_rebuild_seconds"):
+            samples = complexity.get("rebuild_samples")
+            suffix = f", median of {samples}" if samples else ""
+            lines.append(f"| C++ edit-rebuild (s{suffix}) | {complexity['cpp_rebuild_seconds']:.2f} |")
+            lines.append(f"| Rust edit-rebuild (s{suffix}) | {complexity['rust_rebuild_seconds']:.2f} |")
         lines.append("")
         loc_series = {"lines": [
             complexity.get("implementation_lines", 0),

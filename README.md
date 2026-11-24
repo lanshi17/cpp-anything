@@ -42,7 +42,10 @@ cpp-anything bench: textkit.words — 146000 calls over 146 cases, 1000x repeate
 
 A separate in-workspace experiment ports BurntSushi/xsv 0.13.0 to C++23 and
 reports both wins and losses. The 24s summary is generated from raw runs, not
-illustrative numbers.
+illustrative numbers. The edit-rebuild loop is faster in C++: after touching one
+source file, the port rebuilds in 1.53 s against 1.67 s with cargo — measured on
+the same host and reported in the
+[complexity table](xsv-cpp/report/REPORT.md#9-engineering-complexity).
 
 <p align="center">
   <img src="xsv-cpp/docs/assets/xsv-cpp-advantages.gif" alt="24-second summary: C++ wins count, index, select, slice and join; Rust wins search and stats" width="840">

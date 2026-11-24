@@ -113,14 +113,21 @@ Indexed `stats -j N`, median wall time in milliseconds.
 
 | metric | value |
 | --- | --- |
-| C++ implementation LOC | 5,634 |
+| C++ implementation LOC | 5,650 |
 | test LOC | 859 |
-| documentation LOC | 1,218 |
-| scripts LOC | 2,624 |
+| documentation LOC | 1,242 |
+| scripts LOC | 2,980 |
 | direct dependencies | 5 |
 | differential cases | 144 |
-| target clean build (s) | 16.5 |
+| C++ clean build (s) | 16.5 |
+| Rust clean build (s) | 4.9 |
+| compile-time ratio (C++/Rust) | 3.37× |
+| C++ edit-rebuild (s, median of 3) | 1.53 |
+| Rust edit-rebuild (s, median of 3) | 1.67 |
 | planned effort (person-days) | 60 |
+
+Cold builds favor Rust: the reference compiles from clean in 4.9 s versus 16.5 s for this C++ port (3.37× longer).
+After touching one source file the order flips: C++ rebuilds in 1.53 s and cargo in 1.67 s (1.10× slower), because Ninja recompiles one translation unit while cargo rebuilds the crate. Compile speed is split: Rust wins the cold build, C++ wins the narrow edit-rebuild loop at this codebase size.
 
 ## 10. Discussion and Limitations
 

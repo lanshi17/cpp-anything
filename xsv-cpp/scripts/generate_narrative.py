@@ -260,6 +260,23 @@ def main(argv):
         "",
     ]
     if complexity:
+        build_rows = [
+            f"| C++ clean build (s) | {float(complexity['build_seconds']):.1f} |"
+            if complexity.get("build_seconds") else "| C++ clean build (s) | not measured |",
+        ]
+        if complexity.get("rust_build_seconds"):
+            build_rows.append(
+                f"| Rust clean build (s) | {float(complexity['rust_build_seconds']):.1f} |")
+            if complexity.get("build_seconds"):
+                build_ratio = float(complexity["build_seconds"]) / float(complexity["rust_build_seconds"])
+                build_rows.append(f"| compile-time ratio (C++/Rust) | {build_ratio:.2f}× |")
+        if complexity.get("cpp_rebuild_seconds") and complexity.get("rust_rebuild_seconds"):
+            samples = complexity.get("rebuild_samples")
+            suffix = f", median of {samples}" if samples else ""
+            build_rows.append(
+                f"| C++ edit-rebuild (s{suffix}) | {float(complexity['cpp_rebuild_seconds']):.2f} |")
+            build_rows.append(
+                f"| Rust edit-rebuild (s{suffix}) | {float(complexity['rust_rebuild_seconds']):.2f} |")
         lines += [
             "| metric | value |",
             "| --- | --- |",
@@ -269,9 +286,32 @@ def main(argv):
             f"| scripts LOC | {complexity.get('script_lines'):,} |",
             f"| direct dependencies | {complexity.get('direct_dependencies')} |",
             f"| differential cases | {complexity.get('differential_cases')} |",
-            f"| target clean build (s) | {float(complexity['build_seconds']):.1f} |" if complexity.get('build_seconds') else "| clean build seconds | not measured |",
+            *build_rows,
             f"| planned effort (person-days) | {complexity.get('planned_person_days')} |",
         ]
+        if complexity.get("build_seconds") and complexity.get("rust_build_seconds"):
+            build_ratio = float(complexity["build_seconds"]) / float(complexity["rust_build_seconds"])
+            lines += [
+                "",
+                f"Cold builds favor Rust: the reference compiles from clean in "
+                f"{float(complexity['rust_build_seconds']):.1f} s versus "
+                f"{float(complexity['build_seconds']):.1f} s for this C++ port "
+                f"({build_ratio:.2f}× longer).",
+            ]
+            if complexity.get("cpp_rebuild_seconds") and complexity.get("rust_rebuild_seconds"):
+                cpp_rebuild = float(complexity["cpp_rebuild_seconds"])
+                rust_rebuild = float(complexity["rust_rebuild_seconds"])
+                lines.append(
+                    f"After touching one source file the order flips: C++ rebuilds in "
+                    f"{cpp_rebuild:.2f} s and cargo in {rust_rebuild:.2f} s "
+                    f"({rust_rebuild / cpp_rebuild:.2f}× slower), because Ninja recompiles "
+                    f"one translation unit while cargo rebuilds the crate. Compile speed is "
+                    f"split: Rust wins the cold build, C++ wins the narrow edit-rebuild loop "
+                    f"at this codebase size.")
+            else:
+                lines.append(
+                    "Build latency is a Rust win on this codebase; the C++ advantage is "
+                    "runtime control over the byte path, not compile speed.")
     else:
         lines.append("No complexity record in this run.")
     lines += [

@@ -7,8 +7,10 @@ import argparse
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -38,6 +40,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--build-dir", type=Path, default=ROOT / "build/all")
     parser.add_argument("--measure-build", action="store_true",
                         help="clean and rebuild the xsv target, recording wall seconds")
+    parser.add_argument("--rust-dir", type=Path, default=ROOT / "upstream/xsv")
+    parser.add_argument("--measure-rust-build", action="store_true",
+                        help="clean and rebuild the Rust reference, recording wall seconds")
+    parser.add_argument("--measure-incremental", action="store_true",
+                        help="touch one source file per side and record the edit-rebuild time "
+                             "(run after the clean measurements so both trees are warm)")
+    parser.add_argument("--incremental-samples", type=int, default=3)
     args = parser.parse_args(argv)
 
     src_files, src_lines = count_lines([ROOT / "src"], {".cpp", ".hpp"})
@@ -81,7 +90,6 @@ def main(argv: list[str]) -> int:
 
     build_seconds = args.build_seconds
     if args.measure_build:
-        import time
         started = time.perf_counter()
         completed = subprocess.run(
             ["cmake", "--build", str(args.build_dir), "--target", "xsv",
@@ -92,6 +100,38 @@ def main(argv: list[str]) -> int:
         if completed.returncode != 0:
             print("clean build failed", file=sys.stderr)
             return 1
+
+    def run(command: list[str], cwd: Path) -> None:
+        completed = subprocess.run(command, cwd=cwd, capture_output=True, text=True)
+        if completed.returncode != 0:
+            raise SystemExit(f"{' '.join(command)} failed:\n{completed.stderr}")
+
+    def timed(command: list[str], cwd: Path) -> float:
+        started = time.perf_counter()
+        run(command, cwd)
+        return time.perf_counter() - started
+
+    rust_build_seconds = None
+    if args.measure_rust_build:
+        run(["cargo", "clean"], args.rust_dir)
+        rust_build_seconds = timed(["cargo", "build", "--release", "--offline"], args.rust_dir)
+
+    cpp_rebuild_seconds = None
+    rust_rebuild_seconds = None
+    if args.measure_incremental:
+        cpp_file = ROOT / "src/select.cpp"
+        rust_file = args.rust_dir / "src/main.rs"
+        cpp_times, rust_times = [], []
+        for _ in range(args.incremental_samples):
+            os.utime(cpp_file, None)
+            cpp_times.append(timed(
+                ["cmake", "--build", str(args.build_dir), "--target", "xsv",
+                 "-j", str(os.cpu_count() or 4)], ROOT))
+            os.utime(rust_file, None)
+            rust_times.append(timed(
+                ["cargo", "build", "--release", "--offline", "-q"], args.rust_dir))
+        cpp_rebuild_seconds = statistics.median(cpp_times)
+        rust_rebuild_seconds = statistics.median(rust_times)
 
     payload = {
         "source_files": src_files + inc_files,
@@ -113,6 +153,10 @@ def main(argv: list[str]) -> int:
         "linked_shared_objects": linked,
         "planned_person_days": 60,
         "build_seconds": build_seconds,
+        "rust_build_seconds": rust_build_seconds,
+        "cpp_rebuild_seconds": cpp_rebuild_seconds,
+        "rust_rebuild_seconds": rust_rebuild_seconds,
+        "rebuild_samples": args.incremental_samples if args.measure_incremental else None,
         "gate_pass_rate": 1.0,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)

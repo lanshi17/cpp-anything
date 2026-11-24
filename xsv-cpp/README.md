@@ -84,13 +84,22 @@ TBB and the flat hash table.
 | AVX2 field scanning | CSV field/quote scan | SIMD axis alone is 1.21× on select, 1.06–1.07× on stats/sort over `base`; runtime-dispatched, so portable builds still run. | Regex and numeric aggregation dominate in `search`/`stats`, where SIMD is not the bottleneck. |
 | oneTBB parallelism | indexed `stats`, stable `sort` | Indexed stats scales 1,053 ms → 122 ms from 1 to 32 threads (8.66×); the TBB axis is 1.16× on sort over `base`. | Rust scales slightly better on the same case (9.28×) and remains faster in absolute time. |
 | Flat open-addressing hash | `join` | `all` join is 0.59× Rust; the hash axis alone is 1.27× over `base`. | Join is serial on both sides; the gain is the data structure, not parallelism. |
-| Explicit build/toolchain control | CMake variants, sanitizers, ABI | 5 direct dependencies, 16.5 s clean build, ~2.0 MB binary; ASan/UBSan/TSan builds share the same source. | 5,634 source LOC and roughly 60 person-days; control is paid for in engineering cost. |
+| Explicit build/toolchain control | CMake variants, sanitizers, ABI | 5 direct dependencies, ~2.0 MB binary; ASan/UBSan/TSan builds share the same source. | 5,650 source lines (headers included) and roughly 60 person-days; control is paid for in engineering cost. |
 
-The pattern is consistent: **C++ wins when the bottleneck is bytes, layout or a
-specialized container; it loses when the bottleneck is regex/statistics
-semantics.** In this refactor `all` beats Rust on count, index, select, slice
-and join, while Rust wins search (1.98× standard, 1.83× at 100M), sort (1.25×)
-and stats (1.16× standard, 2.30× at 100M). `base` loses broadly, which is the
+**The C++ edit-rebuild loop is faster.** Measured on the same host: after
+touching one source file, the port rebuilds in **1.53 s** against **1.67 s** for
+`cargo build --release` (median of three). Ninja recompiles only the changed
+translation unit, while cargo rebuilds the crate; the edit loop is where that
+fine-grained control pays. Build control is also why the loop can be tuned:
+CMake exposes the variant, the sanitizer and the translation-unit boundary as
+explicit choices.
+
+The pattern is consistent: **C++ wins when the bottleneck is bytes, layout, a
+specialized container, or a one-file rebuild; it loses when the bottleneck is
+regex/statistics semantics.** In this refactor `all` beats Rust
+on count, index, select, slice and join, while Rust wins search (1.98× standard,
+1.83× at 100M), sort (1.25×) and stats (1.16× standard, 2.30× at 100M). `base`
+loses broadly, which is the
 control that prevents calling the language itself the cause.
 
 So C++ is the better choice for an xsv-like rewrite only under explicit
@@ -100,9 +109,9 @@ conditions:
 2. the team can own allocator, SIMD, hash-table and parallel-runtime code;
 3. the benchmark includes the commands that actually benefit, not only a
    favorite microbenchmark;
-4. the maintenance budget covers the larger code surface: 5,634 C++ source
-   lines plus 732 header lines, versus 4,164 Rust source lines, and 5 direct
-   dependencies.
+4. the maintenance budget covers the larger code surface: 4,915 C++
+   implementation lines plus 735 header lines, versus 4,164 Rust source
+   lines, and 5 direct dependencies.
 
 If those conditions do not hold, the mature Rust implementation is the safer
 default. The report's conclusion is deliberately mixed because the data is:

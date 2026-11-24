@@ -94,7 +94,7 @@ echo "== environment"
 python3 scripts/collect_env.py --out "$RUN_ROOT/environment.json"
 
 echo "== complexity"
-python3 scripts/collect_complexity.py --out "$RUN_ROOT/complexity.json" --measure-build
+python3 scripts/collect_complexity.py --out "$RUN_ROOT/complexity.json" --measure-build --measure-rust-build --measure-incremental
 
 # The clean-build timing target removes the test executable; restore it so the
 # next `ctest` is meaningful.

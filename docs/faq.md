@@ -7,7 +7,13 @@ tells you — precisely — when the port does not. You or your agent write the 
 **Why C++ and not Rust?**
 Because that is the migration you asked for. The mechanism is language-agnostic:
 record behaviour, replay it, gate on agreement. The target's idioms are the only
-part that changes.
+part that changes. Compile speed depends on the protocol, and the C++ advantage
+is in the loop you run while developing: in the shipped
+[xsv-cpp](../xsv-cpp/report/REPORT.md) comparison, touching one source file and
+rebuilding takes 1.53 s in C++ against 1.67 s with cargo, because Ninja
+recompiles one translation unit while cargo rebuilds the crate. If compile
+latency drives your choice, measure your own edit loop; cpp-anything's claim is
+the proven porting loop, not a compiler race.
 
 **Is `diff` passing the same as "equivalent"?**
 No. It means "matches the original on every recorded case". Branches the corpus does

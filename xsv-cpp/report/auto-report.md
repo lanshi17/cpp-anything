@@ -98,17 +98,21 @@ Speedup of each single-axis build over `base` (>1 means faster for the same case
 
 | metric | value |
 | --- | --- |
-| C++ implementation LOC (headers included) | 5,634 |
+| C++ implementation LOC (headers included) | 5,650 |
 | test LOC | 859 |
-| documentation LOC | 1,218 |
-| scripts LOC | 2,624 |
+| documentation LOC | 1,242 |
+| scripts LOC | 2,980 |
 | direct dependencies | 5 |
 | differential cases | 144 |
 | CTest tests | 14 |
 | gate pass rate | 100.0% |
 | planned effort (person-days) | 60 |
 | binary size (bytes) | 2,057,568 |
-| incremental clean build (s) | 16.5 |
+| C++ clean build (s) | 16.5 |
+| Rust clean build (s) | 4.9 |
+| compile-time ratio (C++/Rust) | 3.37× |
+| C++ edit-rebuild (s, median of 3) | 1.53 |
+| Rust edit-rebuild (s, median of 3) | 1.67 |
 
 
 ## 7. Interpretation guardrails

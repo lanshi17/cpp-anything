@@ -20,7 +20,7 @@ P0 commands, GCC only, with five independently switchable optimization axes:
 single-axis build is an ablation, not a second language comparison.
 
 <p align="center">
-  <img src="docs/assets/xsv-cpp-advantages.gif" alt="24-second summary: C++ wins count, index, select, slice and join; Rust wins search and stats" width="840">
+  <img src="docs/assets/xsv-cpp-advantages.gif" alt="24-second summary: C++ wins count, index, select, slice, join and one-file rebuilds; Rust wins search and stats" width="840">
 </p>
 
 <p align="center"><sub>24s Remotion summary · <a href="report/REPORT.md">raw numbers and caveats</a> · <a href="docs/assets/xsv-cpp-advantages.mp4">MP4</a></sub></p>

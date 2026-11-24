@@ -1,8 +1,13 @@
 # xsv-cpp advantages animation
 
 Remotion source for the 24-second README animation. It is data-driven from the
-final D4 and standard-profile results; it deliberately ends on the caveat that
-Rust still wins search and stats.
+final D4, standard-profile and complexity results; it deliberately ends on the
+caveat that Rust still wins search and stats.
+
+Numbers: `results/d4/timing.jsonl` (D4, n=3), the formal standard run in
+`results/runs/20261120T102645Z-formal/formal/timing.jsonl` (join and mechanism
+ablations), and `report/complexity.json` (one-file edit-rebuild median of 3).
+The report is `report/REPORT.md`.
 
 - Composition: `XsvCppAdvantages`
 - 1280×720, 30 fps, 24 s, no audio

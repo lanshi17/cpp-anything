@@ -39,6 +39,7 @@ const WINS: Metric[] = [
   {name: "select", scope: "100M rows", ratio: 0.895, cpp: "32.3 s", rust: "36.1 s"},
   {name: "slice", scope: "indexed", ratio: 0.651, cpp: "2.3 ms", rust: "3.5 ms"},
   {name: "join", scope: "1M × 100k", ratio: 0.591, cpp: "0.196 s", rust: "0.338 s"},
+  {name: "edit-rebuild", scope: "one file · median 3", ratio: 0.916, cpp: "1.53 s", rust: "1.67 s"},
 ];
 
 const LOSSES: Metric[] = [
@@ -362,7 +363,7 @@ const WinsPanel = ({frame}: {frame: number}) => {
             Where C++ wins
           </div>
           <div style={{marginTop: 5, fontFamily: MONO, fontSize: 11, color: CYAN, letterSpacing: 1.5}}>
-            BYTE-HEAVY SCANS + LAYOUT
+            BYTE-HEAVY SCANS + EDIT LOOP
           </div>
         </div>
         <div style={{fontFamily: MONO, fontSize: 11, color: MUTED, textAlign: "right", lineHeight: 1.8}}>
@@ -385,6 +386,7 @@ const WinsPanel = ({frame}: {frame: number}) => {
           ["AVX2", "scan"],
           ["oneTBB", "workers"],
           ["flat hash", "join"],
+          ["Ninja", "1 TU rebuild"],
         ].map(([name, note], index) => {
           const appear = spring({
             frame: Math.max(0, frame - (286 + index * 5)),
@@ -432,7 +434,7 @@ const WinsPanel = ({frame}: {frame: number}) => {
           <span style={{color: CYAN}}>mmap axis over base:</span> 2.21× select · 125× indexed slice
         </span>
         <span style={{textAlign: "right"}}>
-          D4 n=3 · join from standard profile · <span style={{color: TEXT}}>base</span> is the control
+          D4 n=3 · join standard · rebuild 3-sample median · <span style={{color: TEXT}}>base</span> is the control
         </span>
       </div>
     </div>

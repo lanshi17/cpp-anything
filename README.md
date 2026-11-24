@@ -48,7 +48,7 @@ the same host and reported in the
 [complexity table](xsv-cpp/report/REPORT.md#9-engineering-complexity).
 
 <p align="center">
-  <img src="xsv-cpp/docs/assets/xsv-cpp-advantages.gif" alt="24-second summary: C++ wins count, index, select, slice and join; Rust wins search and stats" width="840">
+  <img src="xsv-cpp/docs/assets/xsv-cpp-advantages.gif" alt="24-second summary: C++ wins count, index, select, slice, join and one-file rebuilds; Rust wins search and stats" width="840">
 </p>
 
 <p align="center"><sub>24s Remotion summary · <a href="xsv-cpp/README.md">xsv-cpp README</a> · <a href="xsv-cpp/report/REPORT.md">full report</a> · <a href="xsv-cpp/video/src/XsvCppAdvantages.tsx">Remotion source</a></sub></p>
